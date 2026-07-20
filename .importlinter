@@ -32,6 +32,10 @@ forbidden_modules =
     paxman._registry
 
 # 2. The sealed core may not depend on concrete capability domains.
+# MAINTENANCE: when a new domain package is added under paxman.capabilities,
+# add it to forbidden_modules below. Import Linter has no wildcard, so a new
+# domain is NOT caught automatically — this is the deliberate cost of an
+# explicit sealed-core boundary (see ADR 0001).
 [importlinter:contract:engine-does-not-import-capability-domains]
 name = Engine must not import concrete capability domains
 type = forbidden
@@ -56,6 +60,8 @@ forbidden_modules =
     paxman.artifacts
 
 # 4. Shared leaf types stay leaf-only.
+# Note: the verdict/refusal result vocabulary lives in paxman.contracts (not
+# paxman.capabilities), so artifacts may import it without violating this rule.
 [importlinter:contract:leaf-types-stay-leaf]
 name = contracts and artifacts must not import internal packages
 type = forbidden

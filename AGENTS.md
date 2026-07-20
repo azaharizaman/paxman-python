@@ -19,7 +19,7 @@ not yet implemented: the package layout and empty stub files exist under
 
 ## How to work here
 
-- Respect the sealed core. The `engine/` subpackage is owned by Paxman and is not
+- Respect the sealed core. The `_engine/` subpackage is owned by Paxman and is not
   an extension point. Do not add behavior there unless the task explicitly
   requires changing the core.
 - The only supported extension mechanism is a **capability**. New domains go in

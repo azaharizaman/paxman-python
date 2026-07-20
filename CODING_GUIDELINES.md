@@ -33,17 +33,22 @@ below exist to protect the three invariants (see `ARCHITECTURE.md` and `PRD.md`
 
 ## Sealed Core
 
-- The `engine/` subpackage is owned by Paxman. Do not add branching that depends
+- The `_engine/` subpackage is owned by Paxman. Do not add branching that depends
   on which domain is being canonicalized.
 - Contributors extend only through `capabilities/`. There is no other hook.
 
 ## Source Boundary (non-negotiable)
 
-- Any source file inside `src/` MUST NOT cite, make reference to, or link to any
-  file or documentation outside of `src/`. The `src/` tree is governed by tests,
-  lints, checks, and gates that files outside `src/` cannot guarantee; a change
-  in one place may not be reflected or verified in the other. Keep `src/`
-  self-contained so its guarantees are enforceable.
+- Any source file inside `src/` MUST NOT import, depend on, or couple its
+  behavior to any file or asset outside of `src/`. The `src/` tree is governed by
+  tests, lints, checks, and gates that files outside `src/` cannot guarantee; a
+  change in one place may not be reflected or verified in the other. Keep `src/`
+  self-contained so its code-level guarantees are enforceable.
+- Carve-out: prose references inside docstrings or comments to the design
+  documents (PRD.md, ARCHITECTURE.md, docs/adr/*) are permitted. They carry no
+  code or import dependency, so they do not create the verification gap this rule
+  exists to prevent. They are not kept in sync by tooling and may go stale; that
+  is acceptable for documentation pointers.
 
 ## Authorities (non-negotiable)
 

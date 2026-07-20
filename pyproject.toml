@@ -152,9 +152,7 @@ profile = "default"
 deadline = 200  # ms; deterministic libs should be fast and stable
 
 # --------------------------------------------------------------------------
-# Import Linter — encode the sealed core / open edge architecture.
-# CI fails if forbidden import relationships appear. See .importlinter
+# Import Linter configuration lives in `.importlinter` (single source of truth),
+# not here, to keep the contracts comment-rich and avoid two sources of truth.
+# CI fails if forbidden import relationships appear. Run: PYTHONPATH=src lint-imports
 # --------------------------------------------------------------------------
-[tool.importlinter]
-root_packages = ["paxman"]
-include_external_packages = false

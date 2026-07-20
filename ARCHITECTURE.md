@@ -122,9 +122,10 @@ described. Paxman therefore relies on a layer of tooling that constrains
 - **Strict typing (MyPy, `strict` mode).** Removes the "it works" shortcuts that
   erode architecture — no `Any` escapes, no implicit optionals, no untyped
   definitions. Types become the contract an agent cannot silently violate.
-- **Protocol-based interfaces.** Every extension point is a `typing.Protocol`
-  (`Capability`, and later `Registry`, artifact store). An agent that drifts from
-  the interface fails type checking rather than compiling into drift.
+- **Protocol-based interfaces.** Every extension point is defined by an explicit
+  interface contract (for example the capability interface, and later the registry
+  and artifact-store interfaces). An agent that drifts from the interface fails
+  type checking rather than compiling into drift.
 - **Import contracts (Import Linter).** Encodes the sealed-core / open-edge
   boundary as a CI failure: capabilities never import the core; the core never
   imports concrete domains; authorities import nothing internal. This is the
