@@ -37,6 +37,28 @@ below exist to protect the three invariants (see `ARCHITECTURE.md` and `PRD.md`
   on which domain is being canonicalized.
 - Contributors extend only through `capabilities/`. There is no other hook.
 
+## Source Boundary (non-negotiable)
+
+- Any source file inside `src/` MUST NOT cite, make reference to, or link to any
+  file or documentation outside of `src/`. The `src/` tree is governed by tests,
+  lints, checks, and gates that files outside `src/` cannot guarantee; a change
+  in one place may not be reflected or verified in the other. Keep `src/`
+  self-contained so its guarantees are enforceable.
+
+## Authorities (non-negotiable)
+
+- Authorities are a shared, read-only service under `authorities/`. An authority
+  edition is stored once and referenced by any capability that needs it; a
+  capability MUST NOT bundle, copy, or re-implement an authority's table.
+- An authority edition file contains pure published truth only — no parsing
+  logic, no policy application, no behavioral code. Behavior lives in the
+  capability that cites the edition.
+- When a capability cites an authority edition, it adopts that edition **wholly**.
+  Partial adoption of a standard (accepting some entries while rejecting others)
+  is forbidden — it would make the output untrustworthy and contradict the promise
+  that Paxman answers to real authorities. Cite an edition, or do not; never
+  selectively honor it.
+
 ## Error Handling
 
 - Ambiguity is expressed as a `Refusal`, not by raising a generic exception or by

@@ -77,6 +77,22 @@ to specific published standards. Editions let Paxman stay humble (answering to
 real authorities) and deterministic (recording exactly which standard was used,
 so replay reconstructs against it).
 
+Authorities are a **shared, read-only service**, not private data of any
+capability. The same edition — for example a given release of UN Country Names —
+is referenced by every capability that needs it (country, phone, postal, and
+others yet to be designed), and it is stored exactly once. No capability bundles
+or copies an authority's table. This is what prevents the same truth from
+drifting across the system: one edition, many references.
+
+Each edition is a single, immutable unit of truth. It is pure published fact —
+no logic, no parsing, no policy application lives inside it. A capability cites
+an edition and adopts it **wholly**: when Paxman honors an authority, it honors
+all of it. There is no partial adoption — picking and choosing which entries of a
+standard to accept would make the output untrustworthy and would break the
+promise that Paxman answers to real authorities rather than inventing its own.
+An edition is either accepted as the standard it claims to be, or not cited at
+all.
+
 ## Why This Shape
 
 - **One sealed core, one open edge.** Invariant-protecting logic lives in exactly
@@ -105,6 +121,10 @@ trade-offs to be revisited; they are the load-bearing walls.
 - The registry freezes before the engine runs and stays frozen.
 - A verdict is either canonical (with evidence) or a refusal — never a guess.
 - Artifacts are self-describing and replayable without re-execution.
+- Authorities are a shared, read-only service: one edition stored once, referenced
+  by many capabilities, never copied into a capability.
+- An authority edition is pure published truth and is adopted wholly — never
+  partially. Citing a standard means honoring all of it.
 
 ## Key-Tradeoff
 
