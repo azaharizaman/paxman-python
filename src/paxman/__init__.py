@@ -1,6 +1,8 @@
 """Paxman — a deterministic canonicalization library.
 
-Root package for Paxman. Begins as a deterministic canonicalization engine
-(see PRD §1, §11). All public surface lives here; the sealed core, contracts,
-capabilities, registry, artifacts, and authorities are subpackages.
+Root package and the ONLY public re-export surface (see ADR 0001). Begins as a
+deterministic canonicalization engine (see PRD §1, §11). Internal packages use a
+leading underscore (_engine, _registry) to signal they are not extension points;
+capabilities, contracts, artifacts, and authorities are the open edge and shared
+services. Nothing outside this package should import an internal module directly.
 """

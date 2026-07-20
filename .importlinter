@@ -1,0 +1,78 @@
+# Import Linter contracts — Paxman's architecture as enforced rules.
+#
+# These encode the "sealed core, open edge" design from ARCHITECTURE.md.
+# CI fails if any forbidden import relationship is introduced. This is the
+# primary structural guardrail against architectural drift (human or agentic).
+#
+# Layering (low -> high dependency freedom):
+#   authorities  (pure truth, imports nothing internal)
+#   contracts    (shared leaf types, imports nothing internal)
+#   artifacts    (shared leaf types, imports nothing internal)
+#   _registry    (internal, frozen roll call)
+#   _engine      (internal, sealed core)
+#   capabilities (only extension point; depends on shared types + Protocol)
+#
+# Rule of thumb: internal packages (_engine, _registry) are never imported by
+# capabilities. Capabilities are called BY the engine, never the reverse.
+#
+# Format: import-linter takes list values one item per indented line.
+
+[importlinter]
+root_packages =
+    paxman
+
+# 1. Capabilities must never reach into the sealed core.
+[importlinter:contract:capabilities-do-not-import-core]
+name = Capabilities must not import the sealed core (_engine, _registry)
+type = forbidden
+source_modules =
+    paxman.capabilities
+forbidden_modules =
+    paxman._engine
+    paxman._registry
+
+# 2. The sealed core may not depend on concrete capability domains.
+[importlinter:contract:engine-does-not-import-capability-domains]
+name = Engine must not import concrete capability domains
+type = forbidden
+source_modules =
+    paxman._engine
+forbidden_modules =
+    paxman.capabilities.email
+    paxman.capabilities.date
+    paxman.capabilities.identifier
+
+# 3. Authorities are pure truth — they import nothing internal.
+[importlinter:contract:authorities-import-nothing-internal]
+name = Authorities must not import internal Paxman packages
+type = forbidden
+source_modules =
+    paxman.authorities
+forbidden_modules =
+    paxman._engine
+    paxman._registry
+    paxman.capabilities
+    paxman.contracts
+    paxman.artifacts
+
+# 4. Shared leaf types stay leaf-only.
+[importlinter:contract:leaf-types-stay-leaf]
+name = contracts and artifacts must not import internal packages
+type = forbidden
+source_modules =
+    paxman.contracts
+    paxman.artifacts
+forbidden_modules =
+    paxman._engine
+    paxman._registry
+    paxman.capabilities
+
+# 5. Single public entry point.
+[importlinter:contract:root-is-public-entry]
+name = Internal packages must not import the root re-export package
+type = forbidden
+source_modules =
+    paxman._engine
+    paxman._registry
+forbidden_modules =
+    paxman

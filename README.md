@@ -27,6 +27,21 @@ See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the high-level design and
 - **Python:** 3.11, 3.12, 3.13
 - **License:** MIT
 
+## Development Guardrails
+
+Paxman's architecture is enforced by tooling, not just prose — chosen to resist
+architectural drift during agentic coding:
+
+- **Ruff** (lint + format), **MyPy** (`strict`), **Import Linter** (sealed-core
+  import contracts), **pytest** + **pytest-cov**, **Hypothesis** (property/invariant
+  tests). Zero runtime dependencies; core uses `dataclasses`, not frameworks.
+- Internal packages are underscore-prefixed (`_engine/`, `_registry/`) to mark
+  them private. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) and
+  [`docs/adr/0001-sealed-core-open-edge.md`](./docs/adr/0001-sealed-core-open-edge.md).
+- Run guardrails with: `ruff check src`, `ruff format src`, `mypy`, and
+  `PYTHONPATH=src lint-imports` (the `src/` layout requires `PYTHONPATH` so
+  import-linter can resolve the `paxman` package).
+
 ## Documentation
 
 | File | Purpose |
@@ -42,16 +57,16 @@ The layout below mirrors the architecture described in
 exists as an empty stub at this stage.
 
 ```
-src/paxman/                      # The Paxman library package (root).
-├── engine/                      # The sealed, fixed core. Owned by Paxman; not extensible.
+src/paxman/                      # The Paxman library package (root) — sole public entry point.
+├── _engine/                     # The sealed, fixed core (private). Owned by Paxman; not extensible.
 ├── contracts/                   # The declarative, versioned shared language (caller ↔ engine).
 ├── capabilities/                # The ONLY extension point. One package per domain.
 │   ├── email/                   # Example domain: email address canonicalization.
 │   ├── date/                    # Example domain: date canonicalization.
 │   └── identifier/              # Example domain: unique identifier canonicalization.
-├── registry/                    # The frozen roll call that maps contracts to capabilities.
+├── _registry/                   # The frozen roll call (private) mapping contracts to capabilities.
 ├── artifacts/                   # Self-describing, replayable records of a canonicalization.
-└── authorities/                 # Real-world standards bodies and their pinned editions.
+└── authorities/                 # Real-world standards bodies and their pinned editions (shared, read-only).
 ```
 
 ### Folder descriptions
@@ -60,10 +75,11 @@ src/paxman/                      # The Paxman library package (root).
   (`canonicalize(...)`) and aggregates the subpackages below. This is the only
   import boundary users and extenders rely on.
 
-- **`src/paxman/engine/`** — The **sealed core**. A pure, stateless referee that
-  runs the fixed canonicalization pipeline (Receive → Resolve → Delegate → Seal →
-  Replay). It holds no domain opinion and is owned by Paxman; contributors do not
-  modify it. This is where the three invariants are concentrated (PRD §5.1).
+- **`src/paxman/_engine/`** — The **sealed core** (private, underscore-prefixed).
+  A pure, stateless referee that runs the fixed canonicalization pipeline
+  (Receive → Resolve → Delegate → Seal → Replay). It holds no domain opinion and
+  is owned by Paxman; contributors do not modify it and capabilities must not
+  import it. This is where the three invariants are concentrated (PRD §5.1).
 
 - **`src/paxman/contracts/`** — The **shared language** between caller and engine.
   A contract is declarative and versioned: it names the *kind* of information and
@@ -76,9 +92,10 @@ src/paxman/                      # The Paxman library package (root).
   `date/`, `identifier/`) is its own package sharing the same shape, so adding a
   domain means mirroring, not inventing (PRD §5.3).
 
-- **`src/paxman/registry/`** — The **frozen roll call**. Capabilities register
-  before the engine runs; the roster is then frozen for the process lifetime. This
-  turns resolution into a closed lookup and guards Determinism (PRD §5.4).
+- **`src/paxman/_registry/`** — The **frozen roll call** (private). Capabilities
+  register before the engine runs; the roster is then frozen for the process
+  lifetime. This turns resolution into a closed lookup and guards Determinism
+  (PRD §5.4). Capabilities must not import it.
 
 - **`src/paxman/artifacts/`** — **Self-describing records**. An artifact wraps the
   verdict, contract, and authority choices so it needs nothing outside itself to

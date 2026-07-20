@@ -33,13 +33,14 @@ them.
 
 ## Components (What)
 
-### Engine — the sealed core
+### Engine — the sealed core (`_engine/`)
 
 The center of the system. A pure, stateless referee that runs a fixed
 canonicalization pipeline: receive the input and contract, resolve the single
 owning capability, delegate for a verdict, seal the result into an artifact, and
 replay when asked. The engine holds no domain opinion and is owned by Paxman.
-Concentrating the invariants here is what makes them provable.
+Concentrating the invariants here is what makes them provable. Its package carries
+a leading underscore to signal it is not an extension point.
 
 ### Contracts — the shared language
 
@@ -55,12 +56,13 @@ its own package sharing one uniform shape, so extension is mirroring, not
 invention. Because the engine is sealed, a broken capability cannot corrupt the
 constitution.
 
-### Registry — the frozen roll call
+### Registry — the frozen roll call (`_registry/`)
 
 The single place where capabilities declare themselves before the engine runs.
 Once the engine begins, the roster is frozen for the life of the process. This
 turns resolution into a closed lookup and makes the contract-to-capability
-mapping observable — directly guarding Determinism.
+mapping observable — directly guarding Determinism. Like the engine, its package
+carries a leading underscore to signal it is not an extension point.
 
 ### Artifacts — self-describing records
 
@@ -111,12 +113,41 @@ The net effect: a newcomer can hold the whole system in their head — engine in
 the middle, contracts in, capabilities around the edge, registry keeping order,
 artifacts coming out fully described.
 
+## Guardrails (Why they exist)
+
+The architecture above is only trustworthy if it is enforced, not merely
+described. Paxman therefore relies on a layer of tooling that constrains
+*structure* and *behavior*, not just style. The rationale for each:
+
+- **Strict typing (MyPy, `strict` mode).** Removes the "it works" shortcuts that
+  erode architecture — no `Any` escapes, no implicit optionals, no untyped
+  definitions. Types become the contract an agent cannot silently violate.
+- **Protocol-based interfaces.** Every extension point is a `typing.Protocol`
+  (`Capability`, and later `Registry`, artifact store). An agent that drifts from
+  the interface fails type checking rather than compiling into drift.
+- **Import contracts (Import Linter).** Encodes the sealed-core / open-edge
+  boundary as a CI failure: capabilities never import the core; the core never
+  imports concrete domains; authorities import nothing internal. This is the
+  single most effective defense against architectural erosion.
+- **Property-based tests (Hypothesis).** Encode invariants — "equivalent inputs
+  yield the same canonical form" — instead of example lists, so behavioral drift
+  surfaces as a property violation.
+- **Private internal packages.** The sealed core uses a leading underscore
+  (`_engine/`, `_registry/`) so contributors and agents can see at a glance what
+  is not an extension point.
+
+These guardrails are chosen to discourage architectural drift during agentic
+coding specifically: explicit contracts and import boundaries are respected far
+more reliably than prose instructions. Details live in `pyproject.toml`,
+`.importlinter`, and `docs/adr/0001-sealed-core-open-edge.md`.
+
 ## Non-Negotiables
 
 The following are fixed commitments of the architecture. They are not
 trade-offs to be revisited; they are the load-bearing walls.
 
-- The engine subpackage remains sealed and domain-agnostic.
+- The `_engine` and `_registry` subpackages remain sealed, private, and
+  domain-agnostic; capabilities never import them.
 - The only extension mechanism is a capability; no other hook exists.
 - The registry freezes before the engine runs and stays frozen.
 - A verdict is either canonical (with evidence) or a refusal — never a guess.
