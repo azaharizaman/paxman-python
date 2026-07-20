@@ -1,0 +1,79 @@
+# --- Paxman v2 .gitignore ---
+# Universal Python + uv patterns, plus per-developer toolchain exclusions.
+# Keep this file minimal. Anything project-specific (e.g. "this directory
+# holds generated fixtures") goes in a README in that directory, not here.
+
+# --- Per-developer toolchain / agent artifacts ---
+# Different developers use different harnesses, agents, and tooling.
+# These are local dev artifacts and must not be version-controlled.
+.sisyphus/
+.codegraph/
+.understand-anything/
+.omo/
+.opencode/
+.agents/
+# (the curated agent skills and the audit postmortem live in
+#  .agents/; once they do, that directory should be re-included
+#  with `!.agents/skills/` and `!.agents/PAXMAN-BRUTAL-HONESTY-POSTMORTEM.md`)
+CLAUDE.md
+CODEX.md
+kilo.md
+.gemini/
+.cursor/
+.aider*
+.windsurf/
+.continue/
+.playwright-cli/
+.superpowers/
+
+# --- Python build / runtime artifacts ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+downloads/
+*.egg-info/
+*.egg
+MANIFEST
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Tool caches ---
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+coverage.json
+.mypy_cache/
+.pyright/
+.ruff_cache/
+.hypothesis/
+.import_linter_cache/
+.benchmarks/
+
+# --- IDEs / editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Worktrees (multi-branch development) ---
+.worktrees/
+
+# --- Built docs ---
+site/
