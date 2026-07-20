@@ -408,7 +408,113 @@ Saying no here is what keeps Paxman trustworthy.
 
 ---
 
-## 11. Closing
+## 11. Paxman Roadmap
+
+This PRD was written on day zero, and the vocabulary it chooses is not an
+accident. **Paxman deliberately begins with canonicalization rather than general
+normalization. Canonicalization is the largest problem that can be solved with
+complete determinism from day one.** By restricting itself to transformations
+whose canonical result is uniquely determined by the input and contract, Paxman
+establishes its architectural invariants — Boundary, Determinism, and Replay —
+before attempting broader forms of normalization. As the platform matures,
+additional normalization capabilities may be introduced, but only if they
+preserve these invariants. **The scope may expand; the guarantees will not.**
+
+### Why canonicalization first
+
+The strategy is a deliberate reduction of scope to protect the product's
+identity during its formative years. Suppose someone asks:
+
+> "Can Paxman turn `$100` into `AUD 100.00`?"
+
+On day zero the honest answer is:
+
+> No. There isn't enough information.
+
+That is an incredibly powerful guarantee. The moment Paxman starts "helpfully"
+using locale, language, surrounding text, heuristics, or external knowledge, it
+has entered a very different engineering problem — one where the clean
+boundary between *determined* and *assumed* dissolves. By constraining V1 to
+canonicalization, Paxman commits to solving only problems where a single,
+objectively correct answer exists.
+
+This also makes the invariants provable rather than aspirational. Contrast the
+two framings:
+
+- *"Paxman normalizes."* — which immediately raises: which schema? which
+  ontology? which business rules? which confidence threshold?
+- *"Paxman canonicalizes."* — and Boundary, Determinism, and Replay fit
+  naturally, almost proving themselves.
+
+### Three stages of growth
+
+The product expands in progressively larger steps, each one preserving the
+core deterministic model rather than eroding it:
+
+| Stage | Product                       | Guarantee                                              |
+| ----- | ----------------------------- | ------------------------------------------------------ |
+| 1     | Canonicalization              | 100% deterministic                                     |
+| 2     | Deterministic normalization   | Deterministic whenever sufficient evidence exists      |
+| 3     | Evidence-guided normalization | Deterministic-first, with optional assisted resolution |
+
+Stage 1 is the day-zero identity. Stage 2 introduces normalization that remains
+deterministic wherever the evidence uniquely determines a result. Stage 3 may
+add optional, explicitly-assisted resolution for cases that need it — but it is
+*deterministic-first*, never probabilistic-by-default.
+
+### A clean API evolution
+
+The same discipline shows up in the surface. Today the operation with the
+strongest possible guarantees is:
+
+```text
+Paxman.canonicalize(...)
+```
+
+Years later, the platform may introduce:
+
+```text
+Paxman.normalize(...)
+```
+
+which internally may invoke planning, evidence evaluation, multiple
+capabilities, adapters, and richer workflows. Users immediately understand
+these are different operations with different promises — because the name
+carries the guarantee. `canonicalize()` now, `normalize()` much later.
+
+### Future-proofing the wording
+
+Because the roadmap already looks past canonicalization, the PRD is careful
+never to say Paxman is *fundamentally* a canonicalization engine — only that it
+*begins* as one. Canonicalization is the smallest useful problem that fully
+satisfies Paxman's invariants; future capabilities may expand Paxman into
+deterministic normalization without weakening them. The document says *starts
+here*, not *ends here*, leaving room to grow without ever making a future
+version appear to contradict the original vision.
+
+### What this answers for future contributors
+
+This section resolves the questions a newcomer will inevitably ask:
+
+- *Why isn't Paxman solving harder problems?* — because the hard problems break
+  the guarantee that makes Paxman worth trusting.
+- *Why is it refusing certain inputs?* — because refusing is how it protects
+  determinism.
+- *Why not use AI / infer / guess?* — because those introduce assumptions the
+  contract does not determine.
+- *Why is the scope intentionally narrow?* — because a mathematically clean core
+  with uncompromising guarantees is the foundation every later capability must
+  preserve.
+
+The strategy is stronger than a broader "normalization engine" positioning.
+Many projects fail by attacking the general problem first. Paxman instead
+establishes a deterministic core, then expands outward only once those
+guarantees are firmly established — so every new capability inherits the
+constitution rather than negotiating around it.
+
+---
+
+## 12. Closing
 
 Paxman starts, on day zero, with a clear promise and an uncompromising
 constitution. The architecture is small where it must be firm and open where it
