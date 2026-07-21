@@ -1,0 +1,401 @@
+"""Tests for shared types: Kind, AuthorityPin, Contract, Verdict, Refusal, Evidence, Artifact.
+
+Covers: construction, immutability, equality, hashability, and Artifact JSON round-trip.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import FrozenInstanceError
+
+import pytest
+
+
+# ---------------------------------------------------------------------------
+# Kind
+# ---------------------------------------------------------------------------
+class TestKind:
+    """Tests for the Kind dataclass."""
+
+    def test_construction(self) -> None:
+        """Kind is constructible with a name string."""
+        from paxman.contracts.kind import Kind
+
+        kind = Kind(name="email.address")
+        assert kind.name == "email.address"
+
+    def test_immutable(self) -> None:
+        """Kind is frozen — attribute assignment raises."""
+        from paxman.contracts.kind import Kind
+
+        kind = Kind(name="email.address")
+        with pytest.raises(FrozenInstanceError):
+            kind.name = "other"  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """Kinds with the same name are equal."""
+        from paxman.contracts.kind import Kind
+
+        a = Kind(name="email.address")
+        b = Kind(name="email.address")
+        assert a == b
+
+    def test_inequality(self) -> None:
+        """Kinds with different names are not equal."""
+        from paxman.contracts.kind import Kind
+
+        a = Kind(name="email.address")
+        b = Kind(name="date.iso")
+        assert a != b
+
+    def test_hashable(self) -> None:
+        """Kind instances can live in sets and dicts."""
+        from paxman.contracts.kind import Kind
+
+        a = Kind(name="email.address")
+        b = Kind(name="email.address")
+        s = {a, b}
+        assert len(s) == 1
+
+
+# ---------------------------------------------------------------------------
+# AuthorityPin
+# ---------------------------------------------------------------------------
+class TestAuthorityPin:
+    """Tests for the AuthorityPin dataclass."""
+
+    def test_construction(self) -> None:
+        """AuthorityPin stores authority name and edition."""
+        from paxman.contracts.authority_pin import AuthorityPin
+
+        pin = AuthorityPin(authority="iana", edition="2024a")
+        assert pin.authority == "iana"
+        assert pin.edition == "2024a"
+
+    def test_immutable(self) -> None:
+        """AuthorityPin is frozen."""
+        from paxman.contracts.authority_pin import AuthorityPin
+
+        pin = AuthorityPin(authority="iana", edition="2024a")
+        with pytest.raises(FrozenInstanceError):
+            pin.authority = "other"  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """AuthorityPins with the same values are equal."""
+        from paxman.contracts.authority_pin import AuthorityPin
+
+        a = AuthorityPin(authority="iana", edition="2024a")
+        b = AuthorityPin(authority="iana", edition="2024a")
+        assert a == b
+
+    def test_hashable(self) -> None:
+        """AuthorityPin instances can live in sets."""
+        from paxman.contracts.authority_pin import AuthorityPin
+
+        a = AuthorityPin(authority="iana", edition="2024a")
+        b = AuthorityPin(authority="iana", edition="2024a")
+        assert len({a, b}) == 1
+
+
+# ---------------------------------------------------------------------------
+# Contract
+# ---------------------------------------------------------------------------
+class TestContract:
+    """Tests for the Contract dataclass."""
+
+    def test_construction(self) -> None:
+        """Contract is constructible with kind and optional authority_pin."""
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+
+        kind = Kind(name="email.address")
+        contract = Contract(kind=kind)
+        assert contract.kind == kind
+        assert contract.authority_pin is None
+
+    def test_with_authority_pin(self) -> None:
+        """Contract optionally carries an AuthorityPin."""
+        from paxman.contracts.authority_pin import AuthorityPin
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+
+        pin = AuthorityPin(authority="iana", edition="2024a")
+        contract = Contract(kind=Kind(name="email.address"), authority_pin=pin)
+        assert contract.authority_pin == pin
+
+    def test_immutable(self) -> None:
+        """Contract is frozen."""
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+
+        contract = Contract(kind=Kind(name="email.address"))
+        with pytest.raises(FrozenInstanceError):
+            contract.kind = Kind(name="other")  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """Contracts with the same kind and pin are equal."""
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+
+        kind = Kind(name="email.address")
+        a = Contract(kind=kind)
+        b = Contract(kind=kind)
+        assert a == b
+
+    def test_hashable(self) -> None:
+        """Contract instances can live in sets."""
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+
+        kind = Kind(name="email.address")
+        assert len({Contract(kind=kind), Contract(kind=kind)}) == 1
+
+
+# ---------------------------------------------------------------------------
+# Verdict
+# ---------------------------------------------------------------------------
+class TestVerdict:
+    """Tests for the Verdict dataclass."""
+
+    def test_construction(self) -> None:
+        """Verdict stores canonical form and evidence."""
+        from paxman.contracts.verdict import Verdict
+
+        v = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        assert v.canonical == "foo@bar.com"
+        assert v.evidence == "RFC 5322"
+
+    def test_immutable(self) -> None:
+        """Verdict is frozen."""
+        from paxman.contracts.verdict import Verdict
+
+        v = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        with pytest.raises(FrozenInstanceError):
+            v.canonical = "other"  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """Verdicts with the same fields are equal."""
+        from paxman.contracts.verdict import Verdict
+
+        a = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        b = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        assert a == b
+
+    def test_hashable(self) -> None:
+        """Verdict instances can live in sets."""
+        from paxman.contracts.verdict import Verdict
+
+        v = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        assert len({v, v}) == 1
+
+
+# ---------------------------------------------------------------------------
+# Refusal
+# ---------------------------------------------------------------------------
+class TestRefusal:
+    """Tests for the Refusal dataclass."""
+
+    def test_construction(self) -> None:
+        """Refusal stores a reason string."""
+        from paxman.contracts.refusal import Refusal
+
+        r = Refusal(reason="ambiguous input")
+        assert r.reason == "ambiguous input"
+
+    def test_immutable(self) -> None:
+        """Refusal is frozen."""
+        from paxman.contracts.refusal import Refusal
+
+        r = Refusal(reason="ambiguous input")
+        with pytest.raises(FrozenInstanceError):
+            r.reason = "other"  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """Refusals with the same reason are equal."""
+        from paxman.contracts.refusal import Refusal
+
+        a = Refusal(reason="ambiguous input")
+        b = Refusal(reason="ambiguous input")
+        assert a == b
+
+    def test_hashable(self) -> None:
+        """Refusal instances can live in sets."""
+        from paxman.contracts.refusal import Refusal
+
+        r = Refusal(reason="ambiguous input")
+        assert len({r, r}) == 1
+
+
+# ---------------------------------------------------------------------------
+# Evidence
+# ---------------------------------------------------------------------------
+class TestEvidence:
+    """Tests for the Evidence dataclass."""
+
+    def test_construction(self) -> None:
+        """Evidence stores rule references."""
+        from paxman.artifacts.evidence import Evidence
+
+        e = Evidence(rules=("RFC 5322 §3.2", "Unicode 15.0"))
+        assert e.rules == ("RFC 5322 §3.2", "Unicode 15.0")
+
+    def test_immutable(self) -> None:
+        """Evidence is frozen."""
+        from paxman.artifacts.evidence import Evidence
+
+        e = Evidence(rules=("RFC 5322 §3.2",))
+        with pytest.raises(FrozenInstanceError):
+            e.rules = ("other",)  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """Evidence with the same rules are equal."""
+        from paxman.artifacts.evidence import Evidence
+
+        a = Evidence(rules=("RFC 5322 §3.2",))
+        b = Evidence(rules=("RFC 5322 §3.2",))
+        assert a == b
+
+    def test_hashable(self) -> None:
+        """Evidence instances can live in sets."""
+        from paxman.artifacts.evidence import Evidence
+
+        e = Evidence(rules=("RFC 5322 §3.2",))
+        assert len({e, e}) == 1
+
+
+# ---------------------------------------------------------------------------
+# Artifact
+# ---------------------------------------------------------------------------
+class TestArtifact:
+    """Tests for the Artifact dataclass."""
+
+    def test_construction_with_verdict(self) -> None:
+        """Artifact stores contract, verdict, and evidence."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        contract = Contract(kind=Kind(name="email.address"))
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        artifact = Artifact(contract=contract, result=verdict, config_digest="abc123")
+        assert artifact.contract == contract
+        assert artifact.result == verdict
+        assert artifact.config_digest == "abc123"
+
+    def test_construction_with_refusal(self) -> None:
+        """Artifact accepts Refusal as result (sum type)."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.refusal import Refusal
+
+        contract = Contract(kind=Kind(name="email.address"))
+        refusal = Refusal(reason="ambiguous input")
+        artifact = Artifact(contract=contract, result=refusal, config_digest="abc123")
+        assert artifact.result == refusal
+
+    def test_immutable(self) -> None:
+        """Artifact is frozen."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        contract = Contract(kind=Kind(name="email.address"))
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        artifact = Artifact(contract=contract, result=verdict, config_digest="abc123")
+        with pytest.raises(FrozenInstanceError):
+            artifact.config_digest = "other"  # type: ignore[misc]
+
+    def test_equality(self) -> None:
+        """Artifacts with the same fields are equal."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        contract = Contract(kind=Kind(name="email.address"))
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        a = Artifact(contract=contract, result=verdict, config_digest="abc123")
+        b = Artifact(contract=contract, result=verdict, config_digest="abc123")
+        assert a == b
+
+    def test_hashable(self) -> None:
+        """Artifact instances can live in sets."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        contract = Contract(kind=Kind(name="email.address"))
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        a = Artifact(contract=contract, result=verdict, config_digest="abc123")
+        assert len({a, a}) == 1
+
+    def test_json_roundtrip_with_verdict(self) -> None:
+        """Artifact JSON round-trip preserves all fields exactly."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        contract = Contract(kind=Kind(name="email.address"))
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        original = Artifact(contract=contract, result=verdict, config_digest="abc123")
+
+        data = original.to_dict()
+        restored = Artifact.from_dict(data)
+
+        assert restored == original
+
+    def test_json_roundtrip_with_refusal(self) -> None:
+        """Artifact JSON round-trip with refusal result preserves all fields."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.refusal import Refusal
+
+        contract = Contract(kind=Kind(name="email.address"))
+        refusal = Refusal(reason="ambiguous input")
+        original = Artifact(contract=contract, result=refusal, config_digest="abc123")
+
+        data = original.to_dict()
+        restored = Artifact.from_dict(data)
+
+        assert restored == original
+
+    def test_json_deterministic_output(self) -> None:
+        """Artifact to_dict produces deterministic JSON with sort_keys=True."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.authority_pin import AuthorityPin
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        pin = AuthorityPin(authority="iana", edition="2024a")
+        contract = Contract(kind=Kind(name="email.address"), authority_pin=pin)
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        artifact = Artifact(contract=contract, result=verdict, config_digest="abc123")
+
+        json_str = json.dumps(artifact.to_dict(), sort_keys=True, indent=2)
+        # Should be parseable back
+        data = json.loads(json_str)
+        restored = Artifact.from_dict(data)
+        assert restored == artifact
+
+    def test_json_roundtrip_preserves_authority_pin(self) -> None:
+        """JSON round-trip preserves authority_pin when present."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.authority_pin import AuthorityPin
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        pin = AuthorityPin(authority="iana", edition="2024a")
+        contract = Contract(kind=Kind(name="email.address"), authority_pin=pin)
+        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        original = Artifact(contract=contract, result=verdict, config_digest="abc123")
+
+        restored = Artifact.from_dict(original.to_dict())
+        assert restored.contract.authority_pin == pin
