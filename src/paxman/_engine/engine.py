@@ -88,7 +88,8 @@ class Engine:
 
         if capability is None:
             result: Verdict | Refusal = Refusal(
-                reason=f"No capability owns kind '{contract.kind.name}'"
+                reason=f"No capability owns kind '{contract.kind.name}'",
+                kind=contract.kind,
             )
         else:
             # TODO: Resolve default authority pin from config when contract has no pin.

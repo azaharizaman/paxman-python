@@ -159,33 +159,49 @@ class TestVerdict:
 
     def test_construction(self) -> None:
         """Verdict stores canonical form and evidence."""
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.verdict import Verdict
 
-        v = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
+        v = Verdict(canonical="foo@bar.com", evidence=evidence)
         assert v.canonical == "foo@bar.com"
-        assert v.evidence == "RFC 5322"
+        assert v.evidence == evidence
 
     def test_immutable(self) -> None:
         """Verdict is frozen."""
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.verdict import Verdict
 
-        v = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
+        v = Verdict(canonical="foo@bar.com", evidence=evidence)
         with pytest.raises(FrozenInstanceError):
             v.canonical = "other"  # type: ignore[misc]
 
     def test_equality(self) -> None:
         """Verdicts with the same fields are equal."""
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.verdict import Verdict
 
-        a = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
-        b = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
+        a = Verdict(canonical="foo@bar.com", evidence=evidence)
+        b = Verdict(canonical="foo@bar.com", evidence=evidence)
         assert a == b
 
     def test_hashable(self) -> None:
         """Verdict instances can live in sets."""
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.verdict import Verdict
 
-        v = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
+        v = Verdict(canonical="foo@bar.com", evidence=evidence)
         assert len({v, v}) == 1
 
 
@@ -196,33 +212,42 @@ class TestRefusal:
     """Tests for the Refusal dataclass."""
 
     def test_construction(self) -> None:
-        """Refusal stores a reason string."""
+        """Refusal stores a reason string and kind."""
+        from paxman.contracts.kind import Kind
         from paxman.contracts.refusal import Refusal
 
-        r = Refusal(reason="ambiguous input")
+        kind = Kind(name="email.address")
+        r = Refusal(reason="ambiguous input", kind=kind)
         assert r.reason == "ambiguous input"
+        assert r.kind == kind
 
     def test_immutable(self) -> None:
         """Refusal is frozen."""
+        from paxman.contracts.kind import Kind
         from paxman.contracts.refusal import Refusal
 
-        r = Refusal(reason="ambiguous input")
+        kind = Kind(name="email.address")
+        r = Refusal(reason="ambiguous input", kind=kind)
         with pytest.raises(FrozenInstanceError):
             r.reason = "other"  # type: ignore[misc]
 
     def test_equality(self) -> None:
-        """Refusals with the same reason are equal."""
+        """Refusals with the same reason and kind are equal."""
+        from paxman.contracts.kind import Kind
         from paxman.contracts.refusal import Refusal
 
-        a = Refusal(reason="ambiguous input")
-        b = Refusal(reason="ambiguous input")
+        kind = Kind(name="email.address")
+        a = Refusal(reason="ambiguous input", kind=kind)
+        b = Refusal(reason="ambiguous input", kind=kind)
         assert a == b
 
     def test_hashable(self) -> None:
         """Refusal instances can live in sets."""
+        from paxman.contracts.kind import Kind
         from paxman.contracts.refusal import Refusal
 
-        r = Refusal(reason="ambiguous input")
+        kind = Kind(name="email.address")
+        r = Refusal(reason="ambiguous input", kind=kind)
         assert len({r, r}) == 1
 
 
@@ -233,33 +258,43 @@ class TestEvidence:
     """Tests for the Evidence dataclass."""
 
     def test_construction(self) -> None:
-        """Evidence stores rule references."""
+        """Evidence stores rules_fired, order, and authority."""
         from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
 
-        e = Evidence(rules=("RFC 5322 §3.2", "Unicode 15.0"))
-        assert e.rules == ("RFC 5322 §3.2", "Unicode 15.0")
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        e = Evidence(rules_fired=("RFC 5322 §3.2", "Unicode 15.0"), order=2, authority=auth)
+        assert e.rules_fired == ("RFC 5322 §3.2", "Unicode 15.0")
+        assert e.order == 2
+        assert e.authority == auth
 
     def test_immutable(self) -> None:
         """Evidence is frozen."""
         from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
 
-        e = Evidence(rules=("RFC 5322 §3.2",))
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        e = Evidence(rules_fired=("RFC 5322 §3.2",), order=1, authority=auth)
         with pytest.raises(FrozenInstanceError):
-            e.rules = ("other",)  # type: ignore[misc]
+            e.rules_fired = ("other",)  # type: ignore[misc]
 
     def test_equality(self) -> None:
-        """Evidence with the same rules are equal."""
+        """Evidence with the same fields are equal."""
         from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
 
-        a = Evidence(rules=("RFC 5322 §3.2",))
-        b = Evidence(rules=("RFC 5322 §3.2",))
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        a = Evidence(rules_fired=("RFC 5322 §3.2",), order=1, authority=auth)
+        b = Evidence(rules_fired=("RFC 5322 §3.2",), order=1, authority=auth)
         assert a == b
 
     def test_hashable(self) -> None:
         """Evidence instances can live in sets."""
         from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
 
-        e = Evidence(rules=("RFC 5322 §3.2",))
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        e = Evidence(rules_fired=("RFC 5322 §3.2",), order=1, authority=auth)
         assert len({e, e}) == 1
 
 
@@ -270,14 +305,18 @@ class TestArtifact:
     """Tests for the Artifact dataclass."""
 
     def test_construction_with_verdict(self) -> None:
-        """Artifact stores contract, verdict, and evidence."""
+        """Artifact stores contract, verdict, and config_digest."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         contract = Contract(kind=Kind(name="email.address"))
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         artifact = Artifact(contract=contract, result=verdict, config_digest="abc123")
         assert artifact.contract == contract
         assert artifact.result == verdict
@@ -290,20 +329,25 @@ class TestArtifact:
         from paxman.contracts.kind import Kind
         from paxman.contracts.refusal import Refusal
 
-        contract = Contract(kind=Kind(name="email.address"))
-        refusal = Refusal(reason="ambiguous input")
+        kind = Kind(name="email.address")
+        contract = Contract(kind=kind)
+        refusal = Refusal(reason="ambiguous input", kind=kind)
         artifact = Artifact(contract=contract, result=refusal, config_digest="abc123")
         assert artifact.result == refusal
 
     def test_immutable(self) -> None:
         """Artifact is frozen."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         contract = Contract(kind=Kind(name="email.address"))
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         artifact = Artifact(contract=contract, result=verdict, config_digest="abc123")
         with pytest.raises(FrozenInstanceError):
             artifact.config_digest = "other"  # type: ignore[misc]
@@ -311,12 +355,16 @@ class TestArtifact:
     def test_equality(self) -> None:
         """Artifacts with the same fields are equal."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         contract = Contract(kind=Kind(name="email.address"))
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         a = Artifact(contract=contract, result=verdict, config_digest="abc123")
         b = Artifact(contract=contract, result=verdict, config_digest="abc123")
         assert a == b
@@ -324,24 +372,32 @@ class TestArtifact:
     def test_hashable(self) -> None:
         """Artifact instances can live in sets."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         contract = Contract(kind=Kind(name="email.address"))
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         a = Artifact(contract=contract, result=verdict, config_digest="abc123")
         assert len({a, a}) == 1
 
     def test_json_roundtrip_with_verdict(self) -> None:
         """Artifact JSON round-trip preserves all fields exactly."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         contract = Contract(kind=Kind(name="email.address"))
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         original = Artifact(contract=contract, result=verdict, config_digest="abc123")
 
         data = original.to_dict()
@@ -356,8 +412,9 @@ class TestArtifact:
         from paxman.contracts.kind import Kind
         from paxman.contracts.refusal import Refusal
 
-        contract = Contract(kind=Kind(name="email.address"))
-        refusal = Refusal(reason="ambiguous input")
+        kind = Kind(name="email.address")
+        contract = Contract(kind=kind)
+        refusal = Refusal(reason="ambiguous input", kind=kind)
         original = Artifact(contract=contract, result=refusal, config_digest="abc123")
 
         data = original.to_dict()
@@ -368,14 +425,17 @@ class TestArtifact:
     def test_json_deterministic_output(self) -> None:
         """Artifact to_dict produces deterministic JSON with sort_keys=True."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
         from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         pin = AuthorityPin(authority="iana", edition="2024a")
         contract = Contract(kind=Kind(name="email.address"), authority_pin=pin)
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         artifact = Artifact(contract=contract, result=verdict, config_digest="abc123")
 
         json_str = json.dumps(artifact.to_dict(), sort_keys=True, indent=2)
@@ -387,15 +447,55 @@ class TestArtifact:
     def test_json_roundtrip_preserves_authority_pin(self) -> None:
         """JSON round-trip preserves authority_pin when present."""
         from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
         from paxman.contracts.authority_pin import AuthorityPin
         from paxman.contracts.contract import Contract
         from paxman.contracts.kind import Kind
         from paxman.contracts.verdict import Verdict
 
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322",), order=1, authority=auth)
         pin = AuthorityPin(authority="iana", edition="2024a")
         contract = Contract(kind=Kind(name="email.address"), authority_pin=pin)
-        verdict = Verdict(canonical="foo@bar.com", evidence="RFC 5322")
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
         original = Artifact(contract=contract, result=verdict, config_digest="abc123")
 
         restored = Artifact.from_dict(original.to_dict())
         assert restored.contract.authority_pin == pin
+
+    def test_json_roundtrip_preserves_evidence_fields(self) -> None:
+        """JSON round-trip preserves Evidence rules_fired, order, and authority."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.artifacts.evidence import Evidence
+        from paxman.contracts.authority_pin import AuthorityPin
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.verdict import Verdict
+
+        auth = AuthorityPin(authority="iana", edition="2024a")
+        evidence = Evidence(rules_fired=("RFC 5322 §3.2", "Unicode 15.0"), order=2, authority=auth)
+        contract = Contract(kind=Kind(name="email.address"))
+        verdict = Verdict(canonical="foo@bar.com", evidence=evidence)
+        original = Artifact(contract=contract, result=verdict, config_digest="abc123")
+
+        restored = Artifact.from_dict(original.to_dict())
+        assert isinstance(restored.result, Verdict)
+        assert restored.result.evidence.rules_fired == ("RFC 5322 §3.2", "Unicode 15.0")
+        assert restored.result.evidence.order == 2
+        assert restored.result.evidence.authority == auth
+
+    def test_json_roundtrip_preserves_refusal_kind(self) -> None:
+        """JSON round-trip preserves Refusal kind."""
+        from paxman.artifacts.artifact import Artifact
+        from paxman.contracts.contract import Contract
+        from paxman.contracts.kind import Kind
+        from paxman.contracts.refusal import Refusal
+
+        kind = Kind(name="email.address")
+        contract = Contract(kind=kind)
+        refusal = Refusal(reason="ambiguous input", kind=kind)
+        original = Artifact(contract=contract, result=refusal, config_digest="abc123")
+
+        restored = Artifact.from_dict(original.to_dict())
+        assert isinstance(restored.result, Refusal)
+        assert restored.result.kind == kind

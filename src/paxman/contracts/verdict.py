@@ -5,6 +5,10 @@ or an explicit refusal (PRD §5.3). The duality is the soul of Paxman.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from paxman.artifacts.evidence import Evidence
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,5 +21,5 @@ class Verdict:
     canonical: str
     """The canonical form of the input."""
 
-    evidence: str
-    """Human-readable explanation of the rules, order, and authority behind this verdict."""
+    evidence: Evidence
+    """Structured evidence: rules fired, order, and authority behind this verdict."""

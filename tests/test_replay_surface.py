@@ -12,7 +12,7 @@ from paxman.contracts.kind import Kind
 from paxman.contracts.refusal import Refusal
 from paxman.contracts.verdict import Verdict
 
-from tests._stubs import CountingStubCapability, StubCapability
+from tests._stubs import CountingStubCapability, StubCapability, _make_stub_evidence
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +94,7 @@ class TestReplay:
 
         assert isinstance(replayed.result, Verdict)
         assert replayed.result.canonical == "foo@bar.com"
-        assert replayed.result.evidence == "stub"
+        assert replayed.result.evidence == _make_stub_evidence()
 
     def test_replay_preserves_refusal(self) -> None:
         """Replay preserves the exact refusal from canonicalize."""

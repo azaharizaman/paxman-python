@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from paxman.artifacts.evidence import Evidence
 from paxman.contracts.authority_pin import AuthorityPin
 from paxman.contracts.contract import Contract
 from paxman.contracts.kind import Kind
@@ -40,13 +41,25 @@ class Artifact:
         """
         result_dict: dict[str, object]
         if isinstance(self.result, Verdict):
+            evidence_dict: dict[str, object] = {
+                "rules_fired": list(self.result.evidence.rules_fired),
+                "order": self.result.evidence.order,
+                "authority": {
+                    "authority": self.result.evidence.authority.authority,
+                    "edition": self.result.evidence.authority.edition,
+                },
+            }
             result_dict = {
                 "type": "Verdict",
                 "canonical": self.result.canonical,
-                "evidence": self.result.evidence,
+                "evidence": evidence_dict,
             }
         else:
-            result_dict = {"type": "Refusal", "reason": self.result.reason}
+            result_dict = {
+                "type": "Refusal",
+                "reason": self.result.reason,
+                "kind": {"name": self.result.kind.name},
+            }
 
         pin_dict: dict[str, str] | None = None
         if self.contract.authority_pin is not None:
@@ -84,6 +97,13 @@ def _require_str(value: object, field_path: str) -> str:
     return value
 
 
+def _require_int(value: object, field_path: str) -> int:
+    """Assert that *value* is an ``int`` or raise :class:`TypeError`."""
+    if not isinstance(value, int):
+        raise TypeError(f"Expected '{field_path}' to be an int, got {type(value).__name__}")
+    return value
+
+
 def _require_dict(value: object, field_path: str) -> dict[str, object]:
     """Assert that *value* is a ``dict`` or raise :class:`TypeError`."""
     if not isinstance(value, dict):
@@ -109,6 +129,25 @@ def _parse_contract(data: dict[str, object]) -> Contract:
     return Contract(kind=kind, authority_pin=authority_pin)
 
 
+def _parse_evidence(data: dict[str, object]) -> Evidence:
+    """Parse the ``evidence`` section of a serialized Verdict."""
+    raw_rules = data.get("rules_fired")
+    if not isinstance(raw_rules, list):
+        raise TypeError(
+            f"Expected 'result.evidence.rules_fired' to be a list, got {type(raw_rules).__name__}"
+        )
+    rules_fired = tuple(_require_str(item, "result.evidence.rules_fired[]") for item in raw_rules)
+
+    order = _require_int(data.get("order"), "result.evidence.order")
+
+    raw_auth = _require_dict(data.get("authority"), "result.evidence.authority")
+    auth_name = _require_str(raw_auth.get("authority"), "result.evidence.authority.authority")
+    edition = _require_str(raw_auth.get("edition"), "result.evidence.authority.edition")
+    authority = AuthorityPin(authority=auth_name, edition=edition)
+
+    return Evidence(rules_fired=rules_fired, order=order, authority=authority)
+
+
 def _parse_result(data: dict[str, object]) -> Verdict | Refusal:
     """Parse the ``result`` section of a serialized Artifact."""
     raw_result = _require_dict(data.get("result"), "result")
@@ -116,9 +155,13 @@ def _parse_result(data: dict[str, object]) -> Verdict | Refusal:
 
     if result_type == "Verdict":
         canonical = _require_str(raw_result.get("canonical"), "result.canonical")
-        evidence = _require_str(raw_result.get("evidence"), "result.evidence")
+        raw_evidence = _require_dict(raw_result.get("evidence"), "result.evidence")
+        evidence = _parse_evidence(raw_evidence)
         return Verdict(canonical=canonical, evidence=evidence)
     if result_type == "Refusal":
         reason = _require_str(raw_result.get("reason"), "result.reason")
-        return Refusal(reason=reason)
+        raw_kind = _require_dict(raw_result.get("kind"), "result.kind")
+        kind_name = _require_str(raw_kind.get("name"), "result.kind.name")
+        kind = Kind(name=kind_name)
+        return Refusal(reason=reason, kind=kind)
     raise ValueError(f"Unknown result type: {result_type}")

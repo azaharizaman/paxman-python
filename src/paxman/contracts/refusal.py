@@ -6,6 +6,10 @@ Stored in the artifact exactly like a success (PRD §5.3). Refusing is a feature
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from paxman.contracts.kind import Kind
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,3 +22,6 @@ class Refusal:
 
     reason: str
     """Human-readable explanation of why canonical form cannot be determined."""
+
+    kind: Kind
+    """The contract kind that was refused — identifies what could not be canonicalized."""
