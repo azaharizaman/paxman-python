@@ -6,7 +6,6 @@ Covers: Protocol conformance, overlap rejection, freeze, resolve, no-owner case.
 from __future__ import annotations
 
 import types
-from dataclasses import dataclass
 
 import pytest
 
@@ -15,19 +14,7 @@ from paxman.contracts.kind import Kind
 from paxman.contracts.refusal import Refusal
 from paxman.contracts.verdict import Verdict
 
-
-# ---------------------------------------------------------------------------
-# Stub capability for testing
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class _StubCapability:
-    """Minimal capability stub that satisfies the Capability Protocol."""
-
-    owned_kinds: frozenset[Kind]
-
-    def render(self, raw: str, contract: Contract) -> Verdict | Refusal:
-        """Return a deterministic verdict for testing."""
-        return Verdict(canonical=raw.lower(), evidence="stub")
+from tests._stubs import StubCapability
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +27,7 @@ class TestCapabilityProtocol:
         """A class with owned_kinds and render() satisfies Capability."""
         from paxman.capabilities.capability import Capability
 
-        stub = _StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
+        stub = StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
         # Structural check: stub has the right attributes
         assert hasattr(stub, "owned_kinds")
         assert hasattr(stub, "render")
@@ -50,8 +37,6 @@ class TestCapabilityProtocol:
 
     def test_protocol_not_runtime_checkable(self) -> None:
         """Capability is NOT decorated with @runtime_checkable."""
-        import inspect
-
         from paxman.capabilities.capability import Capability
 
         # Runtime checkable protocols have _is_runtime_protocol = True
@@ -62,7 +47,7 @@ class TestCapabilityProtocol:
         """Capability Protocol structural check: stub with correct shape satisfies it."""
         from paxman.capabilities.capability import Capability
 
-        stub = _StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
+        stub = StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
         # Structural conformance: the Protocol is satisfied by shape, not inheritance
         assert isinstance(stub.owned_kinds, frozenset)
         assert callable(stub.render)
@@ -81,7 +66,7 @@ class TestRegistry:
         """Registry is constructible with a list of capabilities."""
         from paxman._registry.registry import Registry
 
-        cap = _StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
+        cap = StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
         registry = Registry(capabilities=[cap])
         assert registry is not None
 
@@ -89,7 +74,7 @@ class TestRegistry:
         """Registry freezes capabilities via types.MappingProxyType."""
         from paxman._registry.registry import Registry
 
-        cap = _StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
+        cap = StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
         registry = Registry(capabilities=[cap])
         assert isinstance(registry._capabilities, types.MappingProxyType)
 
@@ -98,8 +83,8 @@ class TestRegistry:
         from paxman._registry.registry import Registry
 
         kind = Kind(name="email.address")
-        cap1 = _StubCapability(owned_kinds=frozenset({kind}))
-        cap2 = _StubCapability(owned_kinds=frozenset({kind}))
+        cap1 = StubCapability(owned_kinds=frozenset({kind}))
+        cap2 = StubCapability(owned_kinds=frozenset({kind}))
         with pytest.raises(ValueError, match="(?i)overlap"):
             Registry(capabilities=[cap1, cap2])
 
@@ -110,8 +95,8 @@ class TestRegistry:
         shared = Kind(name="email.address")
         unique1 = Kind(name="date.iso")
         unique2 = Kind(name="identifier.uuid")
-        cap1 = _StubCapability(owned_kinds=frozenset({shared, unique1}))
-        cap2 = _StubCapability(owned_kinds=frozenset({shared, unique2}))
+        cap1 = StubCapability(owned_kinds=frozenset({shared, unique1}))
+        cap2 = StubCapability(owned_kinds=frozenset({shared, unique2}))
         with pytest.raises(ValueError, match="(?i)overlap"):
             Registry(capabilities=[cap1, cap2])
 
@@ -120,7 +105,7 @@ class TestRegistry:
         from paxman._registry.registry import Registry
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
 
         contract = Contract(kind=kind)
@@ -132,7 +117,7 @@ class TestRegistry:
         from paxman._registry.registry import Registry
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
+        cap = StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
         registry = Registry(capabilities=[cap])
 
         contract = Contract(kind=kind)
@@ -151,9 +136,9 @@ class TestRegistry:
         """Registry accepts multiple capabilities with disjoint kinds."""
         from paxman._registry.registry import Registry
 
-        cap1 = _StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
-        cap2 = _StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
-        cap3 = _StubCapability(owned_kinds=frozenset({Kind(name="identifier.uuid")}))
+        cap1 = StubCapability(owned_kinds=frozenset({Kind(name="email.address")}))
+        cap2 = StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
+        cap3 = StubCapability(owned_kinds=frozenset({Kind(name="identifier.uuid")}))
         registry = Registry(capabilities=[cap1, cap2, cap3])
 
         assert registry.resolve(Contract(kind=Kind(name="email.address"))) is cap1

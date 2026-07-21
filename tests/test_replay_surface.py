@@ -5,30 +5,14 @@ Covers: replay returns artifact unchanged, no re-execution, full round-trip.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from paxman._engine.engine import Engine, EngineConfig
 from paxman._registry.registry import Registry
-from paxman.capabilities.capability import Capability
 from paxman.contracts.contract import Contract
 from paxman.contracts.kind import Kind
 from paxman.contracts.refusal import Refusal
 from paxman.contracts.verdict import Verdict
 
-
-# ---------------------------------------------------------------------------
-# Stub capability
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class _StubCapability:
-    """Minimal capability for testing."""
-
-    owned_kinds: frozenset[Kind]
-    render_count: int = 0
-
-    def render(self, raw: str, contract: Contract) -> Verdict | Refusal:
-        """Return a deterministic verdict."""
-        return Verdict(canonical=raw.lower(), evidence="stub")
+from tests._stubs import CountingStubCapability, StubCapability
 
 
 # ---------------------------------------------------------------------------
@@ -40,7 +24,7 @@ class TestReplay:
     def test_replay_returns_artifact_unchanged(self) -> None:
         """replay(artifact) returns the artifact as-is — Invariant 3."""
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -52,26 +36,37 @@ class TestReplay:
         assert replayed is artifact
 
     def test_replay_performs_no_re_execution(self) -> None:
-        """replay does not invoke capability.render()."""
+        """replay does not invoke capability.render() — counter stays at 1.
+
+        Uses CountingStubCapability with a mutable counter to prove that
+        render() was called once by canonicalize() but NOT by replay().
+        """
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}), render_count=0)
+        counter: list[int] = [0]
+        cap = CountingStubCapability(
+            owned_kinds=frozenset({kind}), _render_count=counter
+        )
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
 
         contract = Contract(kind=kind)
         artifact = engine.canonicalize("FOO@BAR.COM", contract)
+
+        # render() was called once during canonicalize
+        assert counter[0] == 1
+
         # replay should not touch the capability at all
         replayed = engine.replay(artifact)
 
         assert replayed is artifact
-        # The stub's render_count is still 0 (not incremented by replay)
-        assert cap.render_count == 0
+        # counter is still 1 — replay did NOT invoke render()
+        assert counter[0] == 1
 
     def test_full_roundtrip_canonicalize_replay_identical(self) -> None:
         """canonicalize -> replay -> identical artifact (Invariant 3)."""
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -88,7 +83,7 @@ class TestReplay:
     def test_replay_preserves_verdict(self) -> None:
         """Replay preserves the exact verdict from canonicalize."""
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -104,7 +99,7 @@ class TestReplay:
     def test_replay_preserves_refusal(self) -> None:
         """Replay preserves the exact refusal from canonicalize."""
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
+        cap = StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)

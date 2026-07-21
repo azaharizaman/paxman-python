@@ -6,31 +6,16 @@ in artifact, authority pin resolution.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import pytest
 
 from paxman._registry.registry import Registry
-from paxman.capabilities.capability import Capability
 from paxman.contracts.authority_pin import AuthorityPin
 from paxman.contracts.contract import Contract
 from paxman.contracts.kind import Kind
 from paxman.contracts.refusal import Refusal
 from paxman.contracts.verdict import Verdict
 
-
-# ---------------------------------------------------------------------------
-# Stub capability
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class _StubCapability:
-    """Minimal capability that renders input lowercased."""
-
-    owned_kinds: frozenset[Kind]
-
-    def render(self, raw: str, contract: Contract) -> Verdict | Refusal:
-        """Return a deterministic verdict."""
-        return Verdict(canonical=raw.lower(), evidence="stub")
+from tests._stubs import StubCapability
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +77,7 @@ class TestEngine:
         from paxman._engine.engine import Engine, EngineConfig
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -111,7 +96,7 @@ class TestEngine:
         from paxman._engine.engine import Engine, EngineConfig
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -128,7 +113,7 @@ class TestEngine:
         from paxman._engine.engine import Engine, EngineConfig
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
+        cap = StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -144,7 +129,7 @@ class TestEngine:
         from paxman._engine.engine import Engine, EngineConfig
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -160,7 +145,7 @@ class TestEngine:
         from paxman._engine.engine import Engine, EngineConfig
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -180,7 +165,7 @@ class TestEngine:
 
         kind = Kind(name="email.address")
         pin = AuthorityPin(authority="iana", edition="2024a")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={"iana": "2024a"})
         engine = Engine(registry=registry, config=config)
@@ -195,7 +180,7 @@ class TestEngine:
         from paxman._engine.engine import Engine, EngineConfig
 
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import types
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -32,6 +33,10 @@ class EngineConfig:
     authorities: dict[str, str] = field(default_factory=dict)
     """Map of authority name -> pinned edition (e.g. {'iana': '2024a'})."""
 
+    def __post_init__(self) -> None:
+        """Freeze the authorities dict via MappingProxyType for true immutability."""
+        object.__setattr__(self, "authorities", types.MappingProxyType(self.authorities))
+
     @classmethod
     def default(cls) -> EngineConfig:
         """Return the default engine configuration.
@@ -47,7 +52,7 @@ class EngineConfig:
         The digest is a hex-encoded SHA-256 of the sorted JSON representation,
         so equal configs always produce equal digests (Invariant 2).
         """
-        canonical = json.dumps(self.authorities, sort_keys=True, separators=(",", ":"))
+        canonical = json.dumps(dict(self.authorities), sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -86,6 +91,9 @@ class Engine:
                 reason=f"No capability owns kind '{contract.kind.name}'"
             )
         else:
+            # TODO: Resolve default authority pin from config when contract has no pin.
+            # Currently, only explicit pins on the contract are respected.
+            # This is deferred until real authority editions are bundled.
             result = capability.render(raw, contract)
         return Artifact(
             contract=contract,

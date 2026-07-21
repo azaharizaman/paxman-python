@@ -9,32 +9,18 @@ from __future__ import annotations
 import ast
 import pathlib
 import subprocess
-from dataclasses import dataclass
 
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from paxman._engine.engine import Engine, EngineConfig
 from paxman._registry.registry import Registry
-from paxman.capabilities.capability import Capability
 from paxman.contracts.contract import Contract
 from paxman.contracts.kind import Kind
 from paxman.contracts.refusal import Refusal
 from paxman.contracts.verdict import Verdict
 
-
-# ---------------------------------------------------------------------------
-# Stub capability
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class _StubCapability:
-    """Minimal capability for integration testing."""
-
-    owned_kinds: frozenset[Kind]
-
-    def render(self, raw: str, contract: Contract) -> Verdict | Refusal:
-        """Return a deterministic verdict."""
-        return Verdict(canonical=raw.lower(), evidence="stub")
+from tests._stubs import StubCapability
 
 
 # ---------------------------------------------------------------------------
@@ -46,7 +32,7 @@ class TestEndToEnd:
     def test_full_lifecycle(self) -> None:
         """Complete lifecycle: construct, canonicalize, verify, replay."""
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -68,7 +54,7 @@ class TestEndToEnd:
     def test_full_lifecycle_refusal(self) -> None:
         """Complete lifecycle with no-owner refusal."""
         kind = Kind(name="email.address")
-        cap = _StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
+        cap = StubCapability(owned_kinds=frozenset({Kind(name="date.iso")}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -95,7 +81,7 @@ class TestInvariants:
     def test_determinism_invariant(self, raw: str, kind_name: str) -> None:
         """Invariant 2: same input + same config + same capabilities -> same artifact."""
         kind = Kind(name=kind_name)
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)
@@ -114,7 +100,7 @@ class TestInvariants:
     def test_replay_invariant(self, raw: str, kind_name: str) -> None:
         """Invariant 3: canonicalize -> replay -> identical artifact."""
         kind = Kind(name=kind_name)
-        cap = _StubCapability(owned_kinds=frozenset({kind}))
+        cap = StubCapability(owned_kinds=frozenset({kind}))
         registry = Registry(capabilities=[cap])
         config = EngineConfig(authorities={})
         engine = Engine(registry=registry, config=config)

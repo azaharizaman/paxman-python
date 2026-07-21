@@ -71,46 +71,54 @@ class Artifact:
         Inverse of to_dict — reconstructs the Artifact faithfully without
         re-executing any capability logic (Invariant 3).
         """
-        raw_contract = data.get("contract")
-        assert isinstance(raw_contract, dict)
-
-        raw_kind = raw_contract.get("kind")
-        assert isinstance(raw_kind, dict)
-        kind_name = raw_kind.get("name")
-        assert isinstance(kind_name, str)
-        kind = Kind(name=kind_name)
-
-        raw_pin = raw_contract.get("authority_pin")
-        authority_pin: AuthorityPin | None = None
-        if isinstance(raw_pin, dict):
-            auth = raw_pin.get("authority")
-            edit = raw_pin.get("edition")
-            assert isinstance(auth, str)
-            assert isinstance(edit, str)
-            authority_pin = AuthorityPin(authority=auth, edition=edit)
-
-        contract = Contract(kind=kind, authority_pin=authority_pin)
-
-        raw_result = data.get("result")
-        assert isinstance(raw_result, dict)
-        result_type = raw_result.get("type")
-        assert isinstance(result_type, str)
-
-        result: Verdict | Refusal
-        if result_type == "Verdict":
-            canonical = raw_result.get("canonical")
-            evidence = raw_result.get("evidence")
-            assert isinstance(canonical, str)
-            assert isinstance(evidence, str)
-            result = Verdict(canonical=canonical, evidence=evidence)
-        elif result_type == "Refusal":
-            reason = raw_result.get("reason")
-            assert isinstance(reason, str)
-            result = Refusal(reason=reason)
-        else:
-            raise ValueError(f"Unknown result type: {result_type}")
-
-        raw_digest = data.get("config_digest")
-        assert isinstance(raw_digest, str)
-
+        contract = _parse_contract(data)
+        result = _parse_result(data)
+        raw_digest = _require_str(data.get("config_digest"), "config_digest")
         return cls(contract=contract, result=result, config_digest=raw_digest)
+
+
+def _require_str(value: object, field_path: str) -> str:
+    """Assert that *value* is a ``str`` or raise :class:`TypeError`."""
+    if not isinstance(value, str):
+        raise TypeError(f"Expected '{field_path}' to be a str, got {type(value).__name__}")
+    return value
+
+
+def _require_dict(value: object, field_path: str) -> dict[str, object]:
+    """Assert that *value* is a ``dict`` or raise :class:`TypeError`."""
+    if not isinstance(value, dict):
+        raise TypeError(f"Expected '{field_path}' to be a dict, got {type(value).__name__}")
+    return value
+
+
+def _parse_contract(data: dict[str, object]) -> Contract:
+    """Parse the ``contract`` section of a serialized Artifact."""
+    raw_kind = _require_dict(data.get("contract"), "contract").get("kind")
+    kind_name = _require_str(
+        _require_dict(raw_kind, "contract.kind").get("name"), "contract.kind.name"
+    )
+    kind = Kind(name=kind_name)
+
+    raw_pin = _require_dict(data.get("contract"), "contract").get("authority_pin")
+    authority_pin: AuthorityPin | None = None
+    if isinstance(raw_pin, dict):
+        auth = _require_str(raw_pin.get("authority"), "authority_pin.authority")
+        edit = _require_str(raw_pin.get("edition"), "authority_pin.edition")
+        authority_pin = AuthorityPin(authority=auth, edition=edit)
+
+    return Contract(kind=kind, authority_pin=authority_pin)
+
+
+def _parse_result(data: dict[str, object]) -> Verdict | Refusal:
+    """Parse the ``result`` section of a serialized Artifact."""
+    raw_result = _require_dict(data.get("result"), "result")
+    result_type = _require_str(raw_result.get("type"), "result.type")
+
+    if result_type == "Verdict":
+        canonical = _require_str(raw_result.get("canonical"), "result.canonical")
+        evidence = _require_str(raw_result.get("evidence"), "result.evidence")
+        return Verdict(canonical=canonical, evidence=evidence)
+    if result_type == "Refusal":
+        reason = _require_str(raw_result.get("reason"), "result.reason")
+        return Refusal(reason=reason)
+    raise ValueError(f"Unknown result type: {result_type}")
