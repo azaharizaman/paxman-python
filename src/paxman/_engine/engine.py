@@ -92,3 +92,11 @@ class Engine:
             result=result,
             config_digest=self._config_digest,
         )
+
+    def replay(self, artifact: Artifact) -> Artifact:
+        """Return the sealed record unchanged — no re-execution, byte-for-byte faithful.
+
+        Invariant 3: every artifact Paxman emits can be handed back and
+        reconstructed exactly, without re-running any logic.
+        """
+        return artifact
