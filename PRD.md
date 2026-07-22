@@ -42,9 +42,9 @@ Paxman promises three things to everyone who depends on it:
    canonical reading is possible — Paxman says so explicitly rather than
    picking one and hoping. Refusing is a feature, not a failure.
 
-3. **Perfect recall.** Any canonical artifact Paxman produces can be replayed
+3. **Perfect recall.** Any canonical execution_result Paxman produces can be replayed
    back into Paxman and reproduced byte-for-byte, with no re-execution and no
-   loss. The artifact is self-describing and trustworthy on its own.
+   loss. The execution_result is self-describing and trustworthy on its own.
 
 Paxman is not a parser. It is not a formatter. It is not a general-purpose
 transformation library. It is the single, principled authority for *"given
@@ -70,15 +70,15 @@ shape.*
 ### Invariant 2 — Determinism
 
 For a given input, contract, set of registered capabilities, and configuration —
-Paxman always produces the same artifact. There is no randomness, no clock
+Paxman always produces the same execution_result. There is no randomness, no clock
 dependence, no hidden state, no environment leakage. Same in, same out, on any
 machine, on any day. Determinism is a property of the library itself, not an
 option you opt into.
 
 ### Invariant 3 — Replay
 
-Every artifact Paxman emits can be handed back to Paxman and reconstructed
-exactly, without re-running any logic. The artifact carries everything needed to
+Every execution_result Paxman emits can be handed back to Paxman and reconstructed
+exactly, without re-running any logic. The execution_result carries everything needed to
 reproduce itself. Replay is not a reconstruction from memory; it is a faithful,
 byte-for-byte return to the original.
 
@@ -134,9 +134,9 @@ job of Paxman:
    a structured verdict: either a canonical form with the evidence that produced
    it, or an explicit refusal with the reason why no unique form exists.
 4. **Seal.** Wrap the verdict, the contract, and the authority choices into a
-   self-describing artifact — a record that needs nothing outside itself to be
+   self-describing execution_result — a record that needs nothing outside itself to be
    understood or replayed.
-5. **Replay.** Given that artifact and the same contract, reproduce it exactly,
+5. **Replay.** Given that execution_result and the same contract, reproduce it exactly,
    without ever re-invoking the capability. Replay is reading the sealed record,
    not re-running the trial.
 
@@ -150,7 +150,7 @@ Replay — are not sprinkled across the system; they are *concentrated* in this
 one component, and concentration is what makes them provable.
 
 The engine is **owned by Paxman**. Contributors do not rewrite the pipeline.
-They do not redefine how verdicts are rendered or how artifacts are sealed. This
+They do not redefine how verdicts are rendered or how execution_results are sealed. This
 is not a limitation — it is the guarantee. Because the frame is sealed, every
 extension that plugs into it inherits the three invariants for free, and a
 broken extension cannot quietly corrupt the constitution.
@@ -159,34 +159,29 @@ broken extension cannot quietly corrupt the constitution.
 
 A *contract* is the agreement between caller and engine. If the engine is the
 bench and the capability is the expert witness, the contract is the charge
-sheet: it states, in plain terms, what kind of thing is being brought forward
-and under whose authority it should be judged. The caller does not describe
-*how* to judge it; that would be writing law, and the caller is not the law. The
-caller only declares *what* it is and *whose standard* applies.
+sheet: it states, in plain terms, what kind of thing is being brought forward.
+The caller does not describe *how* to judge it; that would be writing law, and
+the caller is not the law. The caller only declares *what* it is.
 
-Concretely, a contract carries two kinds of information, and only these two:
+Concretely, a contract carries one kind of information:
 
 - **The kind.** It names the category of information being canonicalized — this
   is what lets the engine resolve which single capability owns the case. The
   contract is the key to the lookup; without it, the engine would not know which
   door to open.
-- **The authority pin (optional).** It may name a specific edition of the
-  relevant authority the caller trusts (see 5.5). If the caller says nothing,
-  Paxman applies its active default. Either way, the choice is recorded in the
-  artifact, so the verdict is always reproducible against the same contract.
 
 The contract is **declarative and versioned**. Declarative means the caller
 states intent, never behavior — the how lives entirely with the capability
 author. Versioned means a contract has an identity Paxman can reason about over
-time; as authorities revise their standards, the contract model can grow without
-breaking callers who depend on an earlier shape.
+time; as specifications evolve, the contract model can grow without breaking
+callers who depend on an earlier shape.
 
 This is what makes the public surface stable and predictable. A caller learns
 the contract model once and can canonicalize any supported kind of information
 the same way, because every domain speaks through the same declarative
 vocabulary. The contract is the one piece of Paxman a user touches directly, so
-it is designed to be the simplest possible thing: *name the kind, optionally
-name the authority, and step back.*
+it is designed to be the simplest possible thing: *name the kind, and step
+back.*
 
 ### 5.3 Capabilities (the only extension point)
 
@@ -196,8 +191,8 @@ to the stand — the only place where real domain knowledge is allowed to live. 
 the engine is the bench, the capability is the expert witness: it knows
 everything about its one subject and nothing about the others.
 
-After many refactors, the aspired shape of a capability is small, honest, and
-complete. A capability does exactly two things and nothing more.
+The aspired shape of a capability is small, honest, and complete. A capability
+contains three components and nothing more.
 
 **First, it declares what it owns.** At registration time, a capability makes a
 clean, deterministic claim of the contract kinds it answers for — not a
@@ -207,33 +202,40 @@ a negotiation: it reads the table, finds the one capability that claimed this
 contract, and calls it. A capability owns its contract kind, and it owns it
 wholly — claims do not overlap, so there is never a tie to break.
 
-**Second, it renders a verdict.** Given an input and the contract it owns, the
-capability returns one of two outcomes, and the duality is the soul of Paxman:
+**Second, it contains the pipeline for canonicalization.** Given an input and
+the contract it owns, the capability runs a fixed sequence:
 
-- A **canonical verdict** — the single agreed form, accompanied by *evidence*:
-  the named rules that fired, the order they fired in, and the authority whose
-  standard was applied. Evidence is not decoration. It is the receipt. It is what
-  lets a reader (human or machine) trust the verdict and what lets replay
-  reconstruct it without re-running the reasoning.
-- A **refusal** — an explicit, reasoned statement that the input does not
-  determine a unique form. The capability does not guess, does not fall back to
-  a "probably," does not pass the buck. It says *why* it cannot decide, and it
-  stops. Refusal is a first-class result, stored in the artifact exactly like a
-  success, because refusing correctly is as much a part of the promise as
-  succeeding.
+1. **Grammar (recognition).** The Grammar recognizes patterns in the input and
+   produces RecognizedRep objects. Each RecognizedRep carries traceability
+   information (grammar_id, grammar_pattern, raw value, shape, captures) so the
+   processing chain is fully auditable.
+
+2. **Validator (validation).** The Validator takes the RecognizedRep objects and
+   validates them against the capability's private specifications. It collects
+   evidence for each candidate, recording which specification sections were
+   matched and what operations were performed.
+
+3. **Canonicalizer (derivation).** The Canonicalizer takes the candidates from
+   the Validator and derives canonical values for each. It checks for agreement
+   among candidates and produces the final ExecutionResult with appropriate
+   status (SUCCESS, AMBIGUOUS, INVALID, or MISSING).
 
 The capability never reaches outside itself for the answer. It does not call a
 service, consult a clock, or read ambient state. Its output depends only on the
-input and the contract. That is what makes its verdict *deterministic* and its
+input and the contract. That is what makes its output *deterministic* and its
 evidence *sufficient* — given the same two things, it always returns the same
-verdict with the same evidence, and the evidence is enough to reproduce it.
+result with the same evidence, and the evidence is enough to reproduce it.
+
+**Third, it owns its specifications.** Each capability contains private
+specifications that define what canonical form means for its domain. These are
+not shared across capabilities — each domain owns its truth. Specifications are
+immutable units of published fact that the capability adopts wholly.
 
 Capabilities are organized one package per domain. The contract kinds Paxman is
 built to serve span the everyday categories of determinable information —
-addresses,
-dates, unique identifiers, and the like — and the shape of each capability
-package is identical across all of them. Adding a new domain means copying that
-shape, not inventing a new architecture.
+addresses, dates, unique identifiers, and the like — and the shape of each
+capability package is identical across all of them. Adding a new domain means
+copying that shape, not inventing a new architecture.
 
 This is the heart of Paxman's extensibility: **the only thing you are allowed to
 add is a capability, and the path for adding one is already paved.** There is no
@@ -270,45 +272,46 @@ is a closed, fixed table, not an open-ended search. The registry is the quiet
 guardian of Invariant 2 — and because it sits between engine and capability, it
 protects the user without ever asking the user to think about it.
 
-### 5.5 Authoritative Editions
+### 5.5 Capability-Private Specifications
 
-An edition is the recognition that *truth has a publisher*. For any domain
+Each capability owns its own specifications that define what canonical form
+means for its domain. Specifications are capability-private — they are not
+shared across capabilities. This prevents drift across domains and ensures each
+domain owns its truth.
+
+A specification is the recognition that *truth has a publisher*. For any domain
 Paxman canonicalizes, there is usually a real-world authority — a standards body,
 a specification, a registry — that defines what the canonical form actually is.
 But authorities are not frozen in time, and they are not singular. A date has an
 ISO form; a country has an ISO code list that gets revised; a currency has an
-assigned code table that expands. The same domain can therefore have more than
-one legitimate canonical form depending on *which edition* of the authority you
-honor.
+assigned code table that expands.
 
-Paxman models this explicitly through **editions** — named, selectable versions
-of an authority. An edition is not a guess about the future; it is a pinned
-reference to a specific published standard. And it is first-class in the system,
-not a footnote:
+Paxman models this explicitly through **specifications** — capability-private
+references to published standards. A specification is not a guess about the
+future; it is a pinned reference to a specific published standard. And it is
+first-class in the system, not a footnote:
 
-- A caller who says nothing gets Paxman's **active default edition** — the
-  currently trusted publication for each authority.
-- A caller who needs a specific standard can **pin an edition for a single
-  call**, so one verdict in a batch obeys a different authority than the rest.
-- A caller building a long-running system can **pin editions across an entire
-  engine**, so every verdict that process produces is judged against the same
-  fixed standards.
+- Each capability contains its own `specs/` directory with its private
+  specifications.
+- Specifications carry authority information inside them (who published it,
+  effective context, base version).
+- Citations within specifications define what sections are used for matching.
 
-Editions solve a tension that would otherwise tear the promise apart. On one
-hand, Paxman must honor real-world authority — it cannot invent its own
+Specifications solve a tension that would otherwise tear the promise apart. On
+one hand, Paxman must honor real-world authority — it cannot invent its own
 canonical forms. On the other hand, it must be reproducible — the same input
-must always yield the same artifact. If the authority were read live, "same in,
-same out" would break the day the standard was revised. Editions resolve both at
-once: Paxman defers to genuine external authority, but it records *which*
-edition it deferred to, so replay always reconstructs the verdict against the
-exact same standard.
+must always yield the same execution_result. If the authority were read live, "same in,
+same out" would break the day the standard was revised. Specifications resolve
+both at once: Paxman defers to genuine external authority through
+capability-private specifications, so replay always reconstructs the result
+against the exact same standard.
 
 This is also what keeps a fork honest. A variant that trusts a different
-authority does not fork the pipeline to express that — it simply pins different
-editions. The sealed engine still guarantees the invariants — Boundary,
-Determinism, and Replay; only the declared standard changes. Editions are how
-Paxman stays both *humble* (it answers to
-real authorities) and *deterministic* (it never quietly changes its answer).
+authority does not fork the pipeline to express that — it simply provides
+different specifications within its capability. The sealed engine still
+guarantees the invariants — Boundary, Determinism, and Replay; only the declared
+standard changes. Specifications are how Paxman stays both *humble* (it answers
+to real authorities) and *deterministic* (it never quietly changes its answer).
 
 ---
 
@@ -319,18 +322,21 @@ choices:
 
 - **One sealed core, one open edge.** The invariant-protecting logic lives in
   exactly one place. Everything else plugs in through one well-lit door.
-- **Uniform extension shape.** Every capability looks the same. There is one
-  pattern to learn, not seventeen.
+- **Uniform extension shape.** Every capability looks the same: Grammar,
+  Validator, Canonicalizer. There is one pattern to learn, not seventeen.
 - **No hidden behavior.** Freezing, determinism, and replay are enforced by
   structure, not by convention or documentation alone.
 - **Declarative contracts.** Callers describe *what* they want canonicalized;
   they never write *how*. The how lives with the capability author.
-- **Self-describing artifacts.** Output carries its own provenance and can be
+- **Self-describing execution_results.** Output carries its own provenance and can be
   replayed without external context.
+- **Capability-private specifications.** Each capability owns its truth,
+  preventing drift across domains.
 
 The result is an architecture a newcomer can hold in their head: engine in the
-middle, contracts in, capabilities around the edge, registry keeping order,
-artifacts coming out the other side fully described.
+middle, contracts in, capabilities around the edge with their own
+specifications, registry keeping order, execution_results coming out the other
+side fully described.
 
 ---
 
@@ -338,22 +344,23 @@ artifacts coming out the other side fully described.
 
 For a contributor adding a new domain:
 
-- Mirror an existing capability package. The file layout, the interface, and the
-  contract shape are already established.
-- Implement the two questions every capability must answer. Nothing else is
+- Mirror an existing capability package. The file layout (Grammar, Validator,
+  Canonicalizer, specs/), the interface, and the contract shape are already
+  established.
+- Implement the three components every capability must have. Nothing else is
   required.
 - Register the capability before the engine runs. The system handles the rest.
 
 There is no need to understand the engine internals. There is no need to modify
 shared code. There is no risk of accidentally breaking another domain, because
-capabilities are isolated by contract. The blast radius of a new contribution is
-exactly one package.
+capabilities are isolated by contract and own their private specifications. The
+blast radius of a new contribution is exactly one package.
 
 For a user consuming Paxman:
 
 - Learn the contract model once.
 - Call the canonical entry point.
-- Receive an artifact that is trustworthy and replayable.
+- Receive an execution_result that is trustworthy and replayable.
 
 The mental model does not grow with the number of supported domains.
 
@@ -397,10 +404,10 @@ Saying no here is what keeps Paxman trustworthy.
 ## 10. Success Looks Like
 
 - A caller canonicalizes the same logical input from any of its equivalent
-  shapes and receives an identical artifact.
+  shapes and receives an identical execution_result.
 - An ambiguous input produces an explicit "I will not guess" result, with clear
   reason, rather than a silent wrong answer.
-- Any artifact replays to itself exactly, with no re-execution.
+- Any execution_result replays to itself exactly, with no re-execution.
 - A new contributor ships a new domain by mirroring one existing package and
   registering it — without touching the engine.
 - A fork ships a purpose-built variant on the same sealed, invariant-protecting

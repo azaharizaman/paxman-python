@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11,<3.14"
 license = { text = "MIT" }
 authors = [{ name = "Paxman Authors" }]
-keywords = ["canonicalization", "deterministic", "canonical-form", "refusal"]
+keywords = ["canonicalization", "deterministic", "canonical-form", "resolution"]
 classifiers = [
     "Development Status :: 1 - Planning",
     "License :: OSI Approved :: MIT License",

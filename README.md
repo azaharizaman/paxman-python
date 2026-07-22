@@ -9,8 +9,8 @@ result. Paxman does not normalize, infer, orchestrate, or improvise. It makes th
 determinable determinable, consistently, forever.
 
 - **One form, agreed by all** — same logical input, same canonical output, every time.
-- **No silent guessing** — ambiguity is refused explicitly, with reason.
-- **Perfect recall** — every artifact replays to itself byte-for-byte.
+- **No silent guessing** — ambiguity results in clear status (AMBIGUOUS, INVALID, MISSING).
+- **Perfect recall** — every execution_result replays to itself byte-for-byte.
 
 > Paxman *begins* as a canonicalization engine. The scope may expand; the
 > guarantees will not. See [`PRD.md`](./PRD.md) §11 for the roadmap.
@@ -62,11 +62,22 @@ src/paxman/                      # The Paxman library package (root) — sole pu
 ├── contracts/                   # The declarative, versioned shared language (caller ↔ engine).
 ├── capabilities/                # The ONLY extension point. One package per domain.
 │   ├── email/                   # Example domain: email address canonicalization.
+│   │   ├── grammar.py           # Pattern recognition for email inputs.
+│   │   ├── validator.py         # Validation against email specifications.
+│   │   ├── canonicalizer.py     # Derivation of canonical email form.
+│   │   └── specs/               # Capability-private email specifications.
 │   ├── date/                    # Example domain: date canonicalization.
+│   │   ├── grammar.py           # Pattern recognition for date inputs.
+│   │   ├── validator.py         # Validation against date specifications.
+│   │   ├── canonicalizer.py     # Derivation of canonical date form.
+│   │   └── specs/               # Capability-private date specifications.
 │   └── identifier/              # Example domain: unique identifier canonicalization.
+│       ├── grammar.py           # Pattern recognition for identifier inputs.
+│       ├── validator.py         # Validation against identifier specifications.
+│       ├── canonicalizer.py     # Derivation of canonical identifier form.
+│       └── specs/               # Capability-private identifier specifications.
 ├── _registry/                   # The frozen roll call (private) mapping contracts to capabilities.
-├── artifacts/                   # Self-describing, replayable records of a canonicalization.
-└── authorities/                 # Real-world standards bodies and their pinned editions (shared, read-only).
+└── execution_results/           # Self-describing, replayable records of a canonicalization.
 ```
 
 ### Folder descriptions
@@ -87,21 +98,23 @@ src/paxman/                      # The Paxman library package (root) — sole pu
   states intent, never how (PRD §5.2).
 
 - **`src/paxman/capabilities/`** — The **only extension point**. A uniform
-  interface every domain specialist implements: declare owned contract kinds, then
-  render a verdict (with evidence) or a refusal. Each domain (e.g. `email/`,
+  interface every domain specialist implements: Grammar (recognition), Validator
+  (validation), and Canonicalizer (derivation). Each domain (e.g. `email/`,
   `date/`, `identifier/`) is its own package sharing the same shape, so adding a
-  domain means mirroring, not inventing (PRD §5.3).
+  domain means mirroring, not inventing. Each capability also owns its private
+  specifications (PRD §5.3).
 
 - **`src/paxman/_registry/`** — The **frozen roll call** (private). Capabilities
   register before the engine runs; the roster is then frozen for the process
   lifetime. This turns resolution into a closed lookup and guards Determinism
   (PRD §5.4). Capabilities must not import it.
 
-- **`src/paxman/artifacts/`** — **Self-describing records**. An artifact wraps the
-  verdict, contract, and authority choices so it needs nothing outside itself to
-  be understood or replayed. Includes the evidence that lets replay reconstruct a
-  result without re-execution (PRD §5.1, §3).
+- **`src/paxman/execution_results/`** — **Self-describing records**. An execution_result wraps the
+  status (SUCCESS, AMBIGUOUS, INVALID, or MISSING), contract, and candidates with
+  their provenance so it needs nothing outside itself to be understood or
+  replayed. Each candidate carries raw matched value, canonical value after
+  canonicalization, and evidence chain (PRD §5.1, §3).
 
-- **`src/paxman/authorities/`** — **Truth as published**. Models real-world
-  authorities (ISO, RFC, Unicode, IANA, …) and their named, pinned *editions*, so
-  Paxman can defer to genuine standards while staying reproducible (PRD §5.5).
+- **Capability-private specifications** — Each capability owns its own
+  specifications that define what canonical form means for its domain. These are
+  not shared across capabilities (PRD §5.5).

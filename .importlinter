@@ -5,12 +5,12 @@
 # primary structural guardrail against architectural drift (human or agentic).
 #
 # Layering (low -> high dependency freedom):
-#   authorities  (pure truth, imports nothing internal)
-#   contracts    (shared leaf types, imports nothing internal)
-#   artifacts    (shared leaf types, imports nothing internal)
-#   _registry    (internal, frozen roll call)
-#   _engine      (internal, sealed core)
-#   capabilities (only extension point; depends on shared types + Protocol)
+#   contracts          (shared leaf types, imports nothing internal)
+#   execution_results  (shared leaf types, imports nothing internal)
+#   _registry          (internal, frozen roll call)
+#   _engine            (internal, sealed core)
+#   capabilities       (only extension point; depends on shared types + Protocol)
+#   specs/ (per capability, capability-private — see ADR 0002)
 #
 # Rule of thumb: internal packages (_engine, _registry) are never imported by
 # capabilities. Capabilities are called BY the engine, never the reverse.
@@ -46,34 +46,21 @@ forbidden_modules =
     paxman.capabilities.date
     paxman.capabilities.identifier
 
-# 3. Authorities are pure truth — they import nothing internal.
-[importlinter:contract:authorities-import-nothing-internal]
-name = Authorities must not import internal Paxman packages
-type = forbidden
-source_modules =
-    paxman.authorities
-forbidden_modules =
-    paxman._engine
-    paxman._registry
-    paxman.capabilities
-    paxman.contracts
-    paxman.artifacts
-
-# 4. Shared leaf types stay leaf-only.
-# Note: the verdict/refusal result vocabulary lives in paxman.contracts (not
-# paxman.capabilities), so artifacts may import it without violating this rule.
+# 3. Shared leaf types stay leaf-only.
+# Both contracts and execution_results carry the shared vocabulary (Resolution,
+# Contract, Evidence, etc.) and must not reach into internal packages or capabilities.
 [importlinter:contract:leaf-types-stay-leaf]
-name = contracts and artifacts must not import internal packages
+name = contracts and execution_results must not import internal packages
 type = forbidden
 source_modules =
     paxman.contracts
-    paxman.artifacts
+    paxman.execution_results
 forbidden_modules =
     paxman._engine
     paxman._registry
     paxman.capabilities
 
-# 5. Single public entry point.
+# 4. Single public entry point.
 [importlinter:contract:root-is-public-entry]
 name = Internal packages must not import the root re-export package
 type = forbidden
