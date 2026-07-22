@@ -19,14 +19,14 @@ below exist to protect the three invariants (see `ARCHITECTURE.md` and `PRD.md`
 
 - Type hints are mandatory on every public function, method, and class attribute.
 - No use of `Any` to silence the type checker. Model uncertainty with precise
-  types (e.g. `Verdict | Refusal`), not escapes.
+  types (e.g. `Resolution` with SUCCESS, AMBIGUOUS, INVALID, MISSING), not escapes.
 - Type checks must pass with zero errors. Typing is treated as a build gate.
 
 ## Determinism (non-negotiable)
 
 - No hidden state. No module-level mutable globals that affect a result.
 - No clock, randomness, network, or ambient-environment dependence in any path
-  that produces an artifact. Capabilities may depend only on their input and
+  that produces an execution_result. Capabilities may depend only on their input and
   contract.
 - Resolution must be a pure lookup: exactly one capability owns a contract kind;
   claims must not overlap.
@@ -50,29 +50,38 @@ below exist to protect the three invariants (see `ARCHITECTURE.md` and `PRD.md`
   exists to prevent. They are not kept in sync by tooling and may go stale; that
   is acceptable for documentation pointers.
 
-## Authorities (non-negotiable)
+## Specifications (non-negotiable)
 
-- Authorities are a shared, read-only service under `authorities/`. An authority
-  edition is stored once and referenced by any capability that needs it; a
-  capability MUST NOT bundle, copy, or re-implement an authority's table.
-- An authority edition file contains pure published truth only — no parsing
-  logic, no policy application, no behavioral code. Behavior lives in the
-  capability that cites the edition.
-- When a capability cites an authority edition, it adopts that edition **wholly**.
+- Specifications are capability-private under each capability's `specs/` directory.
+  Each capability owns its own specifications; they are not shared across capabilities.
+- A specification's metadata is pure published truth: its `code`, `name`,
+  `authority`, `effective_context`, and `base_version` contain no parsing logic,
+  no policy application, no behavioral code. The metadata describes what the
+  specification is, not what to do with it.
+- A specification contains `CitationMatching` entries that define validation
+  rules. Each `CitationMatching` may carry a `match()` method implementing the
+  matching logic (e.g., `table_lookup`, `regex_matching`). This is the bridge
+  between spec data and validation behavior — it lives inside the specification
+  because it IS the spec's validation clause, not arbitrary capability logic.
+- When a capability cites a specification, it adopts that specification **wholly**.
   Partial adoption of a standard (accepting some entries while rejecting others)
   is forbidden — it would make the output untrustworthy and contradict the promise
-  that Paxman answers to real authorities. Cite an edition, or do not; never
+  that Paxman answers to real authorities. Cite a specification, or do not; never
   selectively honor it.
 
 ## Error Handling
 
-- Ambiguity is expressed as a `Refusal`, not by raising a generic exception or by
-  guessing. Refusal is a first-class result.
+- Ambiguity is expressed as a `Resolution` status (AMBIGUOUS, INVALID, or
+  MISSING), not by raising a generic exception or by guessing. These are
+  first-class results.
 - No empty `except:` blocks. Catch specific exceptions; let the rest propagate.
 
 ## Structure & Layout
 
 - Follow the established `src/paxman/` layout. One package per capability domain.
+- Each capability contains: `grammar.py` (recognition), `validator.py`
+  (validation), `canonicalizer.py` (derivation), and `specs/` (capability-private
+  specifications).
 - New domains mirror an existing capability package; they do not invent a new
   architecture.
 - Do not create files or directories outside the established layout without
@@ -82,15 +91,16 @@ below exist to protect the three invariants (see `ARCHITECTURE.md` and `PRD.md`
 
 - Every behavior change ships with tests. Tests must be deterministic: same input,
   same outcome, on any machine, on any day.
-- Replay must be covered: a produced artifact reconstructs exactly, with no
+- Replay must be covered: a produced execution_result reconstructs exactly, with no
   re-execution.
 
 ## Style
 
 - Formatting and linting are enforced by the project toolchain (configuration to
   be added). Do not commit reformatted-by-hand code that conflicts with it.
-- Keep modules focused. A capability does exactly two things: declare what it
-  owns, and render a verdict or refusal.
+- Keep modules focused. A capability contains exactly three things: Grammar
+  (recognition), Validator (validation), and Canonicalizer (derivation), plus its
+  private specifications.
 
 ## Documentation
 
