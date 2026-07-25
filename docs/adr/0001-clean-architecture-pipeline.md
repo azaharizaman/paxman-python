@@ -223,8 +223,6 @@ ExecutionResult
 
 ## References
 
-- refactor.md — Original architecture discussion
-- replay_hash.md — Replay hash concept
 - CONTEXT.md — Domain glossary
 
 ---
