@@ -90,20 +90,20 @@ class TestEmailCapability:
         assert EmailCapability().version == "1.0.0"
 
     @pytest.mark.capability
-    def test_get_grammars_returns_standard_email_grammar(self) -> None:
-        """get_grammars() returns StandardEmailGrammar."""
+    def test_get_grammars_returns_all_email_grammars(self) -> None:
+        """get_grammars() returns all three email grammars."""
         cap = EmailCapability()
         grammars = cap.get_grammars()
-        assert len(grammars) == 1
+        assert len(grammars) == 3
         assert isinstance(grammars[0], StandardEmailGrammar)
         assert isinstance(grammars[0], Grammar)
 
     @pytest.mark.capability
-    def test_get_rules_returns_section341_addr_spec(self) -> None:
-        """get_rules() returns Section341AddrSpec."""
+    def test_get_rules_returns_all_email_rules(self) -> None:
+        """get_rules() returns all email validation rules."""
         cap = EmailCapability()
         rules = cap.get_rules()
-        assert len(rules) == 1
+        assert len(rules) == 2
         assert isinstance(rules[0], Section341AddrSpec)
         assert isinstance(rules[0], Rule)
 
