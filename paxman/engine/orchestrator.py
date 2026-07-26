@@ -18,6 +18,7 @@ from paxman.core.domain import (
     Provenance,
     RecognizedRep,
     Resolution,
+    Rule,
     VersionStamp,
 )
 from paxman.core.errors import RecognitionError, ValidationError
@@ -49,10 +50,17 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     """Run the full pipeline: recognition → validation → result."""
     freeze_registry()
     capability = get_capability(contract.capability_name)
-    candidates, had_recognitions = _validate(text, capability, contract)
+
+    recognitions = _recognize(text, capability, contract)
+    had_recognitions = len(recognitions) > 0
+
+    rules = _filter_rules(capability, contract)
+    candidates = _collect_candidates(recognitions, rules)
+
     status = _determine_status(candidates, had_recognitions)
     canonical_value = _extract_canonical_value(candidates, status)
     version_stamp = _build_version_stamp(text, candidates, contract, status)
+
     return ExecutionResult(
         status=status,
         canonicalized_value=canonical_value,
@@ -62,14 +70,10 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     )
 
 
-def _validate(
+def _recognize(
     text: str, capability: Capability, contract: Contract
-) -> tuple[list[Candidate], bool]:
-    """Run recognition then validation, returning all candidates.
-
-    Also returns whether any recognitions occurred (used to distinguish
-    MISSING from INVALID status).
-    """
+) -> list[RecognizedRep]:
+    """Run active grammars and return all recognitions."""
     active_grammar_names = set(contract.active_grammars)
     all_grammars = capability.get_grammars()
     active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
@@ -91,30 +95,38 @@ def _validate(
             recognitions.append(
                 RecognizedRep(notation=notation, contract=contract, grammar=grammar_ref)
             )
+    return recognitions
 
-    had_recognitions = len(recognitions) > 0
 
+def _filter_rules(capability: Capability, contract: Contract) -> list[Rule[Any]]:
+    """Return rules that are not excluded and pass year filter."""
     all_rules = capability.get_rules()
     excluded = set(contract.excluded_rules)
     active_rules = [r for r in all_rules if r.name not in excluded]
 
+    if contract.year is not None:
+        active_rules = [
+            r for r in active_rules if r.provenance.publication_year <= contract.year
+        ]
+    return active_rules
+
+
+def _collect_candidates(
+    recognitions: list[RecognizedRep[Any]], rules: list[Rule[Any]]
+) -> list[Candidate]:
+    """Match recognitions against rules and collect candidates."""
     candidates: list[Candidate] = []
     for recognition in recognitions:
-        for rule in active_rules:
-            if (
-                contract.year is not None
-                and rule.provenance.publication_year > contract.year
-            ):
-                continue
+        for rule in rules:
             try:
-                if rule.matches(recognition.notation):
-                    canonical = rule.normalize(recognition.notation)
+                if rule.matches(recognition.notation, recognition.contract):
+                    canonical = rule.normalize(recognition.notation, recognition.contract)
                     candidates.append(
                         Candidate(
                             value=canonical,
                             recognition_rule=recognition.grammar.grammar_name,
                             validation_rule=rule.name,
-                            provenance=[rule.provenance],
+                            provenance=(rule.provenance,),
                         )
                     )
             except Exception as exc:
@@ -123,8 +135,7 @@ def _validate(
                     message=f"Validation failed: {exc}",
                     original_error=exc,
                 ) from exc
-
-    return candidates, had_recognitions
+    return candidates
 
 
 def _determine_status(

@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from paxman.core.contract import Contract
+
+NotationT = TypeVar("NotationT")
 
 
 class RuleStrategy(Enum):
@@ -31,18 +34,9 @@ class Resolution(Enum):
 Notation = list[str]
 
 
+@dataclass(frozen=True, slots=True)
 class Provenance:
     """Authority citation for a validated value."""
-
-    __slots__ = (
-        "authority",
-        "specification_name",
-        "kind",
-        "reference_url",
-        "version",
-        "lifecycle",
-        "publication_year",
-    )
 
     authority: str
     specification_name: str
@@ -52,88 +46,17 @@ class Provenance:
     lifecycle: str
     publication_year: int
 
-    def __init__(
-        self,
-        authority: str,
-        specification_name: str,
-        kind: str,
-        reference_url: str,
-        version: str | None,
-        lifecycle: str,
-        publication_year: int,
-    ) -> None:
-        object.__setattr__(self, "authority", authority)
-        object.__setattr__(self, "specification_name", specification_name)
-        object.__setattr__(self, "kind", kind)
-        object.__setattr__(self, "reference_url", reference_url)
-        object.__setattr__(self, "version", version)
-        object.__setattr__(self, "lifecycle", lifecycle)
-        object.__setattr__(self, "publication_year", publication_year)
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("Provenance is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError("Provenance is immutable")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Provenance):
-            return False
-        return (
-            self.authority == other.authority
-            and self.specification_name == other.specification_name
-            and self.kind == other.kind
-            and self.reference_url == other.reference_url
-            and self.version == other.version
-            and self.lifecycle == other.lifecycle
-            and self.publication_year == other.publication_year
-        )
-
-    def __hash__(self) -> int:
-        return hash(
-            (
-                self.authority,
-                self.specification_name,
-                self.kind,
-                self.reference_url,
-                self.version,
-                self.lifecycle,
-                self.publication_year,
-            )
-        )
-
-
+@dataclass(frozen=True, slots=True)
 class GrammarRule:
     """Reference to a grammar that produced a RecognizedRep."""
-
-    __slots__ = ("capability_name", "grammar_name")
 
     capability_name: str
     grammar_name: str
 
-    def __init__(self, capability_name: str, grammar_name: str) -> None:
-        object.__setattr__(self, "capability_name", capability_name)
-        object.__setattr__(self, "grammar_name", grammar_name)
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("GrammarRule is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError("GrammarRule is immutable")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, GrammarRule):
-            return False
-        return (
-            self.capability_name == other.capability_name
-            and self.grammar_name == other.grammar_name
-        )
-
-    def __hash__(self) -> int:
-        return hash((self.capability_name, self.grammar_name))
-
-
-class RecognizedRep:
+@dataclass(frozen=True, slots=True)
+class RecognizedRep(Generic[NotationT]):
     """Intermediate representation from recognition.
 
     Pairs a notation (capability-defined shape) with the grammar that
@@ -141,34 +64,21 @@ class RecognizedRep:
     traceability from validation back to the recognition source.
     """
 
-    __slots__ = ("notation", "contract", "grammar")
-
-    notation: Notation
+    notation: NotationT
     contract: Contract
     grammar: GrammarRule
 
-    def __init__(
-        self, notation: Notation, contract: Contract, grammar: GrammarRule
-    ) -> None:
-        object.__setattr__(self, "notation", notation)
-        object.__setattr__(self, "contract", contract)
-        object.__setattr__(self, "grammar", grammar)
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("RecognizedRep is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError("RecognizedRep is immutable")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, RecognizedRep):
-            return False
-        return self.notation == other.notation and self.grammar == other.grammar
-
     def __hash__(self) -> int:
-        return hash((tuple(self.notation), self.grammar))
+        """Hash is safe for unhashable notation types like list."""
+        notation_key: Any
+        if isinstance(self.notation, list):
+            notation_key = tuple(self.notation)
+        else:
+            notation_key = self.notation
+        return hash((notation_key, self.grammar))
 
 
+@dataclass(frozen=True, slots=True)
 class Candidate:
     """Carries validation output: canonical value + provenance.
 
@@ -177,12 +87,14 @@ class Candidate:
     update the Candidate fields and documentation accordingly.
     """
 
-    __slots__ = ("value", "recognition_rule", "validation_rule", "_provenance")
-
     value: str
     recognition_rule: str
     validation_rule: str
-    _provenance: tuple[Provenance, ...]
+    _provenance: tuple[Provenance, ...] = field(init=False)
+
+    @property
+    def provenance(self) -> tuple[Provenance, ...]:
+        return object.__getattribute__(self, "_provenance")
 
     def __init__(
         self,
@@ -196,68 +108,16 @@ class Candidate:
         object.__setattr__(self, "validation_rule", validation_rule)
         object.__setattr__(self, "_provenance", tuple(provenance))
 
-    @property
-    def provenance(self) -> tuple[Provenance, ...]:
-        return object.__getattribute__(self, "_provenance")
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("Candidate is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError("Candidate is immutable")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Candidate):
-            return False
-        return (
-            self.value == other.value
-            and self.recognition_rule == other.recognition_rule
-            and self.validation_rule == other.validation_rule
-            and self.provenance == other.provenance
-        )
-
-    def __hash__(self) -> int:
-        return hash(
-            (
-                self.value,
-                self.recognition_rule,
-                self.validation_rule,
-                self.provenance,
-            )
-        )
-
-
+@dataclass(frozen=True, slots=True)
 class VersionStamp:
     """Replay integrity metadata."""
-
-    __slots__ = ("paxman_version", "replay_hash")
 
     paxman_version: str
     replay_hash: str
 
-    def __init__(self, paxman_version: str, replay_hash: str) -> None:
-        object.__setattr__(self, "paxman_version", paxman_version)
-        object.__setattr__(self, "replay_hash", replay_hash)
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError("VersionStamp is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError("VersionStamp is immutable")
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, VersionStamp):
-            return False
-        return (
-            self.paxman_version == other.paxman_version
-            and self.replay_hash == other.replay_hash
-        )
-
-    def __hash__(self) -> int:
-        return hash((self.paxman_version, self.replay_hash))
-
-
-class Rule(ABC):
+class Rule(ABC, Generic[NotationT]):
     """Base class for validation rules."""
 
     name: str
@@ -266,22 +126,16 @@ class Rule(ABC):
     citation: str
 
     @abstractmethod
-    def matches(self, notation: Notation) -> bool:
-        """Check if notation matches this rule's pattern."""
-        ...
+    def matches(self, notation: NotationT, contract: Contract) -> bool: ...
 
     @abstractmethod
-    def normalize(self, notation: Notation) -> str:
-        """Normalize notation to canonical value."""
-        ...
+    def normalize(self, notation: NotationT, contract: Contract) -> str: ...
 
 
-class Grammar(ABC):
+class Grammar(ABC, Generic[NotationT]):
     """Base class for recognition grammars."""
 
     name: str
 
     @abstractmethod
-    def recognize(self, text: str) -> list[Notation]:
-        """Extract notation candidates from raw text."""
-        ...
+    def recognize(self, text: str) -> list[NotationT]: ...

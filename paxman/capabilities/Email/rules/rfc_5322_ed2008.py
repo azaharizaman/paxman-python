@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.Email.notation import EmailNotation
+from paxman.core.contract import Contract
 from paxman.core.domain import (
-    Notation,
     Provenance,
     Rule,
     RuleStrategy,
@@ -25,7 +26,7 @@ _LOCAL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+$")
 _DOMAIN_PATTERN = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 
-class Section341AddrSpec(Rule):
+class Section341AddrSpec(Rule[EmailNotation]):
     """RFC 5322 Section 3.4.1 — addr-spec."""
 
     name = "Section 3.4.1-addr-spec"
@@ -33,14 +34,11 @@ class Section341AddrSpec(Rule):
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"
 
-    def matches(self, notation: Notation) -> bool:
-        local_part = notation[0]
-        domain_part = notation[1]
+    def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         return bool(
-            _LOCAL_PATTERN.match(local_part) and _DOMAIN_PATTERN.match(domain_part)
+            _LOCAL_PATTERN.match(notation.local_part)
+            and _DOMAIN_PATTERN.match(notation.domain_part)
         )
 
-    def normalize(self, notation: Notation) -> str:
-        local_part = notation[0]
-        domain_part = notation[1]
-        return f"{local_part.lower()}@{domain_part.lower()}"
+    def normalize(self, notation: EmailNotation, contract: Contract) -> str:
+        return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"

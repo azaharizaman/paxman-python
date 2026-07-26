@@ -271,6 +271,32 @@ class TestNotation:
         assert len(n3) == 3
 
 
+class TestRuleAcceptsContract:
+    """Verify that Rule.matches() and Rule.normalize() accept a contract parameter."""
+
+    @pytest.mark.unit
+    def test_rule_matches_accepts_contract(self) -> None:
+        from paxman.capabilities.Email.contract import EmailContract
+        from paxman.capabilities.Email.notation import EmailNotation
+        from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
+
+        rule = Section341AddrSpec()
+        notation = EmailNotation(local_part="user", domain_part="example.com")
+        contract = EmailContract()
+        assert rule.matches(notation, contract) is True
+
+    @pytest.mark.unit
+    def test_rule_normalize_accepts_contract(self) -> None:
+        from paxman.capabilities.Email.contract import EmailContract
+        from paxman.capabilities.Email.notation import EmailNotation
+        from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
+
+        rule = Section341AddrSpec()
+        notation = EmailNotation(local_part="USER", domain_part="EXAMPLE.COM")
+        contract = EmailContract()
+        assert rule.normalize(notation, contract) == "user@example.com"
+
+
 class TestRecognizedRep:
     @pytest.mark.unit
     def test_immutable(self) -> None:

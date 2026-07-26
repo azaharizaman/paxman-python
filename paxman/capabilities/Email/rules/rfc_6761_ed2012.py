@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from paxman.capabilities.Email.notation import EmailNotation
+from paxman.core.contract import Contract
 from paxman.core.domain import (
-    Notation,
     Provenance,
     Rule,
     RuleStrategy,
@@ -20,7 +21,7 @@ PUBLICATION = Provenance(
 )
 
 
-class Section63localhost(Rule):
+class Section63localhost(Rule[EmailNotation]):
     """RFC 6761 Section 6.3 — localhost.
 
     Validates email addresses with localhost as the domain.
@@ -33,10 +34,8 @@ class Section63localhost(Rule):
     provenance = PUBLICATION
     citation = "Section 6.3 (localhost)"
 
-    def matches(self, notation: Notation) -> bool:
-        domain_part = notation[1]
-        return domain_part == "localhost"
+    def matches(self, notation: EmailNotation, contract: Contract) -> bool:
+        return notation.domain_part == "localhost"
 
-    def normalize(self, notation: Notation) -> str:
-        local_part = notation[0]
-        return f"{local_part}@localhost"
+    def normalize(self, notation: EmailNotation, contract: Contract) -> str:
+        return f"{notation.local_part}@localhost"
