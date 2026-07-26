@@ -56,3 +56,73 @@ class TestStandardEmailGrammar:
         grammar = StandardEmailGrammar()
         results = grammar.recognize("")
         assert len(results) == 0
+
+
+from paxman.capabilities.Email.grammar.obfuscated_recognition import (
+    ObfuscatedEmailGrammar,
+)
+
+
+class TestObfuscatedEmailGrammar:
+    """Tests for ObfuscatedEmailGrammar."""
+
+    @pytest.mark.capability
+    def test_recognizes_at_dot_format(self) -> None:
+        grammar = ObfuscatedEmailGrammar()
+        results = grammar.recognize("Contact user at example dot com")
+        assert len(results) == 1
+        assert results[0] == ["user", "example.com"]
+
+    @pytest.mark.capability
+    def test_recognizes_at_symbol_format(self) -> None:
+        grammar = ObfuscatedEmailGrammar()
+        results = grammar.recognize("Email user at gmail.com")
+        assert len(results) == 1
+        assert results[0] == ["user", "gmail.com"]
+
+    @pytest.mark.capability
+    def test_ignores_standard_email(self) -> None:
+        grammar = ObfuscatedEmailGrammar()
+        results = grammar.recognize("user@example.com")
+        assert len(results) == 0
+
+    @pytest.mark.capability
+    def test_returns_empty_for_no_email(self) -> None:
+        grammar = ObfuscatedEmailGrammar()
+        results = grammar.recognize("no email here")
+        assert len(results) == 0
+
+
+from paxman.capabilities.Email.grammar.localhost_recognition import (
+    LocalhostEmailGrammar,
+)
+
+
+class TestLocalhostEmailGrammar:
+    """Tests for LocalhostEmailGrammar."""
+
+    @pytest.mark.capability
+    def test_recognizes_localhost_email(self) -> None:
+        grammar = LocalhostEmailGrammar()
+        results = grammar.recognize("Send to admin@localhost")
+        assert len(results) == 1
+        assert results[0] == ["admin", "localhost"]
+
+    @pytest.mark.capability
+    def test_recognizes_localhost_with_port(self) -> None:
+        grammar = LocalhostEmailGrammar()
+        results = grammar.recognize("user@localhost:8080")
+        assert len(results) == 1
+        assert results[0] == ["user", "localhost"]
+
+    @pytest.mark.capability
+    def test_ignores_standard_email(self) -> None:
+        grammar = LocalhostEmailGrammar()
+        results = grammar.recognize("user@example.com")
+        assert len(results) == 0
+
+    @pytest.mark.capability
+    def test_returns_empty_for_no_email(self) -> None:
+        grammar = LocalhostEmailGrammar()
+        results = grammar.recognize("no email here")
+        assert len(results) == 0
