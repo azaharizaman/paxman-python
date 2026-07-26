@@ -30,6 +30,28 @@ Capability-defined intermediate representation that Grammars must produce.
 - **Date:** `DateNotation = list[str]` → `["day", "month", "year"]`
 - **Country:** `CountryNotation = list[str]` → `["country_name"]`
 
+**Note:** For type safety, capabilities should define Notation using `TypedDict` or `dataclass` instead of `list[str]`. This provides positional semantics validation and IDE support.
+
+### Notation Type Examples
+```python
+from typing import TypedDict
+
+# Email Notation using TypedDict
+class EmailNotation(TypedDict):
+    local_part: str
+    domain_part: str
+
+# Date Notation using TypedDict
+class DateNotation(TypedDict):
+    day: str
+    month: str
+    year: str
+
+# Country Notation using TypedDict
+class CountryNotation(TypedDict):
+    country_name: str
+```
+
 ---
 
 ## Pipeline Components
@@ -57,7 +79,7 @@ Each rule file pins to **ONE publication** and contains **ONE or more rules** (s
 ```python
 # capabilities/Email/rules/rfc_5322_ed2008.py
 
-from paxman.domain import Provenance, Rule, RuleStrategy, RuleSense
+from paxman.domain import Provenance, Rule, RuleStrategy
 
 # Publication-level provenance (one per file)
 PUBLICATION = Provenance(
@@ -75,7 +97,6 @@ class Section341AddrSpec(Rule):
     
     name = "Section 3.4.1-addr-spec"
     strategy = RuleStrategy.REGEX
-    sense = RuleSense.POSITIVE  # Match = valid
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"  # Human-readable citation
     
@@ -108,12 +129,6 @@ The resolver **consumes notation** and outputs a canonical_value (not notation).
 | `LOOKUP_TABLE` | Table lookup | HTTP status codes, country codes |
 | `PARSER` | Value parsing | Date parsing, UUID validation |
 
-### Rule Sense
-| Sense | Meaning | Example |
-|-------|---------|---------|
-| `POSITIVE` | Match = valid | RFC 5322 Section 3.4.1 (addr-spec) |
-| `NEGATIVE` | Match = invalid (exclusion) | RFC 5322 Section 4.4 (obsolete addressing) |
-
 ### LookupTable Example
 ```python
 # capabilities/HttpStatusCode/rules/rfc_9110_ed2022.py
@@ -123,7 +138,6 @@ class Section15StatusCodes(Rule):
     
     name = "Section 15-status-codes"
     strategy = RuleStrategy.LOOKUP_TABLE
-    sense = RuleSense.POSITIVE
     provenance = PUBLICATION
     
     TABLE = {
@@ -152,7 +166,6 @@ class SectionISO8601Date(Rule):
     
     name = "Section 4.3.1-calendar-date"
     strategy = RuleStrategy.PARSER
-    sense = RuleSense.POSITIVE
     provenance = PUBLICATION
     
     def matches(self, notation: list[str]) -> bool:
@@ -170,35 +183,12 @@ class SectionISO8601Date(Rule):
         return f"{year.zfill(4)}-{month.zfill(2)}-{day.zfill(2)}"
 ```
 
-### Exclusion Rule Example
-```python
-# paxman/capabilities/Email/rules/rfc_5322_ed2008.py
-
-class Section44ObsoleteAddressing(Rule):
-    """RFC 5322 Section 4.4 - Obsolete Addressing"""
-    
-    name = "Section 4.4-obsolete-addressing"
-    strategy = RuleStrategy.REGEX
-    sense = RuleSense.NEGATIVE  # Match = INVALID (exclusion)
-    provenance = PUBLICATION
-    citation = "Section 4.4 (obsolete addressing)"
-    
-    def matches(self, notation: list[str]) -> bool:
-        """Check if notation matches obsolete pattern."""
-        local_part, domain_part = notation
-        obsolete_pattern = r"^[^@]*@[^@]*@[^@]*$"
-        return bool(re.match(obsolete_pattern, f"{local_part}@{domain_part}"))
-    
-    def normalize(self, notation: list[str]) -> str:
-        """Return None (excluded)."""
-        return None
-```
-
 ### Grammar File Structure
 ```python
 # paxman/capabilities/Email/grammar/standard_recognition.py
 
 from paxman.domain import Grammar, Notation
+from paxman.capabilities.Email.capability import EmailNotation
 
 class StandardEmailGrammar(Grammar):
     """Standard email recognition: user@domain.tld"""
@@ -209,7 +199,10 @@ class StandardEmailGrammar(Grammar):
         """Extract email patterns from text."""
         pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
         matches = re.findall(pattern, text)
-        return [EmailNotation(match.split("@")) for match in matches]
+        return [
+            EmailNotation(local_part=match.split("@")[0], domain_part=match.split("@")[1])
+            for match in matches
+        ]
 ```
 
 ### Date Ambiguity Example
@@ -230,11 +223,13 @@ class StandardEmailGrammar(Grammar):
 
 ### Contract Rule Exclusion
 ```python
+from paxman.capabilities import Date
+
 # User knows input is US format, excludes ISO interpretation
-paxman.canonicalize("01/02/2026", Date(exclude_rule=ISO))
+paxman.canonicalize("01/02/2026", Date(excluded_rules=["iso_8601"]))
 
 # Or with year pinning
-paxman.canonicalize("01/02/26", Date(exclude_rule=ISO, two_digits_year_base=2000))
+paxman.canonicalize("01/02/26", Date(excluded_rules=["iso_8601"], two_digits_year_base=2000))
 # Result: "2026-01-02" → SUCCESS
 ```
 
@@ -283,6 +278,12 @@ class GrammarRule:
     grammar_name: str     # "standard_recognition"
 ```
 
+**Naming Convention:**
+- `capability_name`: Lowercase capability name (e.g., "email", "date", "country")
+- `grammar_name`: Lowercase, underscore-separated grammar name (e.g., "standard_recognition", "obfuscated_recognition")
+- Grammar names are unique within a capability but may not be globally unique
+- The `capability_name` field ensures global uniqueness
+
 ### RuleStrategy
 Validation strategy for a rule:
 ```python
@@ -293,15 +294,6 @@ class RuleStrategy(Enum):
     REGEX = "regex"
     LOOKUP_TABLE = "lookup_table"
     PARSER = "parser"
-```
-
-### RuleSense
-Whether a match means valid or invalid:
-```python
-class RuleSense(Enum):
-    """Whether a match means valid or invalid."""
-    POSITIVE = "positive"   # Match = valid
-    NEGATIVE = "negative"   # Match = invalid (exclusion)
 ```
 
 ---
@@ -353,7 +345,6 @@ Replay integrity metadata:
 @dataclass(frozen=True)
 class VersionStamp:
     paxman_version: str          # library version
-    contract_version: int        # contract schema version
     replay_hash: str             # SHA-256 of canonical bytes
 ```
 
@@ -426,7 +417,7 @@ else:
 from paxman.capabilities import Date
 
 # Pin to US format, exclude ISO interpretation
-result = paxman.canonicalize("01/02/26", Date(exclude_rule="iso_8601", two_digits_year_base=2000))
+result = paxman.canonicalize("01/02/26", Date(excluded_rules=["iso_8601"], two_digits_year_base=2000))
 
 # Result: "2026-01-02" → SUCCESS
 ```
@@ -464,9 +455,11 @@ for candidate in result.candidates:
 ### Capability Registry
 - **Built-in capabilities:** Hard-coded in `discovery.py` via `builtin_capabilities()`
 - **User-registered capabilities:** Added via `register_capability()` before first call
-- **Registry freezes** after first `canonicalize()` call
+- **Registry freezes** after first `canonicalize()` call (global state side effect)
 - **User can override built-ins** by registering same-named capability before first call
 - **Attempting to register after freeze raises `CapabilityError`**
+
+**Note:** The registry freeze is a global state side effect. In testing or multi-threaded environments, ensure all `register_capability()` calls complete before any `canonicalize()` calls. Consider using `paxman.freeze_registry()` for explicit control if needed.
 
 ### Capability Versioning
 - Each capability has its own version in `capability.py`
@@ -507,6 +500,11 @@ class Contract(Protocol):
     @property
     def excluded_rules(self) -> list[str]:
         """List of rule names to exclude."""
+        ...
+    
+    @property
+    def year(self) -> int | None:
+        """Year for temporal filtering (publication_year ≤ year)."""
         ...
     
     def as_dict(self) -> dict[str, Any]:
@@ -662,6 +660,46 @@ layers = [
     "paxman.engine",         # Pipeline orchestrator
     "paxman.api",            # Public API (canonicalize)
 ]
+```
+
+### Pytest Configuration
+```toml
+# pyproject.toml
+[tool.pytest.ini_options]
+markers = [
+    "unit: unit tests",
+    "capability: capability-specific tests",
+    "integration: integration tests",
+    "e2e: end-to-end tests",
+]
+testpaths = ["tests"]
+```
+
+### Pyright Configuration
+```json
+{
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "strict",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "include": ["src/paxman"],
+  "exclude": ["tests", "docs"]
+}
+```
+
+### Hypothesis Configuration
+```python
+# tests/conftest.py
+from hypothesis import settings, HealthCheck
+
+# Configure hypothesis for faster tests
+settings.register_profile(
+    "ci",
+    max_examples=100,
+    suppress_health_check=[HealthCheck.too_slow],
+    deadline=None,
+)
+settings.load_profile("ci")
 ```
 
 ### Import Boundaries

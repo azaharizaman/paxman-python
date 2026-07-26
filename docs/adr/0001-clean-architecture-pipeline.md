@@ -162,33 +162,28 @@ ExecutionResult
     - `PARSER` — Value parsing for structured data
     - Benefit: Clear separation of validation approaches
 
-13. **Rule Polarity (Sense)**
-    - `POSITIVE` — Match means valid
-    - `NEGATIVE` — Match means invalid (exclusion)
-    - Benefit: Supports both validation and exclusion rules
-
-14. **GrammarRule Reference**
+13. **GrammarRule Reference**
     - `GrammarRule(capability_name, grammar_name)` — reference to grammar that produced RecognizedRep
     - Benefit: Clear traceability from notation back to source grammar
 
-15. **Notation for Placement-Sensitive Rules**
+14. **Notation for Placement-Sensitive Rules**
     - Notation exists because some rules are placement-sensitive
     - Dates: `["01", "02", "2026"]` — position matters (DD/MM/YYYY vs MM/DD/YYYY)
     - Email: `["azahari", "@gmail.com"]` — position matters (local vs domain)
     - Resolver consumes notation, outputs canonical_value
     - Benefit: Clear separation of syntactic extraction vs semantic validation
 
-16. **Contract Rule Exclusion**
-    - Contracts can exclude specific rules (e.g., `Date(exclude_rule=ISO)`)
+15. **Contract Rule Exclusion**
+    - Contracts can exclude specific rules (e.g., `Date(excluded_rules=["iso_8601"])`)
     - User can pin behavior by excluding unwanted interpretations
     - Benefit: User controls ambiguity resolution
 
-17. **Exhaustive Rule Validation**
+16. **Exhaustive Rule Validation**
     - ALL rules must be checked, not just first match
     - Incomplete evidence = incomplete citation
     - Benefit: Full provenance trail for every canonical value
 
-18. **Engine Responsibility for ExecutionResult**
+17. **Engine Responsibility for ExecutionResult**
     - Capability produces candidates via validation rules
     - Engine shapes ExecutionResult, computes status, replay_hash
     - Capability does NOT create ExecutionResult
