@@ -13,6 +13,7 @@ from paxman.capabilities.Email.grammar.obfuscated_recognition import (
 from paxman.capabilities.Email.grammar.standard_recognition import (
     StandardEmailGrammar,
 )
+from paxman.capabilities.Email.notation import EmailNotation
 
 
 class TestStandardEmailGrammar:
@@ -23,29 +24,33 @@ class TestStandardEmailGrammar:
         grammar = StandardEmailGrammar()
         results = grammar.recognize("Contact us at user@example.com")
         assert len(results) == 1
-        assert results[0] == ["user", "example.com"]
+        assert results[0] == EmailNotation(local_part="user", domain_part="example.com")
 
     @pytest.mark.capability
     def test_recognizes_email_with_dots(self) -> None:
         grammar = StandardEmailGrammar()
         results = grammar.recognize("Send to first.last@domain.co.uk")
         assert len(results) == 1
-        assert results[0] == ["first.last", "domain.co.uk"]
+        assert results[0] == EmailNotation(
+            local_part="first.last", domain_part="domain.co.uk"
+        )
 
     @pytest.mark.capability
     def test_recognizes_email_with_plus(self) -> None:
         grammar = StandardEmailGrammar()
         results = grammar.recognize("user+tag@gmail.com")
         assert len(results) == 1
-        assert results[0] == ["user+tag", "gmail.com"]
+        assert results[0] == EmailNotation(
+            local_part="user+tag", domain_part="gmail.com"
+        )
 
     @pytest.mark.capability
     def test_recognizes_multiple_emails(self) -> None:
         grammar = StandardEmailGrammar()
         results = grammar.recognize("Email a@b.com or c@d.org")
         assert len(results) == 2
-        assert results[0] == ["a", "b.com"]
-        assert results[1] == ["c", "d.org"]
+        assert results[0] == EmailNotation(local_part="a", domain_part="b.com")
+        assert results[1] == EmailNotation(local_part="c", domain_part="d.org")
 
     @pytest.mark.capability
     def test_ignores_invalid_email(self) -> None:
@@ -74,14 +79,14 @@ class TestObfuscatedEmailGrammar:
         grammar = ObfuscatedEmailGrammar()
         results = grammar.recognize("Contact user at example dot com")
         assert len(results) == 1
-        assert results[0] == ["user", "example.com"]
+        assert results[0] == EmailNotation(local_part="user", domain_part="example.com")
 
     @pytest.mark.capability
     def test_recognizes_at_symbol_format(self) -> None:
         grammar = ObfuscatedEmailGrammar()
         results = grammar.recognize("Email user at gmail.com")
         assert len(results) == 1
-        assert results[0] == ["user", "gmail.com"]
+        assert results[0] == EmailNotation(local_part="user", domain_part="gmail.com")
 
     @pytest.mark.capability
     def test_ignores_standard_email(self) -> None:
@@ -104,14 +109,14 @@ class TestLocalhostEmailGrammar:
         grammar = LocalhostEmailGrammar()
         results = grammar.recognize("Send to admin@localhost")
         assert len(results) == 1
-        assert results[0] == ["admin", "localhost"]
+        assert results[0] == EmailNotation(local_part="admin", domain_part="localhost")
 
     @pytest.mark.capability
     def test_recognizes_localhost_with_port(self) -> None:
         grammar = LocalhostEmailGrammar()
         results = grammar.recognize("user@localhost:8080")
         assert len(results) == 1
-        assert results[0] == ["user", "localhost"]
+        assert results[0] == EmailNotation(local_part="user", domain_part="localhost")
 
     @pytest.mark.capability
     def test_ignores_standard_email(self) -> None:

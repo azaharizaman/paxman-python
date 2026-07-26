@@ -120,7 +120,9 @@ def _collect_candidates(
         for rule in rules:
             try:
                 if rule.matches(recognition.notation, recognition.contract):
-                    canonical = rule.normalize(recognition.notation, recognition.contract)
+                    canonical = rule.normalize(
+                        recognition.notation, recognition.contract
+                    )
                     candidates.append(
                         Candidate(
                             value=canonical,
