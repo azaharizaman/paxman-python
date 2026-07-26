@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from paxman.capabilities.Email.grammar.localhost_recognition import (
@@ -13,22 +14,13 @@ from paxman.capabilities.Email.grammar.obfuscated_recognition import (
 from paxman.capabilities.Email.grammar.standard_recognition import (
     StandardEmailGrammar,
 )
+from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
 from paxman.capabilities.Email.rules.rfc_6761_ed2012 import Section63localhost
 from paxman.core.capability import Capability
 from paxman.core.domain import Grammar, Rule
 
-
-@dataclass(frozen=True)
-class EmailNotation:
-    """Email notation: local_part and domain_part."""
-
-    local_part: str
-    domain_part: str
-
-    def as_list(self) -> list[str]:
-        """Convert to list[str] for generic Rule interface."""
-        return [self.local_part, self.domain_part]
+__all__ = ["EmailCapability", "EmailContract", "EmailNotation"]
 
 
 class EmailCapability(Capability):
@@ -50,6 +42,21 @@ class EmailCapability(Capability):
             Section63localhost(),
         ]
 
+    @staticmethod
+    def create_contract(
+        include_obfuscated: bool = False,
+        include_localhost: bool = True,
+        excluded_rules: Sequence[str] | None = None,
+        year: int | None = None,
+    ) -> EmailContract:
+        """Create an EmailContract with the given configuration."""
+        return EmailContract(
+            include_obfuscated=include_obfuscated,
+            include_localhost=include_localhost,
+            excluded_rules=tuple(excluded_rules) if excluded_rules else (),
+            year=year,
+        )
+
 
 @dataclass(frozen=True)
 class EmailContract:
@@ -58,7 +65,7 @@ class EmailContract:
     capability_name: str = field(default="email", init=False)
     include_obfuscated: bool = False
     include_localhost: bool = True
-    excluded_rules: list[str] = field(default_factory=lambda: [])
+    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
     year: int | None = None
 
     @property
@@ -78,20 +85,3 @@ class EmailContract:
             "excluded_rules": self.excluded_rules,
             "year": self.year,
         }
-
-
-def _create_contract(
-    include_obfuscated: bool = False,
-    include_localhost: bool = True,
-    excluded_rules: list[str] | None = None,
-    year: int | None = None,
-) -> EmailContract:
-    return EmailContract(
-        include_obfuscated=include_obfuscated,
-        include_localhost=include_localhost,
-        excluded_rules=excluded_rules or [],
-        year=year,
-    )
-
-
-EmailCapability.create_contract = staticmethod(_create_contract)  # type: ignore[attr-defined]

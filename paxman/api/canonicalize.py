@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from paxman.core.capability import Capability
 from paxman.core.contract import Contract
-from paxman.core.discovery import CapabilityError, get_capability
 from paxman.engine.orchestrator import ExecutionResult, run_capability
 
 
@@ -25,19 +23,6 @@ def canonicalize(
         ExecutionResult with status, canonicalized_value, candidates, etc.
 
     Raises:
-        ValueError: If no capability matches the contract's capability_name.
+        CapabilityError: If no capability matches the contract's capability_name.
     """
-    _find_capability(contract.capability_name)
     return run_capability(text, contract)
-
-
-def _find_capability(name: str) -> Capability:
-    """Find a capability by name from the registry.
-
-    Raises:
-        ValueError: If no capability with that name is registered.
-    """
-    try:
-        return get_capability(name)
-    except CapabilityError as exc:
-        raise ValueError(f"No capability found with name '{name}'") from exc

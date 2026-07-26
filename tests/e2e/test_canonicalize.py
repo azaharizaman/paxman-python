@@ -8,6 +8,7 @@ from paxman.api import canonicalize
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
+from paxman.core.errors import CapabilityError
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +66,7 @@ class TestCanonicalize:
 
     @pytest.mark.e2e
     def test_unknown_capability_raises_error(self):
-        """Unknown capability name raises ValueError."""
+        """Unknown capability name raises CapabilityError."""
 
         class FakeContract:
             @property
@@ -87,5 +88,5 @@ class TestCanonicalize:
             def as_dict(self) -> dict:
                 return {"capability_name": "nonexistent"}
 
-        with pytest.raises(ValueError, match="No capability found"):
+        with pytest.raises(CapabilityError, match="Unknown capability"):
             canonicalize("test", FakeContract())

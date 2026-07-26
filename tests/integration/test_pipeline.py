@@ -74,7 +74,7 @@ class TestRunCapability:
         result = run_capability("user@example.com", contract)
 
         assert result.version_stamp is not None
-        assert result.version_stamp.paxman_version == "0.1.0"
+        assert isinstance(result.version_stamp.paxman_version, str)
         assert len(result.version_stamp.replay_hash) == 64  # SHA-256 hex
 
     @pytest.mark.integration

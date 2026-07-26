@@ -1969,7 +1969,7 @@ class ExecutionResult:
 
     status: Resolution
     canonicalized_value: str | None
-    candidates: list[Candidate]
+    candidates: tuple[Candidate, ...]
     contract: Contract
     version_stamp: VersionStamp
 
@@ -1985,7 +1985,7 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     return ExecutionResult(
         status=status,
         canonicalized_value=canonical_value,
-        candidates=candidates,
+        candidates=tuple(candidates),
         contract=contract,
         version_stamp=version_stamp,
     )

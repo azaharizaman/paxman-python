@@ -320,7 +320,7 @@ Final output from `paxman.canonicalize()`. **Engine responsibility** — not cap
 class ExecutionResult:
     status: Resolution        # Enum status (computed by engine)
     canonicalized_value: str | None  # Extracted from candidates (if SUCCESS)
-    candidates: list[Candidate]  # Produced by capability validation rules
+    candidates: tuple[Candidate, ...]  # Produced by capability validation rules
     contract: Contract  # Passed through from user
     version_stamp: VersionStamp  # Computed by engine (includes replay_hash)
 ```
@@ -455,11 +455,11 @@ for candidate in result.candidates:
 ### Capability Registry
 - **Built-in capabilities:** Hard-coded in `discovery.py` via `builtin_capabilities()`
 - **User-registered capabilities:** Added via `register_capability()` before first call
-- **Registry freezes** after first `canonicalize()` call (global state side effect)
+- **Registry freezes** at the start of each `run_capability()` call (engine responsibility)
 - **User can override built-ins** by registering same-named capability before first call
 - **Attempting to register after freeze raises `CapabilityError`**
 
-**Note:** The registry freeze is a global state side effect. In testing or multi-threaded environments, ensure all `register_capability()` calls complete before any `canonicalize()` calls. Consider using `paxman.freeze_registry()` for explicit control if needed.
+**Note:** The registry freeze happens at the start of each pipeline run, not just once. In testing, use `reset_registry()` between tests to allow re-registration. `freeze_registry()` is available for explicit control.
 
 ### Capability Versioning
 - Each capability has its own version in `capability.py`

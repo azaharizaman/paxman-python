@@ -1,5 +1,7 @@
 """Tests for temporal (year-based) rule filtering."""
 
+from __future__ import annotations
+
 import pytest
 
 from paxman.capabilities.Email.capability import EmailCapability
@@ -17,7 +19,7 @@ def _clean_registry():
 
 class TestTemporalFiltering:
     @pytest.mark.integration
-    def test_year_filters_out_future_rules(self):
+    def test_year_filters_out_future_rules(self) -> None:
         """Year=2007 excludes RFC 5322 (2008) and RFC 6761 (2012)."""
         cap = EmailCapability()
         register_capability(cap)
@@ -25,12 +27,14 @@ class TestTemporalFiltering:
         contract = EmailCapability.create_contract(year=2007)
         result = run_capability("user@example.com", contract)
 
-        # No rules active (both published after 2007) → recognized but invalid
-        assert result.status == Resolution.MISSING
+        # "user@example.com" IS recognized by standard grammar, but both rules
+        # (RFC 5322 published 2008, RFC 6761 published 2012) are excluded by year=2007.
+        # This means: recognized but no provenance validates → INVALID
+        assert result.status == Resolution.INVALID
         assert len(result.candidates) == 0
 
     @pytest.mark.integration
-    def test_year_includes_matching_rules(self):
+    def test_year_includes_matching_rules(self) -> None:
         """Year=2010 includes RFC 5322 (2008) but excludes RFC 6761 (2012)."""
         cap = EmailCapability()
         register_capability(cap)
@@ -43,7 +47,7 @@ class TestTemporalFiltering:
         assert result.canonicalized_value == "user@example.com"
 
     @pytest.mark.integration
-    def test_year_none_includes_all_rules(self):
+    def test_year_none_includes_all_rules(self) -> None:
         """No year pin → all rules active."""
         cap = EmailCapability()
         register_capability(cap)

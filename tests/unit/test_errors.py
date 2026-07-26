@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 
 from paxman.core.errors import (
@@ -11,18 +13,18 @@ from paxman.core.errors import (
 
 class TestExceptionHierarchy:
     @pytest.mark.unit
-    def test_paxman_error_is_base(self):
+    def test_paxman_error_is_base(self) -> None:
         assert issubclass(ContractError, PaxmanError)
         assert issubclass(CapabilityError, PaxmanError)
         assert issubclass(RecognitionError, PaxmanError)
         assert issubclass(ValidationError, PaxmanError)
 
     @pytest.mark.unit
-    def test_paxman_error_is_exception(self):
+    def test_paxman_error_is_exception(self) -> None:
         assert issubclass(PaxmanError, Exception)
 
     @pytest.mark.unit
-    def test_recognition_error_stores_rule(self):
+    def test_recognition_error_stores_rule(self) -> None:
         original = ValueError("bad regex")
         err = RecognitionError(
             rule="standard_recognition",
@@ -34,7 +36,7 @@ class TestExceptionHierarchy:
         assert "standard_recognition" in str(err)
 
     @pytest.mark.unit
-    def test_validation_error_stores_rule(self):
+    def test_validation_error_stores_rule(self) -> None:
         original = KeyError("missing")
         err = ValidationError(
             rule="rfc_5322",
@@ -46,11 +48,11 @@ class TestExceptionHierarchy:
         assert "rfc_5322" in str(err)
 
     @pytest.mark.unit
-    def test_contract_error_message(self):
+    def test_contract_error_message(self) -> None:
         err = ContractError("missing required field")
         assert "missing required field" in str(err)
 
     @pytest.mark.unit
-    def test_capability_error_message(self):
+    def test_capability_error_message(self) -> None:
         err = CapabilityError("unknown capability: foo")
         assert "unknown capability: foo" in str(err)

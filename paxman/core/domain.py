@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from enum import Enum
 from typing import Any
+
+from paxman.core.contract import Contract
 
 
 class RuleStrategy(Enum):
@@ -130,6 +133,42 @@ class GrammarRule:
         return hash((self.capability_name, self.grammar_name))
 
 
+class RecognizedRep:
+    """Intermediate representation from recognition.
+
+    Pairs a notation (capability-defined shape) with the grammar that
+    produced it and the contract that governed recognition, providing
+    traceability from validation back to the recognition source.
+    """
+
+    __slots__ = ("notation", "contract", "grammar")
+
+    notation: Notation
+    contract: Contract
+    grammar: GrammarRule
+
+    def __init__(
+        self, notation: Notation, contract: Contract, grammar: GrammarRule
+    ) -> None:
+        object.__setattr__(self, "notation", notation)
+        object.__setattr__(self, "contract", contract)
+        object.__setattr__(self, "grammar", grammar)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("RecognizedRep is immutable")
+
+    def __delattr__(self, name: str) -> None:
+        raise AttributeError("RecognizedRep is immutable")
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RecognizedRep):
+            return False
+        return self.notation == other.notation and self.grammar == other.grammar
+
+    def __hash__(self) -> int:
+        return hash((tuple(self.notation), self.grammar))
+
+
 class Candidate:
     """Carries validation output: canonical value + provenance.
 
@@ -150,7 +189,7 @@ class Candidate:
         value: str,
         recognition_rule: str,
         validation_rule: str,
-        provenance: list[Provenance],
+        provenance: Sequence[Provenance],
     ) -> None:
         object.__setattr__(self, "value", value)
         object.__setattr__(self, "recognition_rule", recognition_rule)
@@ -159,7 +198,7 @@ class Candidate:
 
     @property
     def provenance(self) -> tuple[Provenance, ...]:
-        return object.__getattribute__(self, "_provenance")  # type: ignore[no-any-return]
+        return object.__getattribute__(self, "_provenance")
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("Candidate is immutable")

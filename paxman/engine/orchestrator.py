@@ -4,16 +4,34 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
+from importlib.metadata import version as _get_version
 from typing import Any
 
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
 from paxman.core.discovery import freeze_registry, get_capability
-from paxman.core.domain import Candidate, Notation, Provenance, Resolution, VersionStamp
+from paxman.core.domain import (
+    Candidate,
+    GrammarRule,
+    Provenance,
+    RecognizedRep,
+    Resolution,
+    VersionStamp,
+)
 from paxman.core.errors import RecognitionError, ValidationError
 
-PAXMAN_VERSION = "0.1.0"
+
+def _resolve_version() -> str:
+    """Resolve the installed paxman package version."""
+    try:
+        return _get_version("paxman")
+    except Exception:
+        return "0.1.0"
+
+
+PAXMAN_VERSION = _resolve_version()
 
 
 @dataclass(frozen=True)
@@ -22,7 +40,7 @@ class ExecutionResult:
 
     status: Resolution
     canonicalized_value: str | None
-    candidates: list[Candidate]
+    candidates: tuple[Candidate, ...]
     contract: Contract
     version_stamp: VersionStamp
 
@@ -31,26 +49,32 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     """Run the full pipeline: recognition → validation → result."""
     freeze_registry()
     capability = get_capability(contract.capability_name)
-    candidates = _validate(text, capability, contract)
-    status = _determine_status(candidates)
+    candidates, had_recognitions = _validate(text, capability, contract)
+    status = _determine_status(candidates, had_recognitions)
     canonical_value = _extract_canonical_value(candidates, status)
     version_stamp = _build_version_stamp(text, candidates, contract, status)
     return ExecutionResult(
         status=status,
         canonicalized_value=canonical_value,
-        candidates=candidates,
+        candidates=tuple(candidates),
         contract=contract,
         version_stamp=version_stamp,
     )
 
 
-def _validate(text: str, capability: Capability, contract: Contract) -> list[Candidate]:
-    """Run recognition then validation, returning all candidates."""
+def _validate(
+    text: str, capability: Capability, contract: Contract
+) -> tuple[list[Candidate], bool]:
+    """Run recognition then validation, returning all candidates.
+
+    Also returns whether any recognitions occurred (used to distinguish
+    MISSING from INVALID status).
+    """
     active_grammar_names = set(contract.active_grammars)
     all_grammars = capability.get_grammars()
     active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
 
-    recognitions: list[tuple[Notation, str]] = []
+    recognitions: list[RecognizedRep] = []
     for grammar in active_grammars:
         try:
             notations = grammar.recognize(text)
@@ -60,15 +84,22 @@ def _validate(text: str, capability: Capability, contract: Contract) -> list[Can
                 message=f"Grammar failed: {exc}",
                 original_error=exc,
             ) from exc
+        grammar_ref = GrammarRule(
+            capability_name=capability.name, grammar_name=grammar.name
+        )
         for notation in notations:
-            recognitions.append((notation, grammar.name))
+            recognitions.append(
+                RecognizedRep(notation=notation, contract=contract, grammar=grammar_ref)
+            )
+
+    had_recognitions = len(recognitions) > 0
 
     all_rules = capability.get_rules()
     excluded = set(contract.excluded_rules)
     active_rules = [r for r in all_rules if r.name not in excluded]
 
     candidates: list[Candidate] = []
-    for notation, grammar_name in recognitions:
+    for recognition in recognitions:
         for rule in active_rules:
             if (
                 contract.year is not None
@@ -76,12 +107,12 @@ def _validate(text: str, capability: Capability, contract: Contract) -> list[Can
             ):
                 continue
             try:
-                if rule.matches(notation):
-                    canonical = rule.normalize(notation)
+                if rule.matches(recognition.notation):
+                    canonical = rule.normalize(recognition.notation)
                     candidates.append(
                         Candidate(
                             value=canonical,
-                            recognition_rule=grammar_name,
+                            recognition_rule=recognition.grammar.grammar_name,
                             validation_rule=rule.name,
                             provenance=[rule.provenance],
                         )
@@ -93,12 +124,16 @@ def _validate(text: str, capability: Capability, contract: Contract) -> list[Can
                     original_error=exc,
                 ) from exc
 
-    return candidates
+    return candidates, had_recognitions
 
 
-def _determine_status(candidates: list[Candidate]) -> Resolution:
+def _determine_status(
+    candidates: Sequence[Candidate], had_recognitions: bool
+) -> Resolution:
     """Determine resolution status from candidates."""
     if not candidates:
+        if had_recognitions:
+            return Resolution.INVALID
         return Resolution.MISSING
     values = {c.value for c in candidates}
     if len(values) == 1:
@@ -107,7 +142,7 @@ def _determine_status(candidates: list[Candidate]) -> Resolution:
 
 
 def _extract_canonical_value(
-    candidates: list[Candidate], status: Resolution
+    candidates: Sequence[Candidate], status: Resolution
 ) -> str | None:
     """Extract canonical value if status is SUCCESS."""
     if status == Resolution.SUCCESS and candidates:
@@ -117,7 +152,7 @@ def _extract_canonical_value(
 
 def _build_version_stamp(
     text: str,
-    candidates: list[Candidate],
+    candidates: Sequence[Candidate],
     contract: Contract,
     status: Resolution,
 ) -> VersionStamp:
@@ -154,7 +189,7 @@ def _candidate_to_dict(c: Candidate) -> dict[str, Any]:
 
 def _compute_replay_hash(
     text: str,
-    candidates: list[Candidate],
+    candidates: Sequence[Candidate],
     contract: Contract,
     status: Resolution,
 ) -> str:

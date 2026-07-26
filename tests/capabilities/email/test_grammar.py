@@ -1,5 +1,7 @@
 """Tests for Email recognition grammars."""
 
+from __future__ import annotations
+
 import pytest
 
 from paxman.capabilities.Email.grammar.localhost_recognition import (

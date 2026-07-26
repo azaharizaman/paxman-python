@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -13,13 +14,13 @@ class Contract(Protocol):
         ...
 
     @property
-    def active_grammars(self) -> list[str]:
-        """List of grammar names to activate."""
+    def active_grammars(self) -> Sequence[str]:
+        """Grammar names to activate."""
         ...
 
     @property
-    def excluded_rules(self) -> list[str]:
-        """List of rule names to exclude."""
+    def excluded_rules(self) -> Sequence[str]:
+        """Rule names to exclude."""
         ...
 
     @property
