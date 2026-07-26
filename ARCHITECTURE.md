@@ -82,7 +82,11 @@ The outermost layer exposes the user-facing interface. It is intentionally minim
 
 ### Protocol-Based Contracts
 
-Contracts are defined as structural protocols, not inheritance-based base classes. Any class that satisfies the structural interface — providing the required attributes and methods — qualifies as a contract. This allows capability authors to design contract objects that fit their domain without being constrained by a base class hierarchy.
+Contracts are defined as structural protocols (`Contract`), not inheritance-based base classes. Any class that satisfies the structural interface — providing the required attributes and methods — qualifies as a contract. This allows capability authors to design contract objects that fit their domain (using dataclasses, Pydantic models, etc.) without being constrained by a base class hierarchy. This prioritizes **user flexibility** and **decoupling**.
+
+### ABC-Based Capabilities
+
+In contrast to contracts, Capabilities are defined as Abstract Base Classes (`Capability`). This prioritizes **internal rigidity** and **reliability**. Since capabilities are internal components managed by the engine's registry, strict inheritance ensures they adhere to the required structure (`get_grammars()`, `get_rules()`) and prevents runtime errors during discovery.
 
 ### Capability as Factory
 
@@ -91,6 +95,16 @@ Capabilities do not hold state. They are factories that produce grammars and rul
 ### Notation Bridging
 
 Each capability defines a typed Notation (a data class with named fields) that provides domain-specific structure. However, the Rule and Grammar abstract interfaces operate on a generic list-of-strings representation. Capabilities bridge this gap by providing a conversion method from the typed notation to the generic form. This gives type safety at the capability level while maintaining a uniform interface for the engine.
+
+### Contract Parameters
+
+Contracts pass configuration parameters to validation rules, enabling rules to adapt their behavior based on user preferences. Two key parameters are:
+
+- **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). Rules check this parameter during normalization to produce the desired output format.
+
+- **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Rules use this to resolve ambiguous year values in date parsing.
+
+These parameters are passed through the contract to rule methods (`matches()` and `normalize()`), allowing rules to be contract-aware without direct coupling to specific capabilities.
 
 ### Immutability
 

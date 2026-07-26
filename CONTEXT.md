@@ -21,12 +21,13 @@ A domain module (e.g., Email) that:
 User-facing configuration object that:
 - **Toggles grammars ON/OFF** (e.g., `include_obfuscated=True`)
 - **Pins year** to filter validation rules by `publication_year`
-- **Passes parameters** to validation rules (e.g., `output_format=ISO`)
+- **Passes parameters** to validation rules (e.g., `output_format=ISO`, `two_digit_base_year=2000`)
 - Does NOT define Notation (that's internal to Capability)
 
 ### Notation
 Capability-defined intermediate representation that Grammars must produce.
 - **Email:** `EmailNotation` (frozen dataclass with `local_part` and `domain_part` fields) → `["local_part", "domain_part"]`
+- **Date:** `DateNotation` (frozen dataclass with `day`, `month`, and `year` fields) → `["day", "month", "year"]`
 
 **Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
 
@@ -626,10 +627,10 @@ root_package = "paxman"
 name = "Capability independence"
 type = "layers"
 layers = [
-    "paxman.core",           # Domain objects (Provenance, Candidate, etc.)
-    "paxman.capabilities",   # Capability implementations
-    "paxman.engine",         # Pipeline orchestrator
     "paxman.api",            # Public API (canonicalize)
+    "paxman.engine",         # Pipeline orchestrator
+    "paxman.capabilities",   # Capability implementations
+    "paxman.core",           # Domain objects (Provenance, Candidate, etc.)
 ]
 ```
 
