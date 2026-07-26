@@ -11,7 +11,7 @@ A **canonicalization authority resolver** — a library that takes ambiguous hum
 - **Replay-safe:** Same input + same contract = byte-identical output
 
 ### Capability
-A domain module (e.g., Email, Date, Country) that:
+A domain module (e.g., Email) that:
 - Defines a **Notation** (intermediate representation)
 - Registers **Grammars** (recognition rules)
 - Registers **Validation Rules** (semantic rules with provenance)
@@ -26,30 +26,23 @@ User-facing configuration object that:
 
 ### Notation
 Capability-defined intermediate representation that Grammars must produce.
-- **Email:** `EmailNotation = list[str]` → `["local_part", "domain_part"]`
-- **Date:** `DateNotation = list[str]` → `["day", "month", "year"]`
-- **Country:** `CountryNotation = list[str]` → `["country_name"]`
+- **Email:** `EmailNotation` (frozen dataclass with `local_part` and `domain_part` fields) → `["local_part", "domain_part"]`
 
-**Note:** For type safety, capabilities should define Notation using `TypedDict` or `dataclass` instead of `list[str]`. This provides positional semantics validation and IDE support.
+**Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
 
-### Notation Type Examples
+### Notation Type Example
 ```python
-from typing import TypedDict
+from dataclasses import dataclass
 
-# Email Notation using TypedDict
-class EmailNotation(TypedDict):
+# Email Notation using frozen dataclass
+@dataclass(frozen=True)
+class EmailNotation:
     local_part: str
     domain_part: str
 
-# Date Notation using TypedDict
-class DateNotation(TypedDict):
-    day: str
-    month: str
-    year: str
-
-# Country Notation using TypedDict
-class CountryNotation(TypedDict):
-    country_name: str
+    def as_list(self) -> list[str]:
+        """Convert to list[str] for generic Rule interface."""
+        return [self.local_part, self.domain_part]
 ```
 
 ---
@@ -79,7 +72,7 @@ Each rule file pins to **ONE publication** and contains **ONE or more rules** (s
 ```python
 # capabilities/Email/rules/rfc_5322_ed2008.py
 
-from paxman.domain import Provenance, Rule, RuleStrategy
+from paxman.core.domain import Provenance, Rule, RuleStrategy
 
 # Publication-level provenance (one per file)
 PUBLICATION = Provenance(
@@ -117,7 +110,7 @@ class Section341AddrSpec(Rule):
 ### Notation Purpose
 Notation exists for **placement-sensitive rules**:
 - **Dates:** `["01", "02", "2026"]` — position matters (DD/MM/YYYY vs MM/DD/YYYY)
-- **Email:** `["azahari", "@gmail.com"]` — position matters (local vs domain)
+- **Email:** `["azahari", "gmail.com"]` — position matters (local vs domain)
 - **Countries:** `["Russia", "Federation"]` — multi-word names
 
 The resolver **consumes notation** and outputs a canonical_value (not notation).
@@ -187,8 +180,8 @@ class SectionISO8601Date(Rule):
 ```python
 # paxman/capabilities/Email/grammar/standard_recognition.py
 
-from paxman.domain import Grammar, Notation
-from paxman.capabilities.Email.capability import EmailNotation
+from paxman.core.domain import Grammar, Notation
+from paxman.capabilities.Email.notation import EmailNotation
 
 class StandardEmailGrammar(Grammar):
     """Standard email recognition: user@domain.tld"""
@@ -200,7 +193,7 @@ class StandardEmailGrammar(Grammar):
         pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
         matches = re.findall(pattern, text)
         return [
-            EmailNotation(local_part=match.split("@")[0], domain_part=match.split("@")[1])
+            EmailNotation(local_part=match.split("@")[0], domain_part=match.split("@")[1]).as_list()
             for match in matches
         ]
 ```
@@ -223,14 +216,16 @@ class StandardEmailGrammar(Grammar):
 
 ### Contract Rule Exclusion
 ```python
-from paxman.capabilities import Date
+from paxman.capabilities import Email
 
-# User knows input is US format, excludes ISO interpretation
-paxman.canonicalize("01/02/2026", Date(excluded_rules=["iso_8601"]))
+# User knows input is localhost, excludes standard validation
+contract = Email.create_contract(excluded_rules=["Section 3.4.1-addr-spec"])
+paxman.canonicalize("user@localhost", contract)
 
 # Or with year pinning
-paxman.canonicalize("01/02/26", Date(excluded_rules=["iso_8601"], two_digits_year_base=2000))
-# Result: "2026-01-02" → SUCCESS
+contract = Email.create_contract(excluded_rules=["Section 6.3-localhost"], year=2008)
+paxman.canonicalize("user@example.com", contract)
+# Result: "user@example.com" → SUCCESS
 ```
 
 ### RecognizedRep
@@ -400,10 +395,10 @@ class ValidationError(PaxmanError):
 ```python
 import paxman
 from paxman.capabilities import Email
-from paxman.domain import Resolution
+from paxman.core.domain import Resolution
 
 # Canonicalize an email
-result = paxman.canonicalize("azahari at gmail dot com", Email(include_obfuscated=True))
+result = paxman.canonicalize("azahari at gmail dot com", Email.create_contract(include_obfuscated=True))
 
 if result.status == Resolution.SUCCESS:
     print(f"Canonical: {result.canonicalized_value}")
@@ -414,12 +409,13 @@ else:
 
 ### Date with Year Pinning
 ```python
-from paxman.capabilities import Date
+from paxman.capabilities import Email
 
-# Pin to US format, exclude ISO interpretation
-result = paxman.canonicalize("01/02/26", Date(excluded_rules=["iso_8601"], two_digits_year_base=2000))
+# Pin to 2008, exclude newer rules
+contract = Email.create_contract(year=2008)
+result = paxman.canonicalize("user@example.com", contract)
 
-# Result: "2026-01-02" → SUCCESS
+# Result: "user@example.com" → SUCCESS
 ```
 
 ### Custom Capability Registration
@@ -436,7 +432,7 @@ result = paxman.canonicalize("input", MyCapability())
 
 ### Inspecting Provenance
 ```python
-result = paxman.canonicalize("test@example.com", Email())
+result = paxman.canonicalize("test@example.com", Email.create_contract())
 
 for candidate in result.candidates:
     print(f"Value: {candidate.value}")
@@ -453,7 +449,7 @@ for candidate in result.candidates:
 ## Capability Registration
 
 ### Capability Registry
-- **Built-in capabilities:** Hard-coded in `discovery.py` via `builtin_capabilities()`
+- **Built-in capabilities:** Registered in `paxman/capabilities/__init__.py`
 - **User-registered capabilities:** Added via `register_capability()` before first call
 - **Registry freezes** at the start of each `run_capability()` call (engine responsibility)
 - **User can override built-ins** by registering same-named capability before first call
@@ -483,6 +479,7 @@ for candidate in result.candidates:
 # paxman/core/contract.py
 
 from typing import Protocol, Any
+from collections.abc import Sequence
 
 class Contract(Protocol):
     """Base protocol for all capability contracts."""
@@ -493,12 +490,12 @@ class Contract(Protocol):
         ...
     
     @property
-    def active_grammars(self) -> list[str]:
+    def active_grammars(self) -> Sequence[str]:
         """List of grammar names to activate."""
         ...
     
     @property
-    def excluded_rules(self) -> list[str]:
+    def excluded_rules(self) -> Sequence[str]:
         """List of rule names to exclude."""
         ...
     
@@ -521,43 +518,26 @@ paxman/
 ├── __init__.py                    # Public API exports
 ├── core/
 │   ├── __init__.py
-│   ├── domain.py                  # Provenance, Candidate, Rule, Grammar, etc.
+│   ├── capability.py              # Capability abstract class
 │   ├── contract.py                # Contract protocol
-│   └── discovery.py               # Capability registry
+│   ├── discovery.py               # Capability registry
+│   ├── domain.py                  # Provenance, Candidate, Rule, Grammar, etc.
+│   └── errors.py                  # Exception hierarchy
 ├── capabilities/
 │   ├── __init__.py
-│   ├── Email/
-│   │   ├── __init__.py
-│   │   ├── capability.py          # Notation, default grammars, default rules
-│   │   ├── grammar/
-│   │   │   ├── __init__.py
-│   │   │   ├── standard_recognition.py
-│   │   │   ├── obfuscated_recognition.py
-│   │   │   └── localhost_recognition.py
-│   │   └── rules/
-│   │       ├── __init__.py
-│   │       ├── rfc_5322_ed2008.py
-│   │       └── rfc_6761_ed2012.py
-│   ├── Date/
-│   │   ├── __init__.py
-│   │   ├── capability.py
-│   │   ├── grammar/
-│   │   │   ├── __init__.py
-│   │   │   ├── iso_date_recognition.py
-│   │   │   └── locale_date_recognition.py
-│   │   └── rules/
-│   │       ├── __init__.py
-│   │       ├── iso_8601_ed2019.py
-│   │       └── us_date_ed2024.py
-│   └── Country/
+│   └── Email/
 │       ├── __init__.py
-│       ├── capability.py
+│       ├── capability.py          # EmailCapability, EmailContract
+│       ├── notation.py            # EmailNotation dataclass
 │       ├── grammar/
 │       │   ├── __init__.py
-│       │   └── standard_country_recognition.py
+│       │   ├── standard_recognition.py
+│       │   ├── obfuscated_recognition.py
+│       │   └── localhost_recognition.py
 │       └── rules/
 │           ├── __init__.py
-│           └── iso_3166_ed2020.py
+│           ├── rfc_5322_ed2008.py
+│           └── rfc_6761_ed2012.py
 ├── engine/
 │   ├── __init__.py
 │   └── orchestrator.py            # Pipeline orchestrator
@@ -590,23 +570,14 @@ tests/
 │   ├── test_contract.py          # Contract validation
 │   └── test_version_stamp.py     # VersionStamp + replay_hash
 ├── capabilities/
-│   ├── email/
-│   │   ├── test_grammar.py       # Recognition rules
-│   │   ├── test_rules.py         # Validation rules
-│   │   └── test_capability.py    # Capability registration
-│   ├── date/
-│   │   ├── test_grammar.py
-│   │   ├── test_rules.py
-│   │   └── test_capability.py
-│   └── country/
-│       ├── test_grammar.py
-│       ├── test_rules.py
-│       └── test_capability.py
+│   └── email/
+│       ├── test_grammar.py       # Recognition rules
+│       ├── test_rules.py         # Validation rules
+│       └── test_capability.py    # Capability registration
 ├── integration/
 │   ├── test_pipeline.py          # Full pipeline flow
 │   ├── test_ambiguity.py         # Ambiguity detection
-│   ├── test_temporal.py          # Year-based filtering
-│   └── test_replay.py            # Replay hash verification
+│   └── test_temporal.py          # Year-based filtering
 └── e2e/
     └── test_canonicalize.py      # End-to-end user scenarios
 ```
@@ -682,7 +653,7 @@ testpaths = ["tests"]
   "typeCheckingMode": "strict",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
-  "include": ["src/paxman"],
+  "include": ["paxman"],
   "exclude": ["tests", "docs"]
 }
 ```
@@ -737,7 +708,7 @@ select = [
   "typeCheckingMode": "strict",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
-  "include": ["src/paxman"],
+  "include": ["paxman"],
   "exclude": ["tests", "docs"]
 }
 ```
