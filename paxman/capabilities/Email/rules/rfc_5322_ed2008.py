@@ -1,6 +1,8 @@
-"""RFC 5322 addr-spec rule — placeholder for Task 9."""
+"""RFC 5322 addr-spec rule — standard email validation."""
 
 from __future__ import annotations
+
+import re
 
 from paxman.core.domain import (
     Notation,
@@ -8,7 +10,6 @@ from paxman.core.domain import (
     Rule,
     RuleStrategy,
 )
-
 
 PUBLICATION = Provenance(
     authority="IETF",
@@ -20,12 +21,12 @@ PUBLICATION = Provenance(
     publication_year=2008,
 )
 
+_LOCAL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+$")
+_DOMAIN_PATTERN = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
 
 class Section341AddrSpec(Rule):
-    """RFC 5322 Section 3.4.1 — addr-spec.
-
-    Placeholder — real implementation in Task 9.
-    """
+    """RFC 5322 Section 3.4.1 — addr-spec."""
 
     name = "Section 3.4.1-addr-spec"
     strategy = RuleStrategy.REGEX
@@ -33,7 +34,13 @@ class Section341AddrSpec(Rule):
     citation = "Section 3.4.1 (addr-spec)"
 
     def matches(self, notation: Notation) -> bool:
-        raise NotImplementedError("Task 9 will implement matching")
+        local_part = notation[0]
+        domain_part = notation[1]
+        return bool(
+            _LOCAL_PATTERN.match(local_part) and _DOMAIN_PATTERN.match(domain_part)
+        )
 
     def normalize(self, notation: Notation) -> str:
-        raise NotImplementedError("Task 9 will implement normalization")
+        local_part = notation[0]
+        domain_part = notation[1]
+        return f"{local_part.lower()}@{domain_part.lower()}"
