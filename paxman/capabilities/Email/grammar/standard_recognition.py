@@ -6,9 +6,7 @@ import re
 
 from paxman.core.domain import Grammar, Notation
 
-_STANDARD_PATTERN = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-)
+_STANDARD_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 
 
 class StandardEmailGrammar(Grammar):

@@ -12,7 +12,6 @@ from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
 from paxman.core.capability import Capability
 from paxman.core.domain import Grammar, Rule
 
-
 # --- EmailNotation tests ---
 
 
@@ -133,13 +132,13 @@ class TestEmailPackageImports:
     @pytest.mark.capability
     def test_package_exports_email_capability(self) -> None:
         """Email package exports EmailCapability."""
-        from paxman.capabilities.Email import EmailCapability as EC
+        from paxman.capabilities.Email import EmailCapability as EmailCapabilityExport
 
-        assert EC is EmailCapability
+        assert EmailCapabilityExport is EmailCapability
 
     @pytest.mark.capability
     def test_package_exports_email_notation(self) -> None:
         """Email package exports EmailNotation."""
-        from paxman.capabilities.Email import EmailNotation as EN
+        from paxman.capabilities.Email import EmailNotation as EmailNotationExport
 
-        assert EN is EmailNotation
+        assert EmailNotationExport is EmailNotation

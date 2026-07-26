@@ -55,8 +55,13 @@ root_package = "paxman"
 name = "Capability independence"
 type = "layers"
 layers = [
-    "paxman.core",
-    "paxman.capabilities",
-    "paxman.engine",
     "paxman.api",
+    "paxman.engine",
+    "paxman.capabilities",
+    "paxman.core",
+]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.13",
 ]

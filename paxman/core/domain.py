@@ -41,6 +41,14 @@ class Provenance:
         "publication_year",
     )
 
+    authority: str
+    specification_name: str
+    kind: str
+    reference_url: str
+    version: str | None
+    lifecycle: str
+    publication_year: int
+
     def __init__(
         self,
         authority: str,
@@ -67,7 +75,7 @@ class Provenance:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Provenance):
-            return NotImplemented
+            return False
         return (
             self.authority == other.authority
             and self.specification_name == other.specification_name
@@ -97,6 +105,9 @@ class GrammarRule:
 
     __slots__ = ("capability_name", "grammar_name")
 
+    capability_name: str
+    grammar_name: str
+
     def __init__(self, capability_name: str, grammar_name: str) -> None:
         object.__setattr__(self, "capability_name", capability_name)
         object.__setattr__(self, "grammar_name", grammar_name)
@@ -109,7 +120,7 @@ class GrammarRule:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, GrammarRule):
-            return NotImplemented
+            return False
         return (
             self.capability_name == other.capability_name
             and self.grammar_name == other.grammar_name
@@ -128,6 +139,11 @@ class Candidate:
     """
 
     __slots__ = ("value", "recognition_rule", "validation_rule", "_provenance")
+
+    value: str
+    recognition_rule: str
+    validation_rule: str
+    _provenance: tuple[Provenance, ...]
 
     def __init__(
         self,
@@ -153,7 +169,7 @@ class Candidate:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Candidate):
-            return NotImplemented
+            return False
         return (
             self.value == other.value
             and self.recognition_rule == other.recognition_rule
@@ -177,6 +193,9 @@ class VersionStamp:
 
     __slots__ = ("paxman_version", "replay_hash")
 
+    paxman_version: str
+    replay_hash: str
+
     def __init__(self, paxman_version: str, replay_hash: str) -> None:
         object.__setattr__(self, "paxman_version", paxman_version)
         object.__setattr__(self, "replay_hash", replay_hash)
@@ -189,7 +208,7 @@ class VersionStamp:
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, VersionStamp):
-            return NotImplemented
+            return False
         return (
             self.paxman_version == other.paxman_version
             and self.replay_hash == other.replay_hash

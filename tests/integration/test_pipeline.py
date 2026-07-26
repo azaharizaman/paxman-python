@@ -7,7 +7,7 @@ import pytest
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
-from paxman.engine.orchestrator import ExecutionResult, run_capability
+from paxman.engine.orchestrator import run_capability
 
 
 @pytest.fixture(autouse=True)

@@ -2,6 +2,12 @@
 
 import pytest
 
+from paxman.capabilities.Email.grammar.localhost_recognition import (
+    LocalhostEmailGrammar,
+)
+from paxman.capabilities.Email.grammar.obfuscated_recognition import (
+    ObfuscatedEmailGrammar,
+)
 from paxman.capabilities.Email.grammar.standard_recognition import (
     StandardEmailGrammar,
 )
@@ -58,11 +64,6 @@ class TestStandardEmailGrammar:
         assert len(results) == 0
 
 
-from paxman.capabilities.Email.grammar.obfuscated_recognition import (
-    ObfuscatedEmailGrammar,
-)
-
-
 class TestObfuscatedEmailGrammar:
     """Tests for ObfuscatedEmailGrammar."""
 
@@ -91,11 +92,6 @@ class TestObfuscatedEmailGrammar:
         grammar = ObfuscatedEmailGrammar()
         results = grammar.recognize("no email here")
         assert len(results) == 0
-
-
-from paxman.capabilities.Email.grammar.localhost_recognition import (
-    LocalhostEmailGrammar,
-)
 
 
 class TestLocalhostEmailGrammar:

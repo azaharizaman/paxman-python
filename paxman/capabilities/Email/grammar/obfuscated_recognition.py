@@ -17,7 +17,7 @@ _AT_ONLY_PATTERN = re.compile(
 
 
 class ObfuscatedEmailGrammar(Grammar):
-    """Obfuscated email recognition: 'user at domain dot tld' or 'user at domain.tld'."""
+    """Obfuscated email: 'user at domain dot tld' or 'user at domain.tld'."""
 
     name = "obfuscated_recognition"
 

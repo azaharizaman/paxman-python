@@ -38,7 +38,7 @@ class TestAmbiguityDetection:
 
     @pytest.mark.integration
     def test_multiple_emails_produce_multiple_candidates(self):
-        """Two different emails → multiple candidates with different values → AMBIGUOUS."""
+        """Two emails → different values → AMBIGUOUS."""
         cap = EmailCapability()
         register_capability(cap)
 
