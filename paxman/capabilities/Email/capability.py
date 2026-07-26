@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 
+from paxman.capabilities.Email.contract import EmailContract
 from paxman.capabilities.Email.grammar.localhost_recognition import (
     LocalhostEmailGrammar,
 )
@@ -48,6 +48,8 @@ class EmailCapability(Capability):
         include_localhost: bool = True,
         excluded_rules: Sequence[str] | None = None,
         year: int | None = None,
+        output_format: str | None = None,
+        two_digit_base_year: int | None = None,
     ) -> EmailContract:
         """Create an EmailContract with the given configuration."""
         return EmailContract(
@@ -55,33 +57,6 @@ class EmailCapability(Capability):
             include_localhost=include_localhost,
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
             year=year,
+            output_format=output_format,
+            two_digit_base_year=two_digit_base_year,
         )
-
-
-@dataclass(frozen=True)
-class EmailContract:
-    """User-facing contract for Email capability."""
-
-    capability_name: str = field(default="email", init=False)
-    include_obfuscated: bool = False
-    include_localhost: bool = True
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    year: int | None = None
-
-    @property
-    def active_grammars(self) -> list[str]:
-        grammars = ["standard_recognition"]
-        if self.include_obfuscated:
-            grammars.append("obfuscated_recognition")
-        if self.include_localhost:
-            grammars.append("localhost_recognition")
-        return grammars
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "capability_name": self.capability_name,
-            "include_obfuscated": self.include_obfuscated,
-            "include_localhost": self.include_localhost,
-            "excluded_rules": self.excluded_rules,
-            "year": self.year,
-        }

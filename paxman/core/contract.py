@@ -28,6 +28,16 @@ class Contract(Protocol):
         """Year for temporal filtering (publication_year <= year)."""
         ...
 
+    @property
+    def output_format(self) -> str | None:
+        """Output format for canonical values (e.g., 'ISO', 'US')."""
+        ...
+
+    @property
+    def two_digit_base_year(self) -> int | None:
+        """Base year for interpreting two-digit years (e.g., 2000 for '25' -> 2025)."""
+        ...
+
     def as_dict(self) -> dict[str, Any]:
         """Serialize contract for replay_hash."""
         ...
