@@ -25,6 +25,10 @@ class FakeContract:
         return []
 
     @property
+    def pinned_rules(self) -> tuple[str, ...] | None:
+        return None
+
+    @property
     def year(self) -> int | None:
         return None
 

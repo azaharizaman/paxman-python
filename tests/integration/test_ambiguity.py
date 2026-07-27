@@ -24,8 +24,13 @@ class TestAmbiguityDetection:
     """Verify SUCCESS vs AMBIGUOUS resolution based on candidate agreement."""
 
     @pytest.mark.integration
-    def test_localhost_and_rfc5322_same_value(self):
-        """localhost@localhost → both rules agree → SUCCESS."""
+    def test_localhost_only_produces_success(self):
+        """admin@localhost → only localhost grammar matches → SUCCESS.
+
+        Standard grammar requires a TLD, so it does not recognise
+        admin@localhost.  The localhost grammar matches, and Section 6.3
+        (RFC 6761) validates it.  Single candidate → SUCCESS.
+        """
         cap = EmailCapability()
         register_capability(cap)
 
