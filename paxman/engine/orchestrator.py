@@ -71,14 +71,14 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
 
 
 def _recognize(
-    text: str, capability: Capability, contract: Contract
-) -> list[RecognizedRep]:
+    text: str, capability: Capability[Any], contract: Contract
+) -> list[RecognizedRep[Any]]:
     """Run active grammars and return all recognitions."""
     active_grammar_names = set(contract.active_grammars)
     all_grammars = capability.get_grammars()
     active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
 
-    recognitions: list[RecognizedRep] = []
+    recognitions: list[RecognizedRep[Any]] = []
     for grammar in active_grammars:
         try:
             notations = grammar.recognize(text)
@@ -98,7 +98,7 @@ def _recognize(
     return recognitions
 
 
-def _filter_rules(capability: Capability, contract: Contract) -> list[Rule[Any]]:
+def _filter_rules(capability: Capability[Any], contract: Contract) -> list[Rule[Any]]:
     """Return rules that are not excluded and pass year filter."""
     all_rules = capability.get_rules()
     excluded = set(contract.excluded_rules)

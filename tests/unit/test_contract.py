@@ -32,10 +32,6 @@ class _FullyCompliantContract:
     def output_format(self) -> str | None:
         return None
 
-    @property
-    def two_digit_base_year(self) -> int | None:
-        return None
-
     def as_dict(self) -> dict[str, Any]:
         return {
             "capability_name": self.capability_name,
@@ -149,10 +145,6 @@ class TestContractProtocol:
 
             @property
             def output_format(self) -> str | None:
-                return None
-
-            @property
-            def two_digit_base_year(self) -> int | None:
                 return None
 
             def as_dict(self) -> dict[str, Any]:

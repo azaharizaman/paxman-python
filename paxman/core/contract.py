@@ -33,11 +33,6 @@ class Contract(Protocol):
         """Output format for canonical values (e.g., 'ISO', 'US')."""
         ...
 
-    @property
-    def two_digit_base_year(self) -> int | None:
-        """Base year for two-digit year interpretation (Date-specific)."""
-        ...
-
     def as_dict(self) -> dict[str, Any]:
         """Serialize contract for replay_hash."""
         ...

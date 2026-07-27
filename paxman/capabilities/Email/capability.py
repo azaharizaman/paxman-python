@@ -23,20 +23,20 @@ from paxman.core.domain import Grammar, Rule
 __all__ = ["EmailCapability", "EmailContract", "EmailNotation"]
 
 
-class EmailCapability(Capability):
+class EmailCapability(Capability[EmailNotation]):
     """Email canonicalization capability."""
 
     name = "email"
     version = "1.0.0"
 
-    def get_grammars(self) -> list[Grammar]:
+    def get_grammars(self) -> list[Grammar[EmailNotation]]:
         return [
             StandardEmailGrammar(),
             ObfuscatedEmailGrammar(),
             LocalhostEmailGrammar(),
         ]
 
-    def get_rules(self) -> list[Rule]:
+    def get_rules(self) -> list[Rule[EmailNotation]]:
         return [
             Section341AddrSpec(),
             Section63localhost(),

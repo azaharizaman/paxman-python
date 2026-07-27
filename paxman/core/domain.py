@@ -54,6 +54,17 @@ class GrammarRule:
     capability_name: str
     grammar_name: str
 
+    def __post_init__(self) -> None:
+        """Enforce lowercase naming convention for capability and grammar names."""
+        if self.capability_name != self.capability_name.lower():
+            raise ValueError(
+                f"capability_name must be lowercase, got {self.capability_name!r}"
+            )
+        if self.grammar_name != self.grammar_name.lower():
+            raise ValueError(
+                f"grammar_name must be lowercase, got {self.grammar_name!r}"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class RecognizedRep(Generic[NotationT]):
