@@ -145,3 +145,76 @@ class TestCountryContract:
         assert contract.include_historical is True
         assert contract.extra_synonyms == {"my_alias": "MY"}
         assert contract.output_format == "alpha3"
+
+
+from paxman.capabilities.Country.capability import CountryCapability
+from paxman.core.capability import Capability
+
+
+class TestCountryCapability:
+    """Tests for CountryCapability wiring."""
+
+    def test_is_capability_subclass(self) -> None:
+        """Verify isinstance check."""
+        cap = CountryCapability()
+        assert isinstance(cap, Capability)
+
+    def test_name(self) -> None:
+        """Verify name matches expected value."""
+        assert CountryCapability.name == "country"
+
+    def test_version(self) -> None:
+        """Verify version matches expected value."""
+        assert CountryCapability.version == "1.0.0"
+
+    def test_get_grammars_returns_all(self) -> None:
+        """Verify grammar count (4)."""
+        cap = CountryCapability()
+        grammars = cap.get_grammars()
+        assert len(grammars) == 4
+
+    def test_get_rules_returns_all(self) -> None:
+        """Verify rule count (6)."""
+        cap = CountryCapability()
+        rules = cap.get_rules()
+        assert len(rules) == 6
+
+    def test_grammar_names(self) -> None:
+        """Verify grammar names follow convention."""
+        cap = CountryCapability()
+        names = [g.name for g in cap.get_grammars()]
+        assert "alpha2_recognition" in names
+        assert "alpha3_recognition" in names
+        assert "numeric_recognition" in names
+        assert "name_recognition" in names
+
+    def test_rule_names(self) -> None:
+        """Verify rule names follow convention."""
+        cap = CountryCapability()
+        names = [r.name for r in cap.get_rules()]
+        assert "Section-alpha2-codes" in names
+        assert "Section-alpha3-codes" in names
+        assert "Section-numeric-codes" in names
+        assert "Section-names" in names
+        assert "Section-localized-names" in names
+        assert "Section-historical-names" in names
+
+    def test_create_contract(self) -> None:
+        """Verify create_contract factory method."""
+        contract = CountryCapability.create_contract()
+        assert contract.capability_name == "country"
+        assert contract.include_localized is False
+        assert contract.include_historical is False
+
+    def test_create_contract_with_options(self) -> None:
+        """Verify create_contract passes through all options."""
+        contract = CountryCapability.create_contract(
+            include_localized=True,
+            include_historical=True,
+            output_format="alpha3",
+            year=2024,
+        )
+        assert contract.include_localized is True
+        assert contract.include_historical is True
+        assert contract.output_format == "alpha3"
+        assert contract.year == 2024
