@@ -6,6 +6,7 @@ from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlpha2Codes
 from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
 from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import SectionNumericCodes
+from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
 from paxman.core.domain import RuleStrategy
 
 
@@ -182,3 +183,58 @@ class TestSectionNumericCodes:
     def test_strategy(self) -> None:
         """Verify the rule strategy enum."""
         assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
+
+
+class TestSectionNames:
+    """Tests for SectionNames rule."""
+
+    def setup_method(self) -> None:
+        self.rule = SectionNames()
+        self.contract = CountryContract()
+
+    def test_matches_valid_input(self) -> None:
+        """Happy path: notation is valid."""
+        notation = CountryNotation(shape="name", value="UNITED STATES")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_title_case(self) -> None:
+        """Edge case: title case matches (uppercased internally)."""
+        notation = CountryNotation(shape="name", value="United States")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_rejects_invalid_name(self) -> None:
+        """Notation with invalid name."""
+        notation = CountryNotation(shape="name", value="NOT A COUNTRY")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        notation = CountryNotation(shape="alpha2", value="UNITED STATES")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output (alpha-2)."""
+        notation = CountryNotation(shape="name", value="UNITED STATES")
+        assert self.rule.normalize(notation, self.contract) == "US"
+
+    def test_normalize_case_insensitive(self) -> None:
+        """Verify case-insensitive lookup."""
+        notation = CountryNotation(shape="name", value="united states")
+        assert self.rule.normalize(notation, self.contract) == "US"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "ISO"
+        assert self.rule.provenance.publication_year == 2024
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section-names"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
+
+    def test_citation(self) -> None:
+        """Verify citation is set."""
+        assert "name" in self.rule.citation.lower()
