@@ -5,6 +5,7 @@ from paxman.capabilities.Country.contract import CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlpha2Codes
 from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
+from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import SectionNumericCodes
 from paxman.core.domain import RuleStrategy
 
 
@@ -125,3 +126,59 @@ class TestSectionAlpha3Codes:
     def test_citation(self) -> None:
         """Verify citation is set."""
         assert "alpha-3" in self.rule.citation.lower()
+
+
+class TestSectionNumericCodes:
+    """Tests for SectionNumericCodes rule."""
+
+    def setup_method(self) -> None:
+        self.rule = SectionNumericCodes()
+        self.contract = CountryContract()
+
+    def test_matches_valid_input(self) -> None:
+        """Happy path: notation is valid."""
+        notation = CountryNotation(shape="numeric", value="840")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_with_leading_zeros(self) -> None:
+        """Edge case: leading zeros are stripped for lookup."""
+        notation = CountryNotation(shape="numeric", value="0840")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_single_digit(self) -> None:
+        """Edge case: single digit code matches."""
+        notation = CountryNotation(shape="numeric", value="4")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_rejects_invalid_code(self) -> None:
+        """Notation with invalid numeric code."""
+        notation = CountryNotation(shape="numeric", value="999")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        notation = CountryNotation(shape="alpha2", value="840")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output (alpha-2)."""
+        notation = CountryNotation(shape="numeric", value="840")
+        assert self.rule.normalize(notation, self.contract) == "US"
+
+    def test_normalize_preserves_original(self) -> None:
+        """Verify normalization with leading zeros."""
+        notation = CountryNotation(shape="numeric", value="004")
+        assert self.rule.normalize(notation, self.contract) == "AF"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "ISO"
+        assert self.rule.provenance.publication_year == 2024
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section-numeric-codes"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
