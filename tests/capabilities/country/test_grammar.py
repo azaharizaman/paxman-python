@@ -126,3 +126,68 @@ class TestAlpha3Grammar:
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "alpha3_recognition"
+
+
+from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
+
+
+class TestNumericGrammar:
+    """Tests for NumericGrammar."""
+
+    def setup_method(self) -> None:
+        self.grammar = NumericGrammar()
+
+    def test_recognizes_valid_input(self) -> None:
+        """Happy path: grammar finds numeric pattern."""
+        results = self.grammar.recognize("840")
+        assert len(results) == 1
+        assert results[0].shape == "numeric"
+        assert results[0].value == "840"
+
+    def test_recognizes_single_digit(self) -> None:
+        """Edge case: single digit."""
+        results = self.grammar.recognize("4")
+        assert len(results) == 1
+        assert results[0].value == "4"
+
+    def test_recognizes_two_digits(self) -> None:
+        """Edge case: two digits."""
+        results = self.grammar.recognize("82")
+        assert len(results) == 1
+        assert results[0].value == "82"
+
+    def test_recognizes_with_whitespace(self) -> None:
+        """Edge case: whitespace is trimmed."""
+        results = self.grammar.recognize("  840  ")
+        assert len(results) == 1
+        assert results[0].value == "840"
+
+    def test_preserves_leading_zeros(self) -> None:
+        """Edge case: leading zeros are preserved."""
+        results = self.grammar.recognize("004")
+        assert len(results) == 1
+        assert results[0].value == "004"
+
+    def test_rejects_four_digits(self) -> None:
+        """Grammar does not match 4+ digits."""
+        results = self.grammar.recognize("1234")
+        assert len(results) == 0
+
+    def test_rejects_letters(self) -> None:
+        """Grammar does not match letters."""
+        results = self.grammar.recognize("abc")
+        assert len(results) == 0
+
+    def test_rejects_alphanumeric(self) -> None:
+        """Grammar does not match alphanumeric."""
+        results = self.grammar.recognize("12a")
+        assert len(results) == 0
+
+    def test_returns_empty_for_empty_input(self) -> None:
+        """Empty string returns empty list."""
+        results = self.grammar.recognize("")
+        assert results == []
+
+    def test_name(self) -> None:
+        """Verify grammar name."""
+        assert self.grammar.name == "numeric_recognition"
