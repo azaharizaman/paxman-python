@@ -20,7 +20,11 @@ PUBLICATION = Provenance(
 
 
 class Section431CalendarDate(Rule[DateNotation]):
-    """ISO 8601 Section 4.3.1 — Calendar date."""
+    """ISO 8601 Section 4.3.1 — Calendar date.
+
+    Notation mapping (ISO 8601 grammar):
+        N1 = year, N2 = month, N3 = day
+    """
 
     name = "Section 4.3.1-calendar-date"
     strategy = RuleStrategy.PARSER
@@ -30,9 +34,11 @@ class Section431CalendarDate(Rule[DateNotation]):
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
         """Try to parse as ISO 8601 date."""
         try:
-            day = int(notation.day)
-            month = int(notation.month)
-            year = int(notation.year)
+            year = int(notation.N1)
+            if year < 1000:
+                return False
+            month = int(notation.N2)
+            day = int(notation.N3)
             datetime(year, month, day)
             return True
         except ValueError:
@@ -40,7 +46,7 @@ class Section431CalendarDate(Rule[DateNotation]):
 
     def normalize(self, notation: DateNotation, contract: Contract) -> str:
         """Normalize to ISO 8601 format."""
-        day = int(notation.day)
-        month = int(notation.month)
-        year = int(notation.year)
+        year = int(notation.N1)
+        month = int(notation.N2)
+        day = int(notation.N3)
         return f"{year:04d}-{month:02d}-{day:02d}"

@@ -21,13 +21,14 @@ A domain module (e.g., Email) that:
 User-facing configuration object that:
 - **Toggles grammars ON/OFF** (e.g., `include_obfuscated=True`)
 - **Pins year** to filter validation rules by `publication_year`
-- **Passes parameters** to validation rules (e.g., `output_format=ISO`, `two_digit_base_year=2000`)
+- **Passes parameters** to validation rules (e.g., `output_format=ISO`)
+  - Note: `two_digit_base_year` is a Date-specific parameter, not part of the base Contract
 - Does NOT define Notation (that's internal to Capability)
 
 ### Notation
 Capability-defined intermediate representation that Grammars must produce.
 - **Email:** `EmailNotation` (frozen dataclass with `local_part` and `domain_part` fields) → `["local_part", "domain_part"]`
-- **Date:** `DateNotation` (frozen dataclass with `day`, `month`, and `year` fields) → `["day", "month", "year"]`
+- **Date:** `DateNotation` (frozen dataclass with `N1`, `N2`, `N3` fields) → `["N1", "N2", "N3"]` (position-sensitive: grammar determines meaning)
 
 **Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
 
@@ -55,14 +56,14 @@ Syntactic extraction rules that:
 - Scan raw text for patterns
 - Produce **Notation** (capability-defined shape)
 - Live in `capabilities/<CapabilityName>/grammar/`
-- Are **contract-aware** (know which grammars are active)
+- Are **filtered by the orchestrator** based on the contract's `active_grammars`
 - Do NOT validate — only recognize
 
 ### Validation Rule
 Semantic rules that:
 - Accept **Notation** (not raw input)
 - Are backed by **Provenance** (authority specification)
-- Use **Contract parameters** (e.g., `two_digit_base_year`)
+- Use **Contract parameters** (e.g., `output_format`)
 - Produce **Candidate** with canonical value
 - Live in `capabilities/<CapabilityName>/rules/`
 - Are filtered by **year** (publication_year ≤ contract.year)
@@ -86,7 +87,7 @@ PUBLICATION = Provenance(
     publication_year=2008,
 )
 
-class Section341AddrSpec(Rule):
+class Section341AddrSpec(Rule[EmailNotation]):
     """RFC 5322 Section 3.4.1 - addr-spec"""
     
     name = "Section 3.4.1-addr-spec"
@@ -94,18 +95,16 @@ class Section341AddrSpec(Rule):
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"  # Human-readable citation
     
-    def matches(self, notation: list[str]) -> bool:
+    def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         """Check if notation matches addr-spec pattern."""
-        local_part, domain_part = notation
         local_pattern = r"^[a-zA-Z0-9._%+-]+$"
         domain_pattern = r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return bool(re.match(local_pattern, local_part) and 
-                    re.match(domain_pattern, domain_part))
+        return bool(re.match(local_pattern, notation.local_part) and 
+                    re.match(domain_pattern, notation.domain_part))
     
-    def normalize(self, notation: list[str]) -> str:
+    def normalize(self, notation: EmailNotation, contract: Contract) -> str:
         """Normalize to canonical email format."""
-        local_part, domain_part = notation
-        return f"{local_part.lower()}@{domain_part.lower()}"
+        return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"
 ```
 
 ### Notation Purpose
@@ -127,7 +126,7 @@ The resolver **consumes notation** and outputs a canonical_value (not notation).
 ```python
 # capabilities/HttpStatusCode/rules/rfc_9110_ed2022.py
 
-class Section15StatusCodes(Rule):
+class Section15StatusCodes(Rule[StatusCodeNotation]):
     """RFC 9110 Section 15 - Status Codes"""
     
     name = "Section 15-status-codes"
@@ -141,13 +140,13 @@ class Section15StatusCodes(Rule):
         ...
     }
     
-    def matches(self, notation: list[str]) -> bool:
+    def matches(self, notation: StatusCodeNotation, contract: Contract) -> bool:
         """Check if status code exists in table."""
-        return int(notation[0]) in self.TABLE
+        return int(notation.code) in self.TABLE
     
-    def normalize(self, notation: list[str]) -> str:
+    def normalize(self, notation: StatusCodeNotation, contract: Contract) -> str:
         """Return canonical status code."""
-        code = int(notation[0])
+        code = int(notation.code)
         return str(code)
 ```
 
@@ -155,46 +154,51 @@ class Section15StatusCodes(Rule):
 ```python
 # capabilities/Date/rules/iso_8601_ed2019.py
 
-class SectionISO8601Date(Rule):
+class Section431CalendarDate(Rule[DateNotation]):
     """ISO 8601 Section 4.3.1 - Calendar date"""
     
     name = "Section 4.3.1-calendar-date"
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     
-    def matches(self, notation: list[str]) -> bool:
-        """Try to parse as ISO 8601 date."""
+    def matches(self, notation: DateNotation, contract: Contract) -> bool:
+        """Try to parse as ISO 8601 date.
+        
+        ISO grammar maps: N1=year, N2=month, N3=day
+        """
         try:
-            day, month, year = notation
-            datetime(int(year), int(month), int(day))
+            year, month, day = int(notation.N1), int(notation.N2), int(notation.N3)
+            datetime(year, month, day)
             return True
         except ValueError:
             return False
     
-    def normalize(self, notation: list[str]) -> str:
+    def normalize(self, notation: DateNotation, contract: Contract) -> str:
         """Normalize to ISO 8601 format."""
-        day, month, year = notation
-        return f"{year.zfill(4)}-{month.zfill(2)}-{day.zfill(2)}"
+        year, month, day = int(notation.N1), int(notation.N2), int(notation.N3)
+        return f"{year:04d}-{month:02d}-{day:02d}"
 ```
 
 ### Grammar File Structure
 ```python
 # paxman/capabilities/Email/grammar/standard_recognition.py
 
-from paxman.core.domain import Grammar, Notation
+import re
+
+from paxman.core.domain import Grammar
 from paxman.capabilities.Email.notation import EmailNotation
 
-class StandardEmailGrammar(Grammar):
+class StandardEmailGrammar(Grammar[EmailNotation]):
     """Standard email recognition: user@domain.tld"""
     
     name = "standard_recognition"
     
-    def recognize(self, text: str) -> list[Notation]:
+    def recognize(self, text: str) -> list[EmailNotation]:
         """Extract email patterns from text."""
         pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
         matches = re.findall(pattern, text)
         return [
-            EmailNotation(local_part=match.split("@")[0], domain_part=match.split("@")[1]).as_list()
+            EmailNotation(local_part=match.split("@")[0], domain_part=match.split("@")[1])
             for match in matches
         ]
 ```
@@ -202,18 +206,46 @@ class StandardEmailGrammar(Grammar):
 ### Date Ambiguity Example
 ```python
 # Input: "01/02/2026"
-# Notation: ["01", "02", "2026"]
+# Grammar outputs notation based on its own mapping:
+#   ISO grammar:    N1="2026", N2="01", N3="02"  (N1=year, N2=month, N3=day)
+#   US grammar:     N1="01",   N2="02", N3="2026" (N1=month, N2=day, N3=year)
+#   European grammar: N1="01", N2="02", N3="2026" (N1=day, N2=month, N3=year)
 
-# Rule 1: ISO 8601 (YYYY-MM-DD)
-# year=01, month=02, day=2026 → INVALID (year too small)
+# Rule 1: ISO 8601 — receives ISO notation
+# N1=year=2026, N2=month=01, N3=day=02 → VALID → "2026-01-02"
 
-# Rule 2: US Date (MM/DD/YYYY)
-# month=01, day=02, year=2026 → VALID → "2026-01-02"
+# Rule 2: US federal — receives US notation
+# N1=month=01, N2=day=02, N3=year=2026 → VALID → "2026-01-02"
 
-# Rule 3: Other interpretations → INVALID
+# Rule 3: EN 50160 (European) — receives European notation
+# N1=day=01, N2=month=02, N3=year=2026 → VALID → "2026-02-01"
 
-# Result: 1 canonical value → SUCCESS
+# Result: 2 distinct canonical values → AMBIGUOUS
 ```
+
+### Date Capability Details
+
+The Date capability has **3 grammars** and **3 validation rules**:
+
+#### Grammars (Recognition)
+
+| Grammar | Delimiter | N1 (first) | N2 (second) | N3 (third) | Notes |
+|---------|-----------|------------|-------------|------------|-------|
+| ISO | `-` | year | month | day | 4-digit year only |
+| US | `/` | month | day | year | Supports 2-digit years |
+| European | `/` | day | month | year | Supports 2-digit years |
+
+**Note:** European and US grammars both use `/` as delimiter. The ambiguity arises from different position mappings, not delimiters.
+
+#### Validation Rules
+
+| Rule | Standard | Canonical Output |
+|------|----------|------------------|
+| ISO 8601 | ISO 8601:2019 | `YYYY-MM-DD` |
+| US federal | US government standard | `YYYY-MM-DD` |
+| EN 50160 | European EN 50160 | `YYYY-MM-DD` |
+
+All rules normalize to ISO 8601 format (`YYYY-MM-DD`) regardless of input grammar.
 
 ### Contract Rule Exclusion
 ```python
@@ -233,8 +265,8 @@ paxman.canonicalize("user@example.com", contract)
 Data class carrying recognition output:
 ```python
 @dataclass(frozen=True)
-class RecognizedRep:
-    notation: Notation           # capability-defined shape
+class RecognizedRep(Generic[NotationT]):
+    notation: NotationT           # capability-defined shape
     contract: Contract           # contract configuration
     grammar: GrammarRule         # which grammar produced this
 ```
@@ -247,7 +279,7 @@ class Candidate:
     value: str                   # canonical value
     recognition_rule: str        # which grammar produced notation
     validation_rule: str         # which rule validated it
-    provenance: list[Provenance] # authorities backing this value
+    provenance: tuple[Provenance, ...]  # authorities backing this value
 ```
 
 ### Provenance
@@ -380,8 +412,8 @@ class ValidationError(PaxmanError):
 ### Error Scenarios
 | Scenario | Exception | Example |
 |----------|-----------|---------|
-| Contract missing required fields | `ContractError` | `Email()` with no parameters when required |
-| Unknown capability name | `CapabilityError` | `paxman.canonicalize("input", "unknown_cap")` |
+| Contract missing required fields | `ContractError` | Contract with invalid field types |
+| Unknown capability name | `CapabilityError` | `canonicalize("input", contract_with_unknown_name)` |
 | Grammar regex malformed | `RecognitionError` | Invalid regex pattern in grammar file |
 | Validation rule crashes | `ValidationError` | Unexpected None in provenance lookup |
 | Registry frozen, register attempted | `CapabilityError` | `register_capability()` after first call |
@@ -395,11 +427,15 @@ class ValidationError(PaxmanError):
 ### Basic Usage
 ```python
 import paxman
-from paxman.capabilities import Email
+from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.domain import Resolution
+from paxman.core.discovery import register_capability
+
+# Register capability (required before first use)
+register_capability(EmailCapability())
 
 # Canonicalize an email
-result = paxman.canonicalize("azahari at gmail dot com", Email.create_contract(include_obfuscated=True))
+result = paxman.canonicalize("azahari at gmail dot com", EmailCapability.create_contract(include_obfuscated=True))
 
 if result.status == Resolution.SUCCESS:
     print(f"Canonical: {result.canonicalized_value}")
@@ -410,25 +446,25 @@ else:
 
 ### Date with Year Pinning
 ```python
-from paxman.capabilities import Email
+from paxman.capabilities.Date.capability import DateCapability
 
 # Pin to 2008, exclude newer rules
-contract = Email.create_contract(year=2008)
-result = paxman.canonicalize("user@example.com", contract)
+contract = DateCapability.create_contract(year=2008)
+result = paxman.canonicalize("01/02/2026", contract)
 
-# Result: "user@example.com" → SUCCESS
+# Result: depends on grammar interpretation → "2026-01-02" or "2026-02-01"
 ```
 
 ### Custom Capability Registration
 ```python
 from paxman import register_capability
-from mypackage import MyCapability
+from mypackage import MyCapability, MyContract
 
 # Register before first canonicalize() call
 register_capability(MyCapability())
 
 # Now use it
-result = paxman.canonicalize("input", MyCapability())
+result = paxman.canonicalize("input", MyContract())
 ```
 
 ### Inspecting Provenance
@@ -453,7 +489,7 @@ for candidate in result.candidates:
 - **Built-in capabilities:** Registered in `paxman/capabilities/__init__.py`
 - **User-registered capabilities:** Added via `register_capability()` before first call
 - **Registry freezes** at the start of each `run_capability()` call (engine responsibility)
-- **User can override built-ins** by registering same-named capability before first call
+- **Duplicate registration** raises `CapabilityError` — each capability name must be unique.
 - **Attempting to register after freeze raises `CapabilityError`**
 
 **Note:** The registry freeze happens at the start of each pipeline run, not just once. In testing, use `reset_registry()` between tests to allow re-registration. `freeze_registry()` is available for explicit control.
@@ -505,6 +541,11 @@ class Contract(Protocol):
         """Year for temporal filtering (publication_year ≤ year)."""
         ...
     
+    @property
+    def output_format(self) -> str | None:
+        """Output format for canonical values (e.g., 'ISO', 'US')."""
+        ...
+    
     def as_dict(self) -> dict[str, Any]:
         """Serialize contract for replay_hash."""
         ...
@@ -526,19 +567,35 @@ paxman/
 │   └── errors.py                  # Exception hierarchy
 ├── capabilities/
 │   ├── __init__.py
-│   └── Email/
+│   ├── Email/
+│   │   ├── __init__.py
+│   │   ├── capability.py          # EmailCapability
+│   │   ├── contract.py            # EmailContract
+│   │   ├── notation.py            # EmailNotation dataclass
+│   │   ├── grammar/
+│   │   │   ├── __init__.py
+│   │   │   ├── standard_recognition.py
+│   │   │   ├── obfuscated_recognition.py
+│   │   │   └── localhost_recognition.py
+│   │   └── rules/
+│   │       ├── __init__.py
+│   │       ├── rfc_5322_ed2008.py
+│   │       └── rfc_6761_ed2012.py
+│   └── Date/
 │       ├── __init__.py
-│       ├── capability.py          # EmailCapability, EmailContract
-│       ├── notation.py            # EmailNotation dataclass
+│       ├── capability.py          # DateCapability
+│       ├── contract.py            # DateContract
+│       ├── notation.py            # DateNotation dataclass
 │       ├── grammar/
 │       │   ├── __init__.py
-│       │   ├── standard_recognition.py
-│       │   ├── obfuscated_recognition.py
-│       │   └── localhost_recognition.py
+│       │   ├── iso8601_recognition.py
+│       │   ├── us_recognition.py
+│       │   └── european_recognition.py
 │       └── rules/
 │           ├── __init__.py
-│           ├── rfc_5322_ed2008.py
-│           └── rfc_6761_ed2012.py
+│           ├── iso_8601_ed2019.py
+│           ├── us_federal_rules_ed2023.py
+│           └── en_50160_ed2010.py
 ├── engine/
 │   ├── __init__.py
 │   └── orchestrator.py            # Pipeline orchestrator
@@ -569,12 +626,23 @@ tests/
 │   ├── test_recognized_rep.py    # RecognizedRep dataclass
 │   ├── test_resolution.py        # Resolution enum
 │   ├── test_contract.py          # Contract validation
-│   └── test_version_stamp.py     # VersionStamp + replay_hash
+│   ├── test_version_stamp.py     # VersionStamp + replay_hash
+│   ├── test_capability_exports.py # Capability exports validation
+│   └── test_errors.py            # Exception hierarchy
 ├── capabilities/
-│   └── email/
+│   ├── email/
+│   │   ├── test_grammar.py       # Recognition rules
+│   │   ├── test_rules.py         # Validation rules
+│   │   └── test_capability.py    # Capability registration
+│   └── date/
 │       ├── test_grammar.py       # Recognition rules
 │       ├── test_rules.py         # Validation rules
 │       └── test_capability.py    # Capability registration
+├── property/
+│   ├── __init__.py
+│   ├── test_domain_properties.py
+│   ├── test_grammar_properties.py
+│   └── test_rule_properties.py
 ├── integration/
 │   ├── test_pipeline.py          # Full pipeline flow
 │   ├── test_ambiguity.py         # Ambiguity detection
@@ -643,6 +711,7 @@ markers = [
     "capability: capability-specific tests",
     "integration: integration tests",
     "e2e: end-to-end tests",
+    "property: property-based tests (Hypothesis)",
 ]
 testpaths = ["tests"]
 ```

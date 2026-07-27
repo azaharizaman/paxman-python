@@ -49,7 +49,6 @@ class EmailCapability(Capability):
         excluded_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
-        two_digit_base_year: int | None = None,
     ) -> EmailContract:
         """Create an EmailContract with the given configuration."""
         return EmailContract(
@@ -58,5 +57,4 @@ class EmailCapability(Capability):
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
             year=year,
             output_format=output_format,
-            two_digit_base_year=two_digit_base_year,
         )

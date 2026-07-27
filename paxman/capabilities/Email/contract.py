@@ -15,7 +15,6 @@ class EmailContract:
     excluded_rules: tuple[str, ...] = field(default_factory=tuple)
     year: int | None = None
     output_format: str | None = None
-    two_digit_base_year: int | None = None
 
     @property
     def active_grammars(self) -> list[str]:
@@ -34,5 +33,4 @@ class EmailContract:
             "excluded_rules": self.excluded_rules,
             "year": self.year,
             "output_format": self.output_format,
-            "two_digit_base_year": self.two_digit_base_year,
         }

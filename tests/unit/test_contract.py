@@ -43,7 +43,6 @@ class _FullyCompliantContract:
             "excluded_rules": self.excluded_rules,
             "year": self.year,
             "output_format": self.output_format,
-            "two_digit_base_year": self.two_digit_base_year,
         }
 
 
@@ -70,10 +69,6 @@ class _MissingAsDict:
     def output_format(self) -> str | None:
         return None
 
-    @property
-    def two_digit_base_year(self) -> int | None:
-        return None
-
 
 class _MissingCapabilityName:
     """Missing the capability_name property."""
@@ -92,10 +87,6 @@ class _MissingCapabilityName:
 
     @property
     def output_format(self) -> str | None:
-        return None
-
-    @property
-    def two_digit_base_year(self) -> int | None:
         return None
 
     def as_dict(self) -> dict[str, Any]:
@@ -133,7 +124,6 @@ class TestContractProtocol:
             "excluded_rules",
             "year",
             "output_format",
-            "two_digit_base_year",
         }
 
     @pytest.mark.unit
@@ -177,14 +167,9 @@ class TestContractProtocol:
         """Contract protocol defines output_format property."""
         assert hasattr(Contract, "output_format")
 
-    @pytest.mark.unit
-    def test_contract_has_two_digit_base_year_property(self) -> None:
-        """Contract protocol defines two_digit_base_year property."""
-        assert hasattr(Contract, "two_digit_base_year")
-
 
 class TestEmailContractNewParameters:
-    """Tests for EmailContract output_format and two_digit_base_year."""
+    """Tests for EmailContract output_format."""
 
     @pytest.mark.unit
     def test_email_contract_output_format_defaults_to_none(self) -> None:
@@ -193,31 +178,13 @@ class TestEmailContractNewParameters:
         assert contract.output_format is None
 
     @pytest.mark.unit
-    def test_email_contract_two_digit_base_year_defaults_to_none(self) -> None:
-        """EmailContract.two_digit_base_year defaults to None."""
-        contract = EmailContract()
-        assert contract.two_digit_base_year is None
-
-    @pytest.mark.unit
     def test_email_contract_with_output_format(self) -> None:
         """EmailContract accepts output_format parameter."""
         contract = EmailContract(output_format="ISO")
         assert contract.output_format == "ISO"
 
     @pytest.mark.unit
-    def test_email_contract_with_two_digit_base_year(self) -> None:
-        """EmailContract accepts two_digit_base_year parameter."""
-        contract = EmailContract(two_digit_base_year=2000)
-        assert contract.two_digit_base_year == 2000
-
-    @pytest.mark.unit
     def test_email_capability_create_contract_with_output_format(self) -> None:
         """EmailCapability.create_contract passes output_format to contract."""
         contract = EmailCapability.create_contract(output_format="ISO")
         assert contract.output_format == "ISO"
-
-    @pytest.mark.unit
-    def test_email_capability_create_contract_with_two_digit_base_year(self) -> None:
-        """EmailCapability.create_contract passes two_digit_base_year to contract."""
-        contract = EmailCapability.create_contract(two_digit_base_year=2000)
-        assert contract.two_digit_base_year == 2000

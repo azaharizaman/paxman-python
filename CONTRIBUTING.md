@@ -88,7 +88,7 @@ Pyright runs in **strict mode** with `pythonVersion = "3.11"`. It checks only th
 ### Import Linter (architectural boundary enforcement)
 
 ```bash
-import-lint
+import-linter lint
 ```
 
 Import-linter enforces the four-layer dependency structure described in ARCHITECTURE.md. Dependencies flow inward only:
@@ -120,7 +120,7 @@ A few conventions that go beyond what the linters enforce:
 2. **Write tests first** where applicable. The project follows TDD principles: write a failing test, make it pass, then refactor.
 3. **Run the full quality suite** before pushing:
    ```bash
-   ruff check . && ruff format --check . && pyright && import-lint && pytest
+   ruff check . && ruff format --check . && pyright && import-linter lint && pytest
    ```
 4. **Push your branch** and open a pull request.
 5. **Describe what changed and why.** Reference any related issues.

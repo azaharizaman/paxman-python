@@ -1,4 +1,7 @@
-"""European date grammar — recognizes DD.MM.YYYY format."""
+"""European date grammar — recognizes DD/MM/YYYY and DD/MM/YY formats.
+
+Notation mapping: N1=day, N2=month, N3=year
+"""
 
 from __future__ import annotations
 
@@ -7,18 +10,37 @@ import re
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.domain import Grammar
 
-_EUROPEAN_DATE_PATTERN = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})")
+_EUROPEAN_DATE_PATTERN_4DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})")
+_EUROPEAN_DATE_PATTERN_2DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{2})")
 
 
 class EuropeanDateGrammar(Grammar[DateNotation]):
-    """European date recognition: DD.MM.YYYY."""
+    """European date recognition: DD/MM/YYYY and DD/MM/YY.
+
+    Notation mapping: N1=day, N2=month, N3=year
+    """
 
     name = "european_recognition"
 
     def recognize(self, text: str) -> list[DateNotation]:
-        """Extract European date patterns from text."""
-        matches = _EUROPEAN_DATE_PATTERN.findall(text)
-        return [
-            DateNotation(day=day, month=month, year=year)
-            for day, month, year in matches
-        ]
+        """Extract European date patterns from text.
+
+        Avoids duplicates: if a 2-digit year match falls within a 4-digit
+        year match's span, only the 4-digit match is kept.
+        """
+        results: list[DateNotation] = []
+        four_digit_ranges: list[tuple[int, int]] = []
+
+        for match in _EUROPEAN_DATE_PATTERN_4DIGIT.finditer(text):
+            day, month, year = match.group(1), match.group(2), match.group(3)
+            four_digit_ranges.append((match.start(), match.end()))
+            results.append(DateNotation(N1=day, N2=month, N3=year))
+
+        for match in _EUROPEAN_DATE_PATTERN_2DIGIT.finditer(text):
+            start, end = match.start(), match.end()
+            if any(start >= fs and end <= fe for fs, fe in four_digit_ranges):
+                continue
+            day, month, year = match.group(1), match.group(2), match.group(3)
+            results.append(DateNotation(N1=day, N2=month, N3=year))
+
+        return results

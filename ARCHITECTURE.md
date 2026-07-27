@@ -51,7 +51,7 @@ The core layer has no knowledge of specific capabilities. It defines *what* a ca
 
 Each capability is a self-contained domain module that provides:
 
-- **A Notation type** — a typed intermediate representation specific to the domain (e.g., email local part and domain part, date day/month/year)
+- **A Notation type** — a typed intermediate representation specific to the domain (e.g., email local part and domain part, date N1/N2/N3)
 - **Grammars** — recognition rules that extract the notation from raw text
 - **Validation Rules** — semantic rules that validate the notation against authoritative specifications
 - **A Contract** — a user-facing configuration object that toggles grammars, excludes rules, and passes parameters
@@ -98,11 +98,13 @@ Each capability defines a typed Notation (a data class with named fields) that p
 
 ### Contract Parameters
 
-Contracts pass configuration parameters to validation rules, enabling rules to adapt their behavior based on user preferences. Two key parameters are:
+Contracts pass configuration parameters to validation rules, enabling rules to adapt their behavior based on user preferences.
 
+**Base Contract Parameters:**
 - **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). Rules check this parameter during normalization to produce the desired output format.
 
-- **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Rules use this to resolve ambiguous year values in date parsing.
+**Date-Specific Parameters:**
+- **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Only available on Date contracts, not part of the base Contract protocol. Used by US and European grammars to resolve ambiguous year values.
 
 These parameters are passed through the contract to rule methods (`matches()` and `normalize()`), allowing rules to be contract-aware without direct coupling to specific capabilities.
 
@@ -158,3 +160,41 @@ Paxman enforces architectural invariants through tooling:
 - **Property-based testing** validates domain object contracts (immutability, equality, hashability)
 
 These tools run as part of the development workflow and block merges when invariants are violated.
+
+---
+
+## Date Capability Design
+
+The Date capability demonstrates the system's handling of ambiguous inputs through multiple grammars and validation rules.
+
+### Grammars
+
+Three grammars recognize date patterns with different position mappings:
+
+| Grammar | Delimiter | N1 (first) | N2 (second) | N3 (third) | Notes |
+|---------|-----------|------------|-------------|------------|-------|
+| ISO | `-` | year | month | day | 4-digit year only |
+| US | `/` | month | day | year | Supports 2-digit years |
+| European | `/` | day | month | year | Supports 2-digit years |
+
+European and US grammars both use `/` as delimiter. Ambiguity arises from different position mappings, not delimiters.
+
+### Validation Rules
+
+Three rules validate date notations against authoritative specifications:
+
+| Rule | Standard | Canonical Output |
+|------|----------|------------------|
+| ISO 8601 | ISO 8601:2019 | `YYYY-MM-DD` |
+| US federal | US government standard | `YYYY-MM-DD` |
+| EN 50160 | European EN 50160 | `YYYY-MM-DD` |
+
+All rules normalize to ISO 8601 format (`YYYY-MM-DD`) regardless of input grammar.
+
+### Ambiguity Detection
+
+When the same input is recognized by multiple grammars, each grammar produces notation with different position mappings. For example, `"01/02/2026"` is recognized by both US and European grammars:
+- US grammar: N1=month=01, N2=day=02, N3=year=2026
+- European grammar: N1=day=01, N2=month=02, N3=year=2026
+
+Each grammar's notation flows to its corresponding validation rule. If both rules validate and produce different canonical values, the system reports AMBIGUOUS.

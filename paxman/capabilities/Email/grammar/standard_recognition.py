@@ -5,22 +5,24 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Email.notation import EmailNotation
-from paxman.core.domain import Grammar, Notation
+from paxman.core.domain import Grammar
 
-_STANDARD_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+_STANDARD_PATTERN = re.compile(
+    r"\b[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+)
 
 
-class StandardEmailGrammar(Grammar):
+class StandardEmailGrammar(Grammar[EmailNotation]):
     """Standard email recognition: user@domain.tld."""
 
     name = "standard_recognition"
 
-    def recognize(self, text: str) -> list[Notation]:
+    def recognize(self, text: str) -> list[EmailNotation]:
         matches = _STANDARD_PATTERN.findall(text)
         return [
             EmailNotation(
                 local_part=match.split("@")[0],
                 domain_part=match.split("@")[1],
-            ).as_list()
+            )
             for match in matches
         ]

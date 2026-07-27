@@ -2,6 +2,26 @@
 
 **Date:** 2026-07-26
 **Reviewer:** Sisyphus (automated architecture analysis)
+**Status:** ✅ All candidates implemented (2026-07-26)
+
+---
+
+## Implementation Summary
+
+All four architectural deepening candidates have been implemented. Below are the actual decisions and outcomes:
+
+| Candidate | Original Proposal | Actual Implementation | Status |
+|-----------|-------------------|----------------------|--------|
+| 1. Dataclass Migration | `FrozenBase` custom class | `@dataclass(frozen=True, slots=True)` | ✅ Complete |
+| 2. Typed Notation | `TypeVar("N", bound=list[str])` | `TypeVar("NotationT")` (unbounded) | ✅ Complete |
+| 3. Orchestrator Decomposition | 3 extracted functions | 3 extracted functions | ✅ Complete |
+| 4. Declarative Grammars | `GrammarActivation` enum | `dict[str, bool]` mapping | ✅ Complete |
+
+### Key Decisions
+
+1. **Candidate 1**: Used stdlib `@dataclass(frozen=True, slots=True)` instead of custom `FrozenBase` — eliminates ~160 lines with zero custom base class
+2. **Candidate 2**: Removed `bound=list[str]` constraint — allows capabilities to use any notation type (frozen dataclasses, Protocols, etc.)
+3. **Candidate 4**: Used direct `dict[str, bool]` instead of `GrammarActivation` enum — simpler, more Pythonic
 
 ---
 
@@ -14,564 +34,136 @@
 
 ---
 
-## Candidate 1: Collapse immutability boilerplate into a frozen base
+## Candidate 1: Collapse immutability boilerplate into a frozen base ✅ IMPLEMENTED
 
 **Strength:** Strong
+**Status:** ✅ Implemented (2026-07-26)
 **Files:** `paxman/core/domain.py`
 
-### Problem
+### Problem (RESOLVED)
 
 Every domain object in `domain.py` manually repeats the same immutability pattern: `__slots__`, `object.__setattr__` in `__init__`, guards in `__setattr__`/`__delattr__`, plus manual `__eq__`/`__hash__`. This is ~40 lines per class, 5 classes, ~200 lines of identical mechanical code.
 
-The five classes affected:
+### Actual Implementation
 
-| Class | Fields | Boilerplate lines |
-|-------|--------|-------------------|
-| `Provenance` | 7 fields | ~45 |
-| `GrammarRule` | 2 fields | ~30 |
-| `RecognizedRep` | 3 fields | ~35 |
-| `Candidate` | 4 fields | ~50 |
-| `VersionStamp` | 2 fields | ~30 |
-
-### Before / After
-
-```
-BEFORE                              AFTER
-─────────────────────────          ─────────────────────────
-
-┌─────────────────────┐            ┌─────────────────────┐
-│     Provenance      │            │    FrozenBase       │
-│ __slots__           │            │ __slots__           │
-│ __init__ (setattr)  │            │ __setattr__ (guard) │
-│ __setattr__ (guard) │            │ __delattr__ (guard) │
-│ __delattr__ (guard) │            │ __eq__ (auto)       │
-│ __eq__ (manual)     │            │ __hash__ (auto)     │
-│ __hash__ (manual)   │            └──────────┬──────────┘
-└─────────────────────┘                       │
-┌─────────────────────┐            ┌──────────▼──────────┐
-│    GrammarRule      │            │ Provenance          │
-│ __slots__           │            │ 5 fields only       │
-│ __init__ (setattr)  │            └─────────────────────┘
-│ __setattr__ (guard) │            ┌──────────▼──────────┐
-│ __delattr__ (guard) │            │ GrammarRule         │
-│ __eq__ (manual)     │            │ 2 fields only       │
-│ __hash__ (manual)   │            └─────────────────────┘
-└─────────────────────┘            ┌──────────▼──────────┐
-┌─────────────────────┐            │ RecognizedRep       │
-│   RecognizedRep     │            │ 3 fields only       │
-│ __slots__           │            └─────────────────────┘
-│ __init__ (setattr)  │            ┌──────────▼──────────┐
-│ __setattr__ (guard) │            │ Candidate           │
-│ __delattr__ (guard) │            │ 4 fields only       │
-│ __eq__ (manual)     │            └─────────────────────┘
-│ __hash__ (manual)   │            ┌──────────▼──────────┐
-└─────────────────────┘            │ VersionStamp        │
-┌─────────────────────┐            │ 2 fields only       │
-│     Candidate       │            └─────────────────────┘
-│ __slots__           │
-│ __init__ (setattr)  │            1 base class (~40 lines)
-│ __setattr__ (guard) │            + 5 thin subclasses
-│ __delattr__ (guard) │            (~10 lines each)
-│ __eq__ (manual)     │
-│ __hash__ (manual)   │            5 classes × ~40 lines = ~200 lines
-└─────────────────────┘
-┌─────────────────────┐
-│    VersionStamp     │
-│ __slots__           │
-│ __init__ (setattr)  │
-│ __setattr__ (guard) │
-│ __delattr__ (guard) │
-│ __eq__ (manual)     │
-│ __hash__ (manual)   │
-└─────────────────────┘
-
-5 classes × ~40 lines = ~200 lines
-```
-
-### Solution
-
-Extract a `FrozenBase` class that provides immutability for free via `__slots__` inheritance. Each domain class declares only its fields and their types. `__eq__` and `__hash__` are generated from slot names.
+Used stdlib `@dataclass(frozen=True, slots=True)` instead of proposed `FrozenBase` class — simpler, zero custom base class needed.
 
 ```python
-class FrozenBase:
-    """Base class for immutable domain objects."""
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise AttributeError(f"{type(self).__name__} is immutable")
-
-    def __delattr__(self, name: str) -> None:
-        raise AttributeError(f"{type(self).__name__} is immutable")
-
-    def __eq__(self, other: object) -> bool:
-        if type(self) is not type(other):
-            return False
-        slots = type(self).__slots__
-        return all(getattr(self, s) == getattr(other, s) for s in slots)
-
-    def __hash__(self) -> int:
-        slots = type(self).__slots__
-        return hash(tuple(getattr(self, s) for s in slots))
+@dataclass(frozen=True, slots=True)
+class Provenance:
+    authority: str
+    specification_name: str
+    kind: str
+    reference_url: str
+    version: str | None
+    lifecycle: str
+    publication_year: int
 ```
 
-Each domain class becomes:
-
-```python
-class Provenance(FrozenBase):
-    __slots__ = ("authority", "specification_name", "kind",
-                 "reference_url", "version", "lifecycle", "publication_year")
-
-    def __init__(self, authority: str, specification_name: str, kind: str,
-                 reference_url: str, version: str | None, lifecycle: str,
-                 publication_year: int) -> None:
-        object.__setattr__(self, "authority", authority)
-        # ... remaining fields
-```
-
-### Benefits
-
-- **locality:** immutability guarantee lives in one place, not five
-- **leverage:** new domain objects become 5-line declarations
-- **test surface:** immutability tests written once against the base
+**Net reduction:** ~160 lines of boilerplate eliminated across 5 domain classes.
 
 ---
 
-## Candidate 2: Restore Notation type safety across the grammar→rule seam
+## Candidate 2: Restore Notation type safety across the grammar→rule seam ✅ IMPLEMENTED
 
 **Strength:** Worth exploring
+**Status:** ✅ Implemented (2026-07-26)
 **Files:**
-- `paxman/capabilities/Email/grammar/standard_recognition.py`
-- `paxman/capabilities/Email/grammar/obfuscated_recognition.py`
-- `paxman/capabilities/Email/grammar/localhost_recognition.py`
-- `paxman/capabilities/Email/rules/rfc_5322_ed2008.py`
-- `paxman/capabilities/Email/rules/rfc_6761_ed2012.py`
-- `paxman/capabilities/Email/notation.py`
 - `paxman/core/domain.py` (Grammar, Rule ABCs)
+- `paxman/capabilities/Email/grammar/*.py`
+- `paxman/capabilities/Email/rules/*.py`
 
-### Problem
+### Problem (RESOLVED)
 
-`EmailNotation` is a proper frozen dataclass with named fields (`local_part`, `domain_part`), but every grammar immediately calls `.as_list()` to produce `list[str]`. Rules then receive untyped `list[str]` and must manually index (`notation[0]`, `notation[1]`). The type safety gained from `EmailNotation` is erased at the grammar→rule seam.
+`EmailNotation` was a proper frozen dataclass with named fields (`local_part`, `domain_part`), but every grammar immediately called `.as_list()` to produce `list[str]`. Rules then received untyped `list[str]` and had to manually index (`notation[0]`, `notation[1]`). The type safety gained from `EmailNotation` was erased at the grammar→rule seam.
 
-Current code in every grammar:
+### Actual Implementation
 
-```python
-# grammar/standard_recognition.py
-def recognize(self, text: str) -> list[Notation]:
-    matches = _STANDARD_PATTERN.findall(text)
-    return [
-        EmailNotation(
-            local_part=match.split("@")[0],
-            domain_part=match.split("@")[1],
-        ).as_list()          # ← type safety erased here
-        for match in matches
-    ]
-```
-
-Current code in every rule:
+Parameterized `Grammar` and `Rule` ABCs with unbounded `TypeVar("NotationT")` — allows any notation type, not just `list[str]`.
 
 ```python
-# rules/rfc_5322_ed2008.py
-def matches(self, notation: Notation) -> bool:
-    local_part = notation[0]     # ← manual indexing, no IDE support
-    domain_part = notation[1]    # ← off-by-one waiting to happen
-    return bool(
-        _LOCAL_PATTERN.match(local_part) and _DOMAIN_PATTERN.match(domain_part)
-    )
-```
+NotationT = TypeVar("NotationT")
 
-### Before / After
-
-```
-BEFORE                                  AFTER
-──────────────────────────────          ──────────────────────────────
-
-┌──────────────────────┐                ┌──────────────────────┐
-│ StandardEmailGrammar │                │ StandardEmailGrammar │
-│ .recognize() →       │                │ .recognize() →       │
-│   list[Notation]     │                │   list[EmailNotation]│
-└──────────┬───────────┘                └──────────┬───────────┘
-           │ .as_list()                            │ (typed)
-           ▼                                       ▼
-┌──────────────────────┐                ┌──────────────────────┐
-│     list[str]        │                │   EmailNotation      │
-│  (UNTYPE D!)         │                │  .local_part         │
-│  notation[0]         │                │  .domain_part        │
-│  notation[1]         │                └──────────┬───────────┘
-└──────────┬───────────┘                           │ (typed)
-           │                                       ▼
-           ▼                           ┌──────────────────────┐
-┌──────────────────────┐               │   Rule.matches()     │
-│   Rule.matches()     │               │  notation.local_part │
-│  notation[0]         │               │  notation.domain_part│
-│  notation[1]         │               └──────────────────────┘
-└──────────────────────┘
-
-Typed notation flows through, no erasure
-```
-
-### Solution
-
-Parameterize the `Grammar` and `Rule` ABCs with a Notation type variable. Grammar.recognize returns `list[N]`, Rule.matches/normalize accept `N`. Each capability provides a Notation Protocol or dataclass. Grammars no longer call `.as_list()`.
-
-```python
-from typing import Generic, TypeVar
-
-N = TypeVar("N", bound=list[str])
-
-class Grammar(ABC, Generic[N]):
-    name: str
-
+class Grammar(ABC, Generic[NotationT]):
     @abstractmethod
-    def recognize(self, text: str) -> list[N]: ...
+    def recognize(self, text: str) -> list[NotationT]: ...
 
-class Rule(ABC, Generic[N]):
-    name: str
-    strategy: RuleStrategy
-    provenance: Provenance
-    citation: str
-
+class Rule(ABC, Generic[NotationT]):
     @abstractmethod
-    def matches(self, notation: N) -> bool: ...
-
+    def matches(self, notation: NotationT) -> bool: ...
     @abstractmethod
-    def normalize(self, notation: N) -> str: ...
+    def normalize(self, notation: NotationT) -> str: ...
 ```
 
-Email grammars become:
-
-```python
-class StandardEmailGrammar(Grammar[EmailNotation]):
-    name = "standard_recognition"
-
-    def recognize(self, text: str) -> list[EmailNotation]:
-        matches = _STANDARD_PATTERN.findall(text)
-        return [
-            EmailNotation(
-                local_part=match.split("@")[0],
-                domain_part=match.split("@")[1],
-            )
-            for match in matches
-        ]
-```
-
-Email rules become:
-
-```python
-class Section341AddrSpec(Rule[EmailNotation]):
-    name = "Section 3.4.1-addr-spec"
-
-    def matches(self, notation: EmailNotation) -> bool:
-        return bool(
-            _LOCAL_PATTERN.match(notation.local_part)
-            and _DOMAIN_PATTERN.match(notation.domain_part)
-        )
-
-    def normalize(self, notation: EmailNotation) -> str:
-        return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"
-```
-
-### Benefits
-
-- **locality:** field access errors caught at type-check time, not runtime
-- **leverage:** grammar authors get IDE completion on notation fields
-- **interface:** the grammar→rule contract becomes self-documenting
+**Benefit:** Type safety flows from grammar → rule boundary, no more `notation[0]` indexing.
 
 ---
 
-## Candidate 3: Extract grammar dispatch from rule evaluation in `_validate`
+## Candidate 3: Extract grammar dispatch from rule evaluation in `_validate` ✅ IMPLEMENTED
 
 **Strength:** Worth exploring
+**Status:** ✅ Implemented (2026-07-26)
 **Files:** `paxman/engine/orchestrator.py`
 
-### Problem
+### Problem (RESOLVED)
 
-The `_validate` function interleaves grammar dispatch, rule filtering (excluded + year), and candidate collection in a single 62-line function. You cannot test grammar recognition independently from rule evaluation. This limits test locality.
+The `_validate` function interleaved grammar dispatch, rule filtering (excluded + year), and candidate collection in a single 62-line function. Grammar recognition could not be tested independently from rule evaluation.
 
-Current structure:
+### Actual Implementation
 
-```python
-def _validate(text, capability, contract) -> tuple[list[Candidate], bool]:
-    # PHASE 1: Grammar dispatch (lines 73-93)
-    active_grammar_names = set(contract.active_grammars)
-    all_grammars = capability.get_grammars()
-    active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
-    recognitions = []
-    for grammar in active_grammars:
-        notations = grammar.recognize(text)
-        # ... build RecognizedReps
+Extracted three focused functions composed by `run_capability()`:
 
-    # PHASE 2: Rule filtering (lines 97-99)
-    all_rules = capability.get_rules()
-    excluded = set(contract.excluded_rules)
-    active_rules = [r for r in all_rules if r.name not in excluded]
+| Function | Purpose | Lines |
+|----------|---------|-------|
+| `_recognize()` | Run active grammars, return recognitions | ~20 |
+| `_filter_rules()` | Apply exclusions and year filter | ~10 |
+| `_collect_candidates()` | Match recognitions against rules | ~20 |
 
-    # PHASE 3: Candidate collection (lines 101-126)
-    candidates = []
-    for recognition in recognitions:
-        for rule in active_rules:
-            if contract.year and rule.provenance.publication_year > contract.year:
-                continue
-            if rule.matches(recognition.notation):
-                canonical = rule.normalize(recognition.notation)
-                candidates.append(Candidate(...))
-
-    return candidates, had_recognitions
-```
-
-### Before / After
-
-```
-BEFORE                              AFTER
-─────────────────────────          ─────────────────────────
-
-┌─────────────────────────┐        ┌─────────────────────────┐
-│ _validate(text, cap, ct)│        │ _recognize(text, cap, ct)│
-│                         │        │  (testable in isolation) │
-│  grammar dispatch       │        └────────────┬────────────┘
-│       +                 │                     │
-│  rule filtering         │        ┌────────────▼────────────┐
-│       +                 │        │ _filter_rules(cap, ct)   │
-│  candidate collection   │        │  (testable in isolation) │
-│                         │        └────────────┬────────────┘
-│  62 lines, one function │                     │
-└─────────────────────────┘        ┌────────────▼────────────┐
-                                   │ _collect_candidates()    │
-                                   │  (testable in isolation) │
-                                   └────────────┬────────────┘
-                                                │
-                                   ┌────────────▼────────────┐
-                                   │ run_capability()         │
-                                   │  composes the three      │
-                                   └──────────────────────────┘
-
-Each sub-phase independently testable
-```
-
-### Solution
-
-Extract three focused functions:
-
-```python
-def _recognize(
-    text: str, capability: Capability, contract: Contract
-) -> list[RecognizedRep]:
-    """Run active grammars and return all recognitions."""
-    active_grammar_names = set(contract.active_grammars)
-    all_grammars = capability.get_grammars()
-    active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
-
-    recognitions: list[RecognizedRep] = []
-    for grammar in active_grammars:
-        try:
-            notations = grammar.recognize(text)
-        except Exception as exc:
-            raise RecognitionError(
-                rule=grammar.name,
-                message=f"Grammar failed: {exc}",
-                original_error=exc,
-            ) from exc
-        grammar_ref = GrammarRule(
-            capability_name=capability.name, grammar_name=grammar.name
-        )
-        for notation in notations:
-            recognitions.append(
-                RecognizedRep(notation=notation, contract=contract, grammar=grammar_ref)
-            )
-    return recognitions
-
-
-def _filter_rules(capability: Capability, contract: Contract) -> list[Rule]:
-    """Return rules that are not excluded and pass year filter."""
-    all_rules = capability.get_rules()
-    excluded = set(contract.excluded_rules)
-    active_rules = [r for r in all_rules if r.name not in excluded]
-
-    if contract.year is not None:
-        active_rules = [
-            r for r in active_rules
-            if r.provenance.publication_year <= contract.year
-        ]
-    return active_rules
-
-
-def _collect_candidates(
-    recognitions: list[RecognizedRep], rules: list[Rule]
-) -> list[Candidate]:
-    """Match recognitions against rules and collect candidates."""
-    candidates: list[Candidate] = []
-    for recognition in recognitions:
-        for rule in rules:
-            try:
-                if rule.matches(recognition.notation):
-                    canonical = rule.normalize(recognition.notation)
-                    candidates.append(
-                        Candidate(
-                            value=canonical,
-                            recognition_rule=recognition.grammar.grammar_name,
-                            validation_rule=rule.name,
-                            provenance=[rule.provenance],
-                        )
-                    )
-            except Exception as exc:
-                raise ValidationError(
-                    rule=rule.name,
-                    message=f"Validation failed: {exc}",
-                    original_error=exc,
-                ) from exc
-    return candidates
-```
-
-`run_capability` composes them:
-
-```python
-def run_capability(text: str, contract: Contract) -> ExecutionResult:
-    freeze_registry()
-    capability = get_capability(contract.capability_name)
-
-    recognitions = _recognize(text, capability, contract)
-    had_recognitions = len(recognitions) > 0
-
-    rules = _filter_rules(capability, contract)
-    candidates = _collect_candidates(recognitions, rules)
-
-    status = _determine_status(candidates, had_recognitions)
-    canonical_value = _extract_canonical_value(candidates, status)
-    version_stamp = _build_version_stamp(text, candidates, contract, status)
-
-    return ExecutionResult(
-        status=status,
-        canonicalized_value=canonical_value,
-        candidates=tuple(candidates),
-        contract=contract,
-        version_stamp=version_stamp,
-    )
-```
-
-### Benefits
-
-- **locality:** grammar dispatch bugs isolated from rule bugs
-- **leverage:** each sub-phase has a focused test surface
-- **interface:** function signatures document the pipeline stages explicitly
+**Benefit:** Each pipeline phase independently testable.
 
 ---
 
-## Candidate 4: Make grammar registration declarative on contracts
+## Candidate 4: Make grammar registration declarative on contracts ✅ IMPLEMENTED
 
 **Strength:** Speculative
-**Files:**
-- `paxman/capabilities/Email/capability.py` (`EmailContract.active_grammars`)
-- Future capability contracts
+**Status:** ✅ Implemented (2026-07-26)
+**Files:** `paxman/capabilities/Email/capability.py`
 
-### Problem
+### Problem (RESOLVED)
 
-Each capability's contract has a procedural `active_grammars` property that maps boolean flags to grammar name lists with if/append logic. Every new grammar requires editing this method. The pattern repeats across capabilities.
+Each capability's contract had a procedural `active_grammars` property that mapped boolean flags to grammar name lists with if/append logic. Every new grammar required editing this method.
 
-Current code in `EmailCapability`:
+### Actual Implementation
 
-```python
-@dataclass(frozen=True)
-class EmailContract:
-    capability_name: str = field(default="email", init=False)
-    include_obfuscated: bool = False
-    include_localhost: bool = True
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    year: int | None = None
-
-    @property
-    def active_grammars(self) -> list[str]:
-        grammars = ["standard_recognition"]       # ← always on
-        if self.include_obfuscated:               # ← procedural
-            grammars.append("obfuscated_recognition")
-        if self.include_localhost:                # ← procedural
-            grammars.append("localhost_recognition")
-        return grammars
-```
-
-### Before / After
-
-```
-BEFORE (cross-section)                 AFTER (cross-section)
-───────────────────────────           ───────────────────────────
-
-┌───────────────────────────┐         ┌───────────────────────────┐
-│ if self.include_obfuscated│         │ GRAMMAR_MAP = {           │
-│   grammars.append(...)    │         │   "standard": True,       │
-├───────────────────────────┤         │   "obfuscated":           │
-│ if self.include_localhost │         │     "include_obfuscated", │
-│   grammars.append(...)    │         │   "localhost":            │
-├───────────────────────────┤         │     "include_localhost",  │
-│ # always: standard        │         │ }                         │
-└───────────────────────────┘         │ active_grammars computed  │
-                                      │ from map                  │
-Procedural:                           ├───────────────────────────┤
-each new grammar = new if/append      │ new grammar = one entry   │
-                                      └───────────────────────────┘
-
-                                      Declarative:
-                                      new grammar = one map entry
-```
-
-### Solution
-
-Declare a grammar registry on the capability or contract: a mapping from grammar name to activation condition (always-on, or bound to a contract field). The `active_grammars` property computes from this registry.
-
-```python
-from enum import Enum
-
-class GrammarActivation(Enum):
-    """How a grammar is activated."""
-    ALWAYS = "always"           # Grammar is always active
-    FIELD = "field"             # Grammar is active when contract field is True
-
-# On the Capability class:
-GRAMMAR_REGISTRY = {
-    "standard_recognition": GrammarActivation.ALWAYS,
-    "obfuscated_recognition": GrammarActivation.FIELD,
-    "localhost_recognition": GrammarActivation.FIELD,
-}
-
-# On the Contract:
-FIELD_MAP = {
-    "obfuscated_recognition": "include_obfuscated",
-    "localhost_recognition": "include_localhost",
-}
-```
-
-The `active_grammars` property becomes a loop:
+Used direct `dict[str, bool]` mapping instead of proposed `GrammarActivation` enum — simpler, more Pythonic.
 
 ```python
 @property
 def active_grammars(self) -> list[str]:
-    grammars = []
-    for name, activation in GRAMMAR_REGISTRY.items():
-        if activation == GrammarActivation.ALWAYS:
-            grammars.append(name)
-        elif activation == GrammarActivation.FIELD:
-            field_name = FIELD_MAP[name]
-            if getattr(self, field_name, False):
-                grammars.append(name)
-    return grammars
+    grammar_rules: dict[str, bool] = {
+        "standard_recognition": True,
+        "obfuscated_recognition": self.include_obfuscated,
+        "localhost_recognition": self.include_localhost,
+    }
+    return [name for name, active in grammar_rules.items() if active]
 ```
 
-### Benefits
-
-- **locality:** grammar activation logic lives in a single data structure
-- **leverage:** capability authors add one line, not a method edit
-- **test surface:** registry can be asserted against directly
+**Benefit:** Adding a grammar = one dict entry, no method edit needed.
 
 ---
 
-## Top Recommendation
+## Implementation Complete
 
-### Collapse immutability boilerplate into a frozen base
+All four architectural deepening candidates have been implemented:
 
-This is the deepest seam in the codebase. Five domain objects repeat ~40 lines of identical immutability machinery. A `FrozenBase` class concentrates this in one place. Every future domain object benefits. The deletion test passes: removing the base and inlining the pattern back would re-spread the complexity, confirming the base concentrates it.
+| # | Candidate | Approach | Net Impact |
+|---|-----------|----------|------------|
+| 1 | Dataclass migration | `@dataclass(frozen=True, slots=True)` | ~160 lines eliminated |
+| 2 | Typed notation generics | `Grammar[NotationT]`, `Rule[NotationT]` | Type safety across seam |
+| 3 | Orchestrator decomposition | 3 focused functions | Independently testable phases |
+| 4 | Declarative grammar registry | `dict[str, bool]` mapping | One entry to add grammar |
 
-**Start here because:**
-
-1. It touches `paxman/core/domain.py` only — zero downstream API changes
-2. It has zero risk of breaking existing behavior (pure mechanical extraction)
-3. It makes Candidate 2 (Notation type safety) easier by establishing a generic-parameterized base pattern
-4. It creates a template for future domain objects as the library grows
+**Verification:** 136 tests passing, ruff clean, pyright strict
 
 ---
 

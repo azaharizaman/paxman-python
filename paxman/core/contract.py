@@ -35,7 +35,7 @@ class Contract(Protocol):
 
     @property
     def two_digit_base_year(self) -> int | None:
-        """Base year for interpreting two-digit years (e.g., 2000 for '25' -> 2025)."""
+        """Base year for two-digit year interpretation (Date-specific)."""
         ...
 
     def as_dict(self) -> dict[str, Any]:

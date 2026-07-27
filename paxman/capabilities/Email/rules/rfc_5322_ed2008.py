@@ -22,7 +22,7 @@ PUBLICATION = Provenance(
     publication_year=2008,
 )
 
-_LOCAL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+$")
+_LOCAL_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._%+-]*$")
 _DOMAIN_PATTERN = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
 

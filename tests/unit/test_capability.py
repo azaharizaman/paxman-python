@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from paxman.core.capability import Capability
+from paxman.core.contract import Contract
 from paxman.core.domain import Grammar, Notation, Provenance, Rule, RuleStrategy
 
 # --- Concrete test doubles ---
@@ -35,10 +36,10 @@ class StubRule(Rule):
     )
     citation: str = "test citation"
 
-    def matches(self, notation: Notation) -> bool:
+    def matches(self, notation: Notation, contract: Contract) -> bool:
         return True
 
-    def normalize(self, notation: Notation) -> str:
+    def normalize(self, notation: Notation, contract: Contract) -> str:
         return "stub"
 
 

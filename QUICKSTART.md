@@ -16,14 +16,15 @@ pip install paxman
 
 ```python
 import paxman
-from paxman.capabilities import Email
+from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.domain import Resolution
+from paxman.core.discovery import register_capability
 
 # Register the Email capability (once, before first use)
-paxman.register_capability(Email())
+register_capability(EmailCapability())
 
 # Create a contract and canonicalize
-contract = Email.create_contract()
+contract = EmailCapability.create_contract()
 result = paxman.canonicalize("Contact user@Example.com", contract)
 
 # Check the result
@@ -46,7 +47,7 @@ Every call to `canonicalize()` returns an `ExecutionResult` with a `status` fiel
 | `INVALID` | Something was recognized, but no specification could validate it. |
 | `AMBIGUOUS` | Multiple specifications validated the input but disagreed on the canonical value. |
 
-When status is `MISSING` or `INVALID`, `result.canonicalized_value` is `None`.
+When status is `MISSING`, `INVALID`, or `AMBIGUOUS`, `result.canonicalized_value` is `None`.
 
 ---
 
@@ -55,7 +56,7 @@ When status is `MISSING` or `INVALID`, `result.canonicalized_value` is `None`.
 Every resolved value carries provenance, the authoritative source that validates it:
 
 ```python
-contract = Email.create_contract()
+contract = EmailCapability.create_contract()
 result = paxman.canonicalize("user@example.com", contract)
 
 for candidate in result.candidates:
@@ -72,15 +73,15 @@ Contracts let you control which grammars run, which rules are excluded, and whic
 
 ```python
 # Enable obfuscated email recognition ("user at domain dot com")
-contract = Email.create_contract(include_obfuscated=True)
+contract = EmailCapability.create_contract(include_obfuscated=True)
 result = paxman.canonicalize("Email me at user at example dot com", contract)
 
 # Exclude specific validation rules
-contract = Email.create_contract(excluded_rules=["Section 6.3-localhost"])
+contract = EmailCapability.create_contract(excluded_rules=["Section 6.3-localhost"])
 result = paxman.canonicalize("admin@localhost", contract)
 
 # Pin to a specific year (excludes rules from newer specifications)
-contract = Email.create_contract(year=2008)
+contract = EmailCapability.create_contract(year=2008)
 result = paxman.canonicalize("user@example.com", contract)
 ```
 

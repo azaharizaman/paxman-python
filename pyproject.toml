@@ -21,6 +21,7 @@ markers = [
     "capability: capability-specific tests",
     "integration: integration tests",
     "e2e: end-to-end tests",
+    "property: property-based tests (Hypothesis)",
 ]
 testpaths = ["tests"]
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Email.notation import EmailNotation
-from paxman.core.domain import Grammar, Notation
+from paxman.core.domain import Grammar
 
 # Matches: "user at domain dot tld"
 _OBFUSCATED_PATTERN = re.compile(
@@ -17,14 +17,14 @@ _AT_ONLY_PATTERN = re.compile(
 )
 
 
-class ObfuscatedEmailGrammar(Grammar):
+class ObfuscatedEmailGrammar(Grammar[EmailNotation]):
     """Obfuscated email: 'user at domain dot tld' or 'user at domain.tld'."""
 
     name = "obfuscated_recognition"
 
-    def recognize(self, text: str) -> list[Notation]:
+    def recognize(self, text: str) -> list[EmailNotation]:
         seen: set[tuple[str, str]] = set()
-        results: list[Notation] = []
+        results: list[EmailNotation] = []
 
         # Try "at ... dot ..." format first
         for match in _OBFUSCATED_PATTERN.finditer(text):
@@ -33,9 +33,7 @@ class ObfuscatedEmailGrammar(Grammar):
             key = (local_part, domain)
             if key not in seen:
                 seen.add(key)
-                results.append(
-                    EmailNotation(local_part=local_part, domain_part=domain).as_list()
-                )
+                results.append(EmailNotation(local_part=local_part, domain_part=domain))
 
         # Try "at domain.tld" format (no "dot")
         for match in _AT_ONLY_PATTERN.finditer(text):
@@ -44,8 +42,6 @@ class ObfuscatedEmailGrammar(Grammar):
             key = (local_part, domain)
             if key not in seen:
                 seen.add(key)
-                results.append(
-                    EmailNotation(local_part=local_part, domain_part=domain).as_list()
-                )
+                results.append(EmailNotation(local_part=local_part, domain_part=domain))
 
         return results

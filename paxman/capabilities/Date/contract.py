@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -23,7 +24,7 @@ class DateContract:
             "european_recognition",
         ]
 
-    def as_dict(self) -> dict[str, object]:
+    def as_dict(self) -> dict[str, Any]:
         return {
             "capability_name": self.capability_name,
             "excluded_rules": self.excluded_rules,

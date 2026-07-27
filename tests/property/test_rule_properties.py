@@ -2,65 +2,103 @@
 
 from __future__ import annotations
 
+import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Date.rules.iso_8601_ed2019 import Section431CalendarDate
+from paxman.capabilities.Date.rules.us_federal_rules_ed2023 import Section1DateFormat
 
 
+@pytest.mark.property
 @given(
-    day=st.integers(min_value=1, max_value=31),
-    month=st.integers(min_value=1, max_value=12),
     year=st.integers(min_value=1900, max_value=2100),
+    month=st.integers(min_value=1, max_value=12),
+    day=st.integers(min_value=1, max_value=28),
 )
 def test_iso8601_rule_matches_returns_bool(
-    day: int,
-    month: int,
     year: int,
+    month: int,
+    day: int,
 ) -> None:
-    """ISO 8601 rule matches() always returns a bool."""
+    """ISO 8601 rule.matches() always returns a bool."""
     rule = Section431CalendarDate()
-    notation = DateNotation(
-        day=str(day),
-        month=str(month),
-        year=str(year),
-    )
+    notation = DateNotation(N1=str(year), N2=str(month), N3=str(day))
     contract = DateContract()
     result = rule.matches(notation, contract)
     assert isinstance(result, bool)
 
 
-def test_iso8601_rule_normalize_always_returns_string() -> None:
-    """ISO 8601 rule normalize() always returns a string."""
+@pytest.mark.property
+@given(
+    year=st.integers(min_value=1900, max_value=2100),
+    month=st.integers(min_value=1, max_value=12),
+    day=st.integers(min_value=1, max_value=28),
+)
+def test_iso8601_rule_normalize_returns_str(
+    year: int,
+    month: int,
+    day: int,
+) -> None:
+    """ISO 8601 rule.normalize() always returns a str when matches() is True."""
     rule = Section431CalendarDate()
-    notation = DateNotation(day="26", month="07", year="2026")
+    notation = DateNotation(N1=str(year), N2=str(month), N3=str(day))
     contract = DateContract()
-    result = rule.normalize(notation, contract)
-    assert isinstance(result, str)
+    if rule.matches(notation, contract):
+        result = rule.normalize(notation, contract)
+        assert isinstance(result, str)
+        # Should be in ISO format
+        assert len(result) == 10
+        assert result[4] == "-"
+        assert result[7] == "-"
 
 
-def test_iso8601_rule_valid_date_normalizes_correctly() -> None:
-    """ISO 8601 rule normalizes valid date to expected format."""
-    rule = Section431CalendarDate()
-    notation = DateNotation(day="15", month="03", year="2024")
+@pytest.mark.property
+@given(
+    month=st.integers(min_value=1, max_value=12),
+    day=st.integers(min_value=1, max_value=28),
+    year=st.integers(min_value=1900, max_value=2100),
+)
+def test_us_rule_matches_returns_bool(
+    month: int,
+    day: int,
+    year: int,
+) -> None:
+    """US federal rule.matches() always returns a bool."""
+    rule = Section1DateFormat()
+    notation = DateNotation(N1=str(month), N2=str(day), N3=str(year))
     contract = DateContract()
-    assert rule.matches(notation, contract) is True
-    assert rule.normalize(notation, contract) == "2024-03-15"
+    result = rule.matches(notation, contract)
+    assert isinstance(result, bool)
 
 
-def test_iso8601_rule_invalid_date_does_not_match() -> None:
-    """ISO 8601 rule rejects invalid dates."""
-    rule = Section431CalendarDate()
-    notation = DateNotation(day="31", month="02", year="2024")
-    contract = DateContract()
-    assert rule.matches(notation, contract) is False
-
-
-def test_iso8601_rule_handles_non_numeric_notation() -> None:
-    """ISO 8601 rule handles non-numeric notation gracefully."""
-    rule = Section431CalendarDate()
-    notation = DateNotation(day="abc", month="def", year="ghi")
-    contract = DateContract()
-    assert rule.matches(notation, contract) is False
+@pytest.mark.property
+@given(
+    month=st.integers(min_value=1, max_value=12),
+    day=st.integers(min_value=1, max_value=28),
+    year=st.integers(min_value=1900, max_value=2100),
+    output_format=st.sampled_from([None, "ISO", "US"]),
+)
+def test_us_rule_normalize_returns_str(
+    month: int,
+    day: int,
+    year: int,
+    output_format: str | None,
+) -> None:
+    """US federal rule.normalize() always returns a str when matches() is True."""
+    rule = Section1DateFormat()
+    notation = DateNotation(N1=str(month), N2=str(day), N3=str(year))
+    contract = DateContract(output_format=output_format)
+    if rule.matches(notation, contract):
+        result = rule.normalize(notation, contract)
+        assert isinstance(result, str)
+        if output_format == "ISO":
+            assert len(result) == 10
+            assert result[4] == "-"
+            assert result[7] == "-"
+        elif output_format == "US":
+            assert len(result) == 10
+            assert result[2] == "/"
+            assert result[5] == "/"

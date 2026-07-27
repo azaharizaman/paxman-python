@@ -41,6 +41,7 @@ Create the following directory structure. Replace `YourDomain` with your capabil
 paxman/capabilities/YourDomain/
 ├── __init__.py
 ├── capability.py
+├── contract.py
 ├── notation.py
 ├── grammar/
 │   ├── __init__.py
@@ -100,12 +101,12 @@ Create `paxman/capabilities/YourDomain/grammar/your_grammar.py`:
 2. Import your `YourDomainNotation` from the notation module
 3. Define a class that extends `Grammar`
 4. Set the `name` class attribute to a snake_case identifier (this name is used by the contract to toggle grammars)
-5. Implement the `recognize(text: str) -> list[list[str]]` method
+5. Implement the `recognize(text: str) -> list[YourDomainNotation]` method
 
 **The `recognize` method must:**
 
 - Accept a single string parameter (the raw input text)
-- Return a list of notations (each notation is a list of strings, produced by calling `YourDomainNotation(...).as_list()`)
+- Return a list of typed notations (each notation is an instance of `YourDomainNotation`)
 - Return an empty list if nothing matches
 - Never raise exceptions for normal input (use try/except for regex or parsing errors)
 - Handle edge cases gracefully (empty strings, partial matches, Unicode)
@@ -147,7 +148,7 @@ At the top of the file, define a module-level `PUBLICATION` constant. This is th
 
 Create a class that extends `Rule`:
 
-1. Set `name` to a snake_case identifier following the pattern `section_number-description` (e.g., `section_3_4_1_addr_spec`)
+1. Set `name` to an identifier following the pattern `Section X.Y.Z-description` (e.g., `Section 3.4.1-addr-spec`)
 2. Set `strategy` to the appropriate `RuleStrategy` enum value:
    - `REGEX` — for pattern matching rules
    - `LOOKUP_TABLE` — for table-based validation (e.g., status codes, country codes)
@@ -160,14 +161,14 @@ Create a class that extends `Rule`:
 The `matches` method checks whether a notation is valid according to this rule:
 
 ```python
-def matches(self, notation: list[str]) -> bool:
+def matches(self, notation: YourDomainNotation, contract: Contract) -> bool:
 ```
 
-- Accept a list of strings (the notation)
+- Accept a typed notation and the contract
 - Return `True` if the notation is valid according to the specification
 - Return `False` if it is not valid
 - Never raise exceptions — return `False` for any invalid input
-- Access notation fields by position (e.g., `notation[0]` for the first field)
+- Access notation fields by name (e.g., `notation.field_name`)
 
 **For regex rules:** Compile the regex once at module level, then use it in `matches`.
 
@@ -180,13 +181,14 @@ def matches(self, notation: list[str]) -> bool:
 The `normalize` method converts a valid notation into its canonical string form:
 
 ```python
-def normalize(self, notation: list[str]) -> str:
+def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
 ```
 
-- Accept a list of strings (the notation)
+- Accept a typed notation and the contract
 - Return the canonical string representation
 - Only called after `matches` returns `True` (you can assume the notation is valid)
 - Apply normalization rules from the specification (e.g., lowercase, remove whitespace, pad with zeros)
+- Use contract parameters to control output format (e.g., `contract.output_format`)
 
 ---
 
@@ -211,7 +213,7 @@ Create `paxman/capabilities/YourDomain/capability.py`:
 
 The Contract is a user-facing configuration object that controls which grammars and rules are active.
 
-Define the Contract in `paxman/capabilities/YourDomain/capability.py` (same file as the Capability class):
+Define the Contract in `paxman/capabilities/YourDomain/contract.py` (separate file from the Capability class):
 
 1. Import `dataclass` and `frozen` from `dataclasses`
 2. Define a frozen dataclass that will serve as the contract
@@ -228,7 +230,32 @@ Define the Contract in `paxman/capabilities/YourDomain/capability.py` (same file
 - `active_grammars: Sequence[str]` — list of grammar names to activate
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
 - `year: int | None` — year for temporal filtering
+- `output_format: str | None` — output format for canonical values
 - `as_dict() -> dict[str, Any]` — serialization for replay hash
+
+---
+
+## Architectural Note: Protocol vs. ABC
+
+Paxman uses two different patterns for its core interfaces: **Protocol** (duck typing) for the `Contract` and **Abstract Base Class (ABC)** (inheritance) for the `Capability`.
+
+### Why `Contract` uses Protocol (Duck Typing)
+
+The `Contract` is a **user-facing configuration object**. By defining it as a `Protocol`, we prioritize **flexibility** and **convenience** for the user:
+
+1.  **No Inheritance Required:** Users can implement a contract using a simple dataclass (like `EmailContract`) without importing or inheriting from `paxman.core.contract.Contract`.
+2.  **Data Structure Focus:** Contracts are primarily data holders. A Protocol allows users to use whatever data structure fits their domain (dataclasses, Pydantic models, TypedDicts) as long as they "quack like a duck" (provide the right attributes).
+3.  **Decoupling:** The capability module doesn't need to depend tightly on the core contract class definition.
+
+### Why `Capability` uses ABC (Inheritance)
+
+The `Capability` is an **internal engine component**. By defining it as an `ABC`, we prioritize **strictness** and **reliability**:
+
+1.  **Lifecycle Enforcement:** The engine relies on capabilities to provide grammars and rules. An ABC ensures that implementers *must* define `get_grammars()` and `get_rules()` before the code runs.
+2.  **Internal Consistency:** Capabilities are discovered and managed by the engine's registry. Strict inheritance guarantees they adhere to the expected structure, preventing runtime errors during the discovery phase.
+3.  **Behavioral Definition:** Unlike contracts (which hold state), capabilities define behavior. ABCs are the standard way to enforce behavioral contracts in Python.
+
+**Summary:** Be **strict with yourself** (use ABC for engine components like `Capability`) but **open to others** (use Protocol for user-facing interfaces like `Contract`).
 
 ---
 
@@ -415,7 +442,7 @@ Must pass with zero errors.
 ### Import Boundaries
 
 ```bash
-uv run import-linter
+uv run import-linter lint
 ```
 
 Must pass. Your capability must not import from other capabilities. It may only import from `paxman.core`.
@@ -442,7 +469,7 @@ Grammar names are snake_case strings used by the contract to toggle grammars. Th
 
 ### Pattern: Rule Names Follow Section Convention
 
-Rule names follow the pattern `section_{number}_{description}` (e.g., `section_3_4_1_addr_spec`). This makes it easy to map rules back to the specification.
+Rule names follow the pattern `Section {X.Y.Z}-{description}` (e.g., `Section 3.4.1-addr-spec`). This makes it easy to map rules back to the specification.
 
 ### Pattern: Notation Fields Are Positional
 
@@ -471,8 +498,8 @@ Your capability cannot import from `paxman.capabilities.OtherCapability`. If you
 Use this checklist to verify your capability is complete:
 
 - [ ] Notation is a frozen dataclass with `as_list()` method
-- [ ] Each grammar extends `Grammar` and implements `recognize(text) -> list[list[str]]`
-- [ ] Each rule extends `Rule` and implements `matches(notation) -> bool` and `normalize(notation) -> str`
+- [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[YourDomainNotation]`
+- [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
 - [ ] Each rule file has a `PUBLICATION` provenance constant
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
 - [ ] Contract is a frozen dataclass satisfying the `Contract` protocol
@@ -480,7 +507,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Capability is registered in `paxman/capabilities/__init__.py`
 - [ ] Grammar tests cover happy path, edge cases, multiple matches, and empty input
 - [ ] Rule tests cover valid input, invalid input, normalization, provenance, and naming
-- [ ] Notation tests cover creation, immutability, list conversion, and equality
+- [ ] Notation tests cover creation, immutability, and equality
 - [ ] Capability tests cover subclass check, name, version, grammar count, and rule count
 - [ ] Integration tests use the `_clean_registry` fixture
 - [ ] End-to-end tests exercise the public API

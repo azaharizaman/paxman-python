@@ -12,6 +12,7 @@ from paxman.capabilities.Date.grammar.iso8601_recognition import (
     ISO8601DateGrammar,
 )
 from paxman.capabilities.Date.grammar.us_recognition import USDateGrammar
+from paxman.capabilities.Date.rules.en_50160_ed2010 import Section4DateFormat
 from paxman.capabilities.Date.rules.iso_8601_ed2019 import Section431CalendarDate
 from paxman.capabilities.Date.rules.us_federal_rules_ed2023 import (
     Section1DateFormat,
@@ -39,6 +40,7 @@ class DateCapability(Capability):
         return [
             Section431CalendarDate(),
             Section1DateFormat(),
+            Section4DateFormat(),
         ]
 
     @staticmethod

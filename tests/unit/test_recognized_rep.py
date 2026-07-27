@@ -28,6 +28,10 @@ class FakeContract:
     def year(self) -> int | None:
         return None
 
+    @property
+    def output_format(self) -> str | None:
+        return None
+
     def as_dict(self) -> dict[str, Any]:
         return {"capability_name": "email"}
 

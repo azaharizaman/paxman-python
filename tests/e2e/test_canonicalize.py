@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from paxman.api import canonicalize
+from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
@@ -85,8 +86,34 @@ class TestCanonicalize:
             def year(self) -> int | None:
                 return None
 
+            @property
+            def output_format(self) -> str | None:
+                return None
+
             def as_dict(self) -> dict:
                 return {"capability_name": "nonexistent"}
 
         with pytest.raises(CapabilityError, match="Unknown capability"):
             canonicalize("test", FakeContract())
+
+
+class TestDateCapabilityE2E:
+    """End-to-end tests for Date capability via public API."""
+
+    @pytest.mark.e2e
+    def test_iso_date(self) -> None:
+        """ISO date canonicalization via public API."""
+        register_capability(DateCapability())
+        contract = DateCapability.create_contract()
+        result = canonicalize("2026-01-15", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "2026-01-15"
+
+    @pytest.mark.e2e
+    def test_date_ambiguity(self) -> None:
+        """Ambiguous date returns AMBIGUOUS status."""
+        register_capability(DateCapability())
+        contract = DateCapability.create_contract()
+        result = canonicalize("07/02/2026", contract)
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
