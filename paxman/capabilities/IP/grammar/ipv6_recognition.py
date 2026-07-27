@@ -8,8 +8,8 @@ from paxman.capabilities.IP.notation import IPNotation
 from paxman.core.domain import Grammar
 
 # Boundary: start/end of string, whitespace, or common punctuation
-_IPV6_BOUNDARY = r"(?:^|(?<=[\s,;()]))"
-_IPV6_END = r"(?:$|(?=[\s,;().]))"
+_IPV6_BOUNDARY = r"(?:^|(?<=[\s,;([ ]))"
+_IPV6_END = r"(?:$|(?=[\s,;().\]]))"
 
 # Full form: 8 groups of 1-4 hex digits separated by single colons
 _IPV6_FULL = re.compile(

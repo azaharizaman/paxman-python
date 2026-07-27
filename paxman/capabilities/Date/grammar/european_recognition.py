@@ -11,7 +11,7 @@ from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.domain import Grammar
 
 _EUROPEAN_DATE_PATTERN_4DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})")
-_EUROPEAN_DATE_PATTERN_2DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{2})(?!\d)")
+_EUROPEAN_DATE_PATTERN_2DIGIT = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{2})(?!\d)")
 
 
 class EuropeanDateGrammar(Grammar[DateNotation]):

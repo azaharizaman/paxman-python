@@ -71,8 +71,8 @@ The Notation is your domain's intermediate representation. It is a frozen datacl
 
 Create `paxman/capabilities/YourDomain/notation.py`:
 
-1. Import `dataclass` and `frozen` from `dataclasses`
-2. Define a frozen dataclass with one field per component of your notation
+1. Import `dataclass` from `dataclasses`
+2. Define a frozen dataclass with `@dataclass(frozen=True)` and one field per component of your notation
 3. Add an `as_list()` method that returns the fields as a plain list of strings (in order) — an optional helper for bridging to generic interfaces
 
 The engine passes typed notation objects to rules, not lists. Rules access fields by name (e.g., `notation.field_name`). The `as_list()` method is a convenience helper, not an engine requirement.
