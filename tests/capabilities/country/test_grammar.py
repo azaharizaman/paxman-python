@@ -191,3 +191,66 @@ class TestNumericGrammar:
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "numeric_recognition"
+
+
+from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
+
+
+class TestNameGrammar:
+    """Tests for NameGrammar."""
+
+    def setup_method(self) -> None:
+        self.grammar = NameGrammar()
+
+    def test_recognizes_full_name(self) -> None:
+        """Happy path: grammar finds name pattern."""
+        results = self.grammar.recognize("United States")
+        assert len(results) == 1
+        assert results[0].shape == "name"
+        assert results[0].value == "United States"
+
+    def test_recognizes_unicode(self) -> None:
+        """Edge case: Unicode input."""
+        results = self.grammar.recognize("马来西亚")
+        assert len(results) == 1
+        assert results[0].value == "马来西亚"
+
+    def test_recognizes_alpha2(self) -> None:
+        """Design note: name grammar also matches alpha2 shapes."""
+        results = self.grammar.recognize("US")
+        assert len(results) == 1
+        assert results[0].shape == "name"
+        assert results[0].value == "US"
+
+    def test_recognizes_alpha3(self) -> None:
+        """Design note: name grammar also matches alpha3 shapes."""
+        results = self.grammar.recognize("USA")
+        assert len(results) == 1
+        assert results[0].shape == "name"
+
+    def test_recognizes_numeric(self) -> None:
+        """Design note: name grammar also matches numeric shapes."""
+        results = self.grammar.recognize("840")
+        assert len(results) == 1
+        assert results[0].shape == "name"
+
+    def test_preserves_case(self) -> None:
+        """Edge case: original case is preserved."""
+        results = self.grammar.recognize("united states")
+        assert len(results) == 1
+        assert results[0].value == "united states"
+
+    def test_recognizes_with_whitespace(self) -> None:
+        """Edge case: whitespace is trimmed."""
+        results = self.grammar.recognize("  Burma  ")
+        assert len(results) == 1
+        assert results[0].value == "Burma"
+
+    def test_returns_empty_for_empty_input(self) -> None:
+        """Empty string returns empty list."""
+        results = self.grammar.recognize("")
+        assert results == []
+
+    def test_name(self) -> None:
+        """Verify grammar name."""
+        assert self.grammar.name == "name_recognition"
