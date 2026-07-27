@@ -8,6 +8,7 @@ from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlph
 from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import SectionNumericCodes
 from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
 from paxman.capabilities.Country.rules.cldr_localized_ed2025 import SectionLocalizedNames
+from paxman.capabilities.Country.rules.paxman_historical_ed2025 import SectionHistoricalNames
 from paxman.core.domain import RuleStrategy
 
 
@@ -304,6 +305,69 @@ class TestSectionLocalizedNames:
     def test_rule_name(self) -> None:
         """Verify name follows convention."""
         assert self.rule.name == "Section-localized-names"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
+
+
+class TestSectionHistoricalNames:
+    """Tests for SectionHistoricalNames rule."""
+
+    def setup_method(self) -> None:
+        self.rule = SectionHistoricalNames()
+
+    def test_matches_when_enabled(self) -> None:
+        """Happy path: historical enabled and name matches."""
+        contract = CountryContract(include_historical=True)
+        notation = CountryNotation(shape="name", value="BURMA")
+        assert self.rule.matches(notation, contract) is True
+
+    def test_matches_lowercase(self) -> None:
+        """Edge case: lowercase historical name matches."""
+        contract = CountryContract(include_historical=True)
+        notation = CountryNotation(shape="name", value="burma")
+        assert self.rule.matches(notation, contract) is True
+
+    def test_rejects_when_disabled(self) -> None:
+        """Notation rejected when historical disabled (default)."""
+        contract = CountryContract()
+        notation = CountryNotation(shape="name", value="BURMA")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        contract = CountryContract(include_historical=True)
+        notation = CountryNotation(shape="alpha2", value="BURMA")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_rejects_invalid_name(self) -> None:
+        """Notation with invalid historical name."""
+        contract = CountryContract(include_historical=True)
+        notation = CountryNotation(shape="name", value="NOT A COUNTRY")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output."""
+        contract = CountryContract(include_historical=True)
+        notation = CountryNotation(shape="name", value="BURMA")
+        assert self.rule.normalize(notation, contract) == "MM"
+
+    def test_normalize_ceylon(self) -> None:
+        """Verify Ceylon normalizes to LK."""
+        contract = CountryContract(include_historical=True)
+        notation = CountryNotation(shape="name", value="CEYLON")
+        assert self.rule.normalize(notation, contract) == "LK"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "Paxman"
+        assert self.rule.provenance.specification_name == "Historical Country Names"
+        assert self.rule.provenance.publication_year == 2025
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section-historical-names"
 
     def test_strategy(self) -> None:
         """Verify the rule strategy enum."""
