@@ -13,6 +13,7 @@ class IPContract:
     capability_name: str = field(default="ip", init=False)
     include_ipv6: bool = True
     excluded_rules: tuple[str, ...] = field(default_factory=tuple)
+    pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = None
 
@@ -28,6 +29,7 @@ class IPContract:
             "capability_name": self.capability_name,
             "include_ipv6": self.include_ipv6,
             "excluded_rules": self.excluded_rules,
+            "pinned_rules": self.pinned_rules,
             "year": self.year,
             "output_format": self.output_format,
         }

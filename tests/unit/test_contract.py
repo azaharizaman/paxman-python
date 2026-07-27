@@ -25,6 +25,10 @@ class _FullyCompliantContract:
         return []
 
     @property
+    def pinned_rules(self) -> list[str] | None:
+        return None
+
+    @property
     def year(self) -> int | None:
         return 2024
 
@@ -37,6 +41,7 @@ class _FullyCompliantContract:
             "capability_name": self.capability_name,
             "active_grammars": self.active_grammars,
             "excluded_rules": self.excluded_rules,
+            "pinned_rules": self.pinned_rules,
             "year": self.year,
             "output_format": self.output_format,
         }
@@ -58,6 +63,10 @@ class _MissingAsDict:
         return []
 
     @property
+    def pinned_rules(self) -> list[str] | None:
+        return None
+
+    @property
     def year(self) -> int | None:
         return None
 
@@ -76,6 +85,10 @@ class _MissingCapabilityName:
     @property
     def excluded_rules(self) -> list[str]:
         return []
+
+    @property
+    def pinned_rules(self) -> list[str] | None:
+        return None
 
     @property
     def year(self) -> int | None:
@@ -118,6 +131,7 @@ class TestContractProtocol:
             "capability_name",
             "active_grammars",
             "excluded_rules",
+            "pinned_rules",
             "year",
             "output_format",
         }
@@ -138,6 +152,10 @@ class TestContractProtocol:
             @property
             def excluded_rules(self) -> list[str]:
                 return []
+
+            @property
+            def pinned_rules(self) -> list[str] | None:
+                return None
 
             @property
             def year(self) -> int | None:

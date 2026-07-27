@@ -40,6 +40,7 @@ class IPCapability(Capability[IPNotation]):
     def create_contract(
         include_ipv6: bool = True,
         excluded_rules: Sequence[str] | None = None,
+        pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
     ) -> IPContract:
@@ -47,6 +48,7 @@ class IPCapability(Capability[IPNotation]):
         return IPContract(
             include_ipv6=include_ipv6,
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
+            pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
         )

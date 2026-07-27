@@ -24,6 +24,15 @@ class Contract(Protocol):
         ...
 
     @property
+    def pinned_rules(self) -> Sequence[str] | None:
+        """Pin to specific rules. If set, ONLY these rules run.
+
+        Mutually exclusive with excluded_rules. When pinned_rules is set,
+        excluded_rules is ignored.
+        """
+        ...
+
+    @property
     def year(self) -> int | None:
         """Year for temporal filtering (publication_year <= year)."""
         ...

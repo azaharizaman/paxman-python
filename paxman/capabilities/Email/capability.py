@@ -47,6 +47,7 @@ class EmailCapability(Capability[EmailNotation]):
         include_obfuscated: bool = False,
         include_localhost: bool = True,
         excluded_rules: Sequence[str] | None = None,
+        pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
     ) -> EmailContract:
@@ -55,6 +56,7 @@ class EmailCapability(Capability[EmailNotation]):
             include_obfuscated=include_obfuscated,
             include_localhost=include_localhost,
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
+            pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
         )

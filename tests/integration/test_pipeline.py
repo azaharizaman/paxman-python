@@ -204,6 +204,10 @@ class _ErrorContract:
         return []
 
     @property
+    def pinned_rules(self) -> list[str] | None:
+        return None
+
+    @property
     def year(self) -> int | None:
         return None
 
@@ -246,3 +250,74 @@ class TestErrorWrapping:
         contract = _ExplodingContract()
         with pytest.raises(ValidationError):
             run_capability("test input", contract)
+
+
+class TestPinnedRules:
+    """Verify pinned_rules filtering behavior."""
+
+    @pytest.mark.integration
+    def test_pinned_rules_excludes_unpinned(self) -> None:
+        register_capability(EmailCapability())
+        contract = EmailCapability.create_contract(
+            pinned_rules=("Section 3.4.1-addr-spec",)
+        )
+        result = run_capability("Send to admin@localhost", contract)
+
+        assert result.status == Resolution.INVALID
+        assert len(result.candidates) == 0
+
+    @pytest.mark.integration
+    def test_pinned_rules_only_runs_pinned(self) -> None:
+        register_capability(EmailCapability())
+        contract = EmailCapability.create_contract(
+            pinned_rules=("Section 6.3-localhost",)
+        )
+        result = run_capability("Send to admin@localhost", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "admin@localhost"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].validation_rule == "Section 6.3-localhost"
+
+    @pytest.mark.integration
+    def test_pinned_rules_overrides_excluded_rules(self) -> None:
+        register_capability(EmailCapability())
+        contract = EmailCapability.create_contract(
+            excluded_rules=["Section 6.3-localhost"],
+            pinned_rules=("Section 6.3-localhost",),
+        )
+        result = run_capability("Send to admin@localhost", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "admin@localhost"
+
+    @pytest.mark.integration
+    def test_pinned_rules_with_year_filter(self) -> None:
+        register_capability(EmailCapability())
+        contract = EmailCapability.create_contract(
+            pinned_rules=("Section 3.4.1-addr-spec", "Section 6.3-localhost"),
+            year=2010,
+        )
+        result = run_capability("Send to admin@localhost", contract)
+
+        assert result.status == Resolution.INVALID
+        assert len(result.candidates) == 0
+
+    @pytest.mark.integration
+    def test_pinned_rules_none_uses_excluded_rules(self) -> None:
+        register_capability(EmailCapability())
+        contract = EmailCapability.create_contract(
+            excluded_rules=["Section 6.3-localhost"]
+        )
+        result = run_capability("Send to admin@localhost", contract)
+
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.integration
+    def test_pinned_rules_empty_tuple_excludes_all(self) -> None:
+        register_capability(EmailCapability())
+        contract = EmailCapability.create_contract(pinned_rules=())
+        result = run_capability("user@example.com", contract)
+
+        assert result.status == Resolution.INVALID
+        assert len(result.candidates) == 0

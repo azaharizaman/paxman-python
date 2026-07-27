@@ -12,6 +12,7 @@ class DateContract:
 
     capability_name: str = field(default="date", init=False)
     excluded_rules: tuple[str, ...] = field(default_factory=tuple)
+    pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = None
     two_digit_base_year: int | None = None
@@ -28,6 +29,7 @@ class DateContract:
         return {
             "capability_name": self.capability_name,
             "excluded_rules": self.excluded_rules,
+            "pinned_rules": self.pinned_rules,
             "year": self.year,
             "output_format": self.output_format,
             "two_digit_base_year": self.two_digit_base_year,

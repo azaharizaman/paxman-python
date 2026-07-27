@@ -99,10 +99,18 @@ def _recognize(
 
 
 def _filter_rules(capability: Capability[Any], contract: Contract) -> list[Rule[Any]]:
-    """Return rules that are not excluded and pass year filter."""
+    """Return rules based on pinning, exclusion, and year filter.
+
+    When pinned_rules is set, ONLY those rules run (excluded_rules is ignored).
+    """
     all_rules = capability.get_rules()
-    excluded = set(contract.excluded_rules)
-    active_rules = [r for r in all_rules if r.name not in excluded]
+
+    if contract.pinned_rules is not None:
+        pinned_set = set(contract.pinned_rules)
+        active_rules = [r for r in all_rules if r.name in pinned_set]
+    else:
+        excluded = set(contract.excluded_rules)
+        active_rules = [r for r in all_rules if r.name not in excluded]
 
     if contract.year is not None:
         active_rules = [

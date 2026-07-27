@@ -13,6 +13,7 @@ class EmailContract:
     include_obfuscated: bool = False
     include_localhost: bool = True
     excluded_rules: tuple[str, ...] = field(default_factory=tuple)
+    pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = None
 
@@ -31,6 +32,7 @@ class EmailContract:
             "include_obfuscated": self.include_obfuscated,
             "include_localhost": self.include_localhost,
             "excluded_rules": self.excluded_rules,
+            "pinned_rules": self.pinned_rules,
             "year": self.year,
             "output_format": self.output_format,
         }

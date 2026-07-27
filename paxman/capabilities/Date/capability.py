@@ -47,6 +47,7 @@ class DateCapability(Capability[DateNotation]):
     @staticmethod
     def create_contract(
         excluded_rules: Sequence[str] | None = None,
+        pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
         two_digit_base_year: int | None = None,
@@ -54,6 +55,7 @@ class DateCapability(Capability[DateNotation]):
         """Create a DateContract with the given configuration."""
         return DateContract(
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
+            pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
             two_digit_base_year=two_digit_base_year,
