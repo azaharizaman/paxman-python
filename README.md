@@ -63,6 +63,10 @@ result = paxman.canonicalize("Email me at user at example dot com", contract)
 contract = EmailCapability.create_contract(excluded_rules=["Section 6.3-localhost"])
 result = paxman.canonicalize("admin@localhost", contract)
 
+# Pin to specific rules (only these rules run)
+contract = EmailCapability.create_contract(pinned_rules=["Section 3.4.1-addr-spec"])
+result = paxman.canonicalize("user@example.com", contract)
+
 # Pin to a specific year (excludes rules from newer specifications)
 contract = EmailCapability.create_contract(year=2008)
 result = paxman.canonicalize("user@example.com", contract)

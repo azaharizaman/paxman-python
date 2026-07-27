@@ -220,15 +220,17 @@ Define the Contract in `paxman/capabilities/YourDomain/contract.py` (separate fi
 3. Add a `capability_name` field with `default="yourdomain"` and `init=False` (users never set this)
 4. Add configuration fields for toggling grammars (e.g., `include_obfuscated: bool = False`)
 5. Add `excluded_rules: tuple[str, ...] = ()` for excluding specific rules
-6. Add `year: int | None = None` for temporal filtering
-7. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags
-8. Implement `as_dict()` that returns a dictionary representation (used for replay hash computation)
+6. Add `pinned_rules: tuple[str, ...] | None = None` for pinning to specific rules
+7. Add `year: int | None = None` for temporal filtering
+8. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags
+9. Implement `as_dict()` that returns a dictionary representation (used for replay hash computation)
 
 **The Contract must satisfy the `Contract` protocol:**
 
 - `capability_name: str` — the capability this contract configures
 - `active_grammars: Sequence[str]` — list of grammar names to activate
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
+- `pinned_rules: Sequence[str] | None` — pin to specific rules (mutually exclusive with `excluded_rules`)
 - `year: int | None` — year for temporal filtering
 - `output_format: str | None` — output format for canonical values
 - `as_dict() -> dict[str, Any]` — serialization for replay hash
@@ -503,6 +505,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Each rule file has a `PUBLICATION` provenance constant
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
 - [ ] Contract is a frozen dataclass satisfying the `Contract` protocol
+- [ ] Contract includes `pinned_rules: tuple[str, ...] | None = None` field
 - [ ] Package `__init__.py` files export the public API
 - [ ] Capability is registered in `paxman/capabilities/__init__.py`
 - [ ] Grammar tests cover happy path, edge cases, multiple matches, and empty input

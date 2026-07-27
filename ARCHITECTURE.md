@@ -102,6 +102,7 @@ Contracts pass configuration parameters to validation rules, enabling rules to a
 
 **Base Contract Parameters:**
 - **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). Rules check this parameter during normalization to produce the desired output format.
+- **`pinned_rules`**: Pins to specific validation rules by name. When set, ONLY those rules run — `excluded_rules` is ignored. Mutually exclusive with `excluded_rules`.
 
 **Date-Specific Parameters:**
 - **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Only available on Date contracts, not part of the base Contract protocol. Used by US and European grammars to resolve ambiguous year values.

@@ -20,10 +20,14 @@ A domain module (e.g., Email) that:
 ### Contract
 User-facing configuration object that:
 - **Toggles grammars ON/OFF** (e.g., `include_obfuscated=True`)
+- **Pins rules** to run only specific validation rules (e.g., `pinned_rules=["Section 3.4.1-addr-spec"]`)
+- **Excludes rules** to skip specific validation rules (e.g., `excluded_rules=["Section 6.3-localhost"]`)
 - **Pins year** to filter validation rules by `publication_year`
 - **Passes parameters** to validation rules (e.g., `output_format=ISO`)
   - Note: `two_digit_base_year` is a Date-specific parameter, not part of the base Contract
 - Does NOT define Notation (that's internal to Capability)
+
+When `pinned_rules` is set, `excluded_rules` is ignored — only the pinned rules run.
 
 ### Notation
 Capability-defined intermediate representation that Grammars must produce.
@@ -66,6 +70,7 @@ Semantic rules that:
 - Use **Contract parameters** (e.g., `output_format`)
 - Produce **Candidate** with canonical value
 - Live in `capabilities/<CapabilityName>/rules/`
+- Are filtered by **pinned_rules** (if set, only those rules run) or **excluded_rules**
 - Are filtered by **year** (publication_year ≤ contract.year)
 
 ### Rule Structure
@@ -259,6 +264,22 @@ paxman.canonicalize("user@localhost", contract)
 contract = Email.create_contract(excluded_rules=["Section 6.3-localhost"], year=2008)
 paxman.canonicalize("user@example.com", contract)
 # Result: "user@example.com" → SUCCESS
+```
+
+### Contract Rule Pinning
+```python
+from paxman.capabilities import Email
+
+# Pin to specific rules — only these run, excluded_rules is ignored
+contract = Email.create_contract(pinned_rules=["Section 3.4.1-addr-spec"])
+paxman.canonicalize("user@example.com", contract)
+
+# Pin + year filter — both apply
+contract = Email.create_contract(
+    pinned_rules=["Section 3.4.1-addr-spec", "Section 6.3-localhost"],
+    year=2010
+)
+# Only rules matching both pinning and year filter are active
 ```
 
 ### RecognizedRep
@@ -534,6 +555,15 @@ class Contract(Protocol):
     @property
     def excluded_rules(self) -> Sequence[str]:
         """List of rule names to exclude."""
+        ...
+    
+    @property
+    def pinned_rules(self) -> Sequence[str] | None:
+        """Pin to specific rules. If set, ONLY these rules run.
+        
+        Mutually exclusive with excluded_rules. When pinned_rules is set,
+        excluded_rules is ignored.
+        """
         ...
     
     @property
