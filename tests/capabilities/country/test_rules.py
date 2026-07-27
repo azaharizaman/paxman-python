@@ -7,6 +7,7 @@ from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlph
 from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
 from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import SectionNumericCodes
 from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
+from paxman.capabilities.Country.rules.cldr_localized_ed2025 import SectionLocalizedNames
 from paxman.core.domain import RuleStrategy
 
 
@@ -238,3 +239,72 @@ class TestSectionNames:
     def test_citation(self) -> None:
         """Verify citation is set."""
         assert "name" in self.rule.citation.lower()
+
+
+class TestSectionLocalizedNames:
+    """Tests for SectionLocalizedNames rule."""
+
+    def setup_method(self) -> None:
+        self.rule = SectionLocalizedNames()
+
+    def test_matches_when_enabled(self) -> None:
+        """Happy path: localized enabled and name matches."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="马来西亚")
+        assert self.rule.matches(notation, contract) is True
+
+    def test_matches_chinese(self) -> None:
+        """Edge case: Chinese name matches."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="中国")
+        assert self.rule.matches(notation, contract) is True
+
+    def test_matches_spanish(self) -> None:
+        """Edge case: Spanish name matches."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="Estados Unidos")
+        assert self.rule.matches(notation, contract) is True
+
+    def test_matches_french(self) -> None:
+        """Edge case: French name matches."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="Allemagne")
+        assert self.rule.matches(notation, contract) is True
+
+    def test_rejects_when_disabled(self) -> None:
+        """Notation rejected when localized disabled (default)."""
+        contract = CountryContract()
+        notation = CountryNotation(shape="name", value="马来西亚")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="alpha2", value="马来西亚")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_rejects_invalid_name(self) -> None:
+        """Notation with invalid localized name."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="NOT A COUNTRY")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output."""
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="马来西亚")
+        assert self.rule.normalize(notation, contract) == "MY"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "Unicode"
+        assert self.rule.provenance.specification_name == "CLDR v45"
+        assert self.rule.provenance.publication_year == 2025
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section-localized-names"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
