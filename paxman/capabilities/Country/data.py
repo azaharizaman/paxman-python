@@ -7,7 +7,7 @@ Source: https://www.iso.org/standard/396855.html
 from __future__ import annotations
 
 # Alpha-2 codes (249 assigned)
-_ALPHA2_CODES: frozenset[str] = frozenset({
+ALPHA2_CODES: frozenset[str] = frozenset({
     "AD", "AE", "AF", "AG", "AI", "AL", "AM", "AO", "AQ", "AR",
     "AS", "AT", "AU", "AW", "AX", "AZ", "BA", "BB", "BD", "BE",
     "BF", "BG", "BH", "BI", "BJ", "BL", "BM", "BN", "BO", "BQ",
@@ -36,7 +36,7 @@ _ALPHA2_CODES: frozenset[str] = frozenset({
 })
 
 # Alpha-3 to Alpha-2 mapping (249 entries)
-_ALPHA3_TO_ALPHA2: dict[str, str] = {
+ALPHA3_TO_ALPHA2: dict[str, str] = {
     "ABW": "AW", "AFG": "AF", "AGO": "AO", "AIA": "AI", "ALA": "AX",
     "ALB": "AL", "AND": "AD", "ARE": "AE", "ARG": "AR", "ARM": "AM",
     "ASM": "AS", "ATA": "AQ", "ATF": "TF", "ATG": "AG", "AUS": "AU",
@@ -90,7 +90,7 @@ _ALPHA3_TO_ALPHA2: dict[str, str] = {
 }
 
 # Numeric (M49) to Alpha-2 mapping (249 entries)
-_NUMERIC_TO_ALPHA2: dict[str, str] = {
+NUMERIC_TO_ALPHA2: dict[str, str] = {
     "004": "AF", "008": "AL", "010": "AQ", "012": "DZ", "016": "AS",
     "020": "AD", "024": "AO", "028": "AG", "031": "AZ", "032": "AR",
     "036": "AU", "040": "AT", "044": "BS", "048": "BH", "050": "BD",
@@ -143,7 +143,7 @@ _NUMERIC_TO_ALPHA2: dict[str, str] = {
 }
 
 # Official English short names (249 entries, uppercased)
-_NAME_TO_ALPHA2: dict[str, str] = {
+NAME_TO_ALPHA2: dict[str, str] = {
     "AFGHANISTAN": "AF", "ALBANIA": "AL", "ALGERIA": "DZ",
     "AMERICAN SAMOA": "AS", "ANDORRA": "AD", "ANGOLA": "AO",
     "ANTIGUA AND BARBUDA": "AG", "ARGENTINA": "AR", "ARMENIA": "AM",
@@ -228,7 +228,7 @@ _NAME_TO_ALPHA2: dict[str, str] = {
 }
 
 # Common aliases (uppercased)
-_SYNONYM_TO_ALPHA2: dict[str, str] = {
+SYNONYM_TO_ALPHA2: dict[str, str] = {
     "USA": "US", "UK": "GB", "UAE": "AE", "PRC": "CN",
     "DRC": "CD", "DPRK": "KP", "ROK": "KR", "USSR": "RU",
     "UAR": "EG", "CDI": "CI", "RSA": "ZA", "TLS": "TL",
