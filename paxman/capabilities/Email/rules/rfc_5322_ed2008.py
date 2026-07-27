@@ -41,4 +41,4 @@ class Section341AddrSpec(Rule[EmailNotation]):
         )
 
     def normalize(self, notation: EmailNotation, contract: Contract) -> str:
-        return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"
+        return f"{notation.local_part}@{notation.domain_part.lower()}"

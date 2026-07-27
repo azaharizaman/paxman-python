@@ -72,13 +72,13 @@ class TestSection341AddrSpec:
         )
 
     @pytest.mark.capability
-    def test_normalize_lowercases(self) -> None:
+    def test_normalize_preserves_local_part(self) -> None:
         rule = Section341AddrSpec()
         contract = EmailContract()
         result = rule.normalize(
             EmailNotation(local_part="User", domain_part="Example.COM"), contract
         )
-        assert result == "user@example.com"
+        assert result == "User@example.com"
 
     @pytest.mark.capability
     def test_provenance_attributes(self) -> None:

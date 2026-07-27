@@ -469,11 +469,11 @@ else:
 ```python
 from paxman.capabilities.Date.capability import DateCapability
 
-# Pin to 2008, exclude newer rules
-contract = DateCapability.create_contract(year=2008)
-result = paxman.canonicalize("01/02/2026", contract)
+# Pin to 2019, include ISO 8601 rule (publication_year=2019)
+contract = DateCapability.create_contract(year=2019)
+result = paxman.canonicalize("2026-01-02", contract)
 
-# Result: depends on grammar interpretation → "2026-01-02" or "2026-02-01"
+# Result: "2026-01-02" (ISO 8601 grammar + rule)
 ```
 
 ### Custom Capability Registration

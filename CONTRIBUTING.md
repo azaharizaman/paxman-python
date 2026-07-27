@@ -108,7 +108,7 @@ A few conventions that go beyond what the linters enforce:
 
 - **No `# type: ignore` or `# noqa` in source code.** If a linter or type checker flags something, address the underlying issue rather than suppressing the warning.
 - **Type annotations on all public interfaces.** Function signatures, return types, and class attributes should be fully annotated.
-- **Immutability for domain objects.** Domain objects in `paxman/core` use `__slots__` and override `__setattr__` to prevent mutation after construction.
+- **Immutability for domain objects.** Domain objects in `paxman/core` use `@dataclass(frozen=True, slots=True)` — stdlib dataclasses that prevent attribute assignment after construction.
 - **One capability per domain.** Each capability (Email, Date, Country, etc.) lives in its own subdirectory under `paxman/capabilities/` and is completely self-contained.
 - **Test doubles stay local.** When writing tests, define any stubs, mocks, or fakes within the test file or a `conftest.py` in the same directory. Do not create shared mock libraries across test directories.
 

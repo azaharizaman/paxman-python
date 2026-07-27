@@ -126,6 +126,7 @@ class TestIPContract:
     def test_defaults(self) -> None:
         contract = IPContract()
         assert contract.capability_name == "ip"
+        assert contract.pinned_rules is None
         assert contract.include_ipv6 is True
         assert contract.excluded_rules == ()
         assert contract.year is None
@@ -143,6 +144,7 @@ class TestIPContract:
         contract = IPContract(include_ipv6=False, year=2010)
         d = contract.as_dict()
         assert d["capability_name"] == "ip"
+        assert d["pinned_rules"] is None
         assert d["include_ipv6"] is False
         assert d["year"] == 2010
 

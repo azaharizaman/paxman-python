@@ -102,7 +102,7 @@ Contracts pass configuration parameters to validation rules, enabling rules to a
 
 **Base Contract Parameters:**
 - **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). Rules check this parameter during normalization to produce the desired output format.
-- **`pinned_rules`**: Pins to specific validation rules by name. When set, ONLY those rules run — `excluded_rules` is ignored. Mutually exclusive with `excluded_rules`.
+- **`pinned_rules`**: Pins to specific validation rules by name. When set, ONLY those rules run — `excluded_rules` is ignored. Takes precedence over `excluded_rules`.
 
 **Date-Specific Parameters:**
 - **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Only available on Date contracts, not part of the base Contract protocol. Used by US and European grammars to resolve ambiguous year values.
@@ -111,7 +111,7 @@ These parameters are passed through the contract to rule methods (`matches()` an
 
 ### Immutability
 
-All domain objects are immutable. Once created, they cannot be modified. This is enforced through a manual immutability pattern using slots and attribute assignment overrides. Immutability ensures that objects can be safely shared, hashed, and used as dictionary keys without defensive copying.
+All domain objects are immutable. Once created, they cannot be modified. This is enforced through `@dataclass(frozen=True, slots=True)` — stdlib dataclasses that prevent attribute assignment and use efficient slot-based storage. Immutability ensures that objects can be safely shared, hashed, and used as dictionary keys without defensive copying.
 
 ### Temporal Filtering
 

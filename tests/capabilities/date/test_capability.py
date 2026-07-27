@@ -79,6 +79,7 @@ class TestDateContract:
     def test_defaults(self) -> None:
         contract = DateContract()
         assert contract.capability_name == "date"
+        assert contract.pinned_rules is None
         assert contract.output_format is None
         assert contract.two_digit_base_year is None
 
@@ -86,6 +87,11 @@ class TestDateContract:
         contract = DateContract(output_format="ISO", two_digit_base_year=2000)
         assert contract.output_format == "ISO"
         assert contract.two_digit_base_year == 2000
+
+    def test_empty_pinned_rules_are_preserved(self) -> None:
+        contract = DateContract(pinned_rules=())
+        assert contract.pinned_rules == ()
+        assert contract.as_dict()["pinned_rules"] == ()
 
     def test_as_dict_includes_all_fields(self) -> None:
         contract = DateContract(output_format="US", two_digit_base_year=1900)

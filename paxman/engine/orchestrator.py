@@ -21,7 +21,7 @@ from paxman.core.domain import (
     Rule,
     VersionStamp,
 )
-from paxman.core.errors import RecognitionError, ValidationError
+from paxman.core.errors import ContractError, RecognitionError, ValidationError
 
 
 def _resolve_version() -> str:
@@ -107,6 +107,12 @@ def _filter_rules(capability: Capability[Any], contract: Contract) -> list[Rule[
 
     if contract.pinned_rules is not None:
         pinned_set = set(contract.pinned_rules)
+        known_names = {r.name for r in all_rules}
+        unknown = pinned_set - known_names
+        if unknown:
+            raise ContractError(
+                f"Unknown pinned rule(s): {sorted(unknown)}"
+            )
         active_rules = [r for r in all_rules if r.name in pinned_set]
     else:
         excluded = set(contract.excluded_rules)

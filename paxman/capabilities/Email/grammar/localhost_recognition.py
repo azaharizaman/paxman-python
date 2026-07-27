@@ -7,7 +7,10 @@ import re
 from paxman.capabilities.Email.notation import EmailNotation
 from paxman.core.domain import Grammar
 
-_LOCALHOST_PATTERN = re.compile(r"\b([A-Za-z0-9._%+-]+)@localhost(?::\d+)?\b")
+_LOCALHOST_PATTERN = re.compile(
+    r"\b([A-Za-z0-9._%+-]+)@localhost(?::\d+)?(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
 
 
 class LocalhostEmailGrammar(Grammar[EmailNotation]):

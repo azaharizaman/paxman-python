@@ -46,6 +46,7 @@ class DateCapability(Capability[DateNotation]):
 
     @staticmethod
     def create_contract(
+        *,
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,

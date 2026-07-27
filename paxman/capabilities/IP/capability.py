@@ -38,6 +38,7 @@ class IPCapability(Capability[IPNotation]):
 
     @staticmethod
     def create_contract(
+        *,
         include_ipv6: bool = True,
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,

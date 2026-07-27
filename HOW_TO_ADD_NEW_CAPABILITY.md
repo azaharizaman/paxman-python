@@ -73,16 +73,16 @@ Create `paxman/capabilities/YourDomain/notation.py`:
 
 1. Import `dataclass` and `frozen` from `dataclasses`
 2. Define a frozen dataclass with one field per component of your notation
-3. Add an `as_list()` method that returns the fields as a plain list of strings (in order)
+3. Add an `as_list()` method that returns the fields as a plain list of strings (in order) — an optional helper for bridging to generic interfaces
 
-The `as_list()` method bridges your typed notation to the generic `list[str]` interface that the engine expects. Grammars will call this method when returning notations.
+The engine passes typed notation objects to rules, not lists. Rules access fields by name (e.g., `notation.field_name`). The `as_list()` method is a convenience helper, not an engine requirement.
 
 **Rules for Notation:**
 
 - Every field must be a `str` type
 - The dataclass must be frozen (immutable)
 - The `as_list()` method must return fields in a consistent, documented order
-- Field order matters — rules will access values by position using the list form
+- Rules access notation fields by name (e.g., `notation.field_name`), not by list position
 
 **Example patterns:**
 
@@ -230,7 +230,7 @@ Define the Contract in `paxman/capabilities/YourDomain/contract.py` (separate fi
 - `capability_name: str` — the capability this contract configures
 - `active_grammars: Sequence[str]` — list of grammar names to activate
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
-- `pinned_rules: Sequence[str] | None` — pin to specific rules (mutually exclusive with `excluded_rules`)
+- `pinned_rules: Sequence[str] | None` — pin to specific rules (takes precedence over `excluded_rules` when set)
 - `year: int | None` — year for temporal filtering
 - `output_format: str | None` — output format for canonical values
 - `as_dict() -> dict[str, Any]` — serialization for replay hash
@@ -357,8 +357,8 @@ For each rule class, create a test class with these test methods:
 **Test pattern:**
 
 - Instantiate the rule directly
-- Call `rule.matches(notation)` and assert `True` or `False`
-- Call `rule.normalize(notation)` and assert exact string output
+- Call `rule.matches(notation, contract)` and assert `True` or `False`
+- Call `rule.normalize(notation, contract)` and assert exact string output
 - Access `rule.provenance.*` fields and assert expected values
 
 ### 10c: Capability Tests
@@ -473,9 +473,9 @@ Grammar names are snake_case strings used by the contract to toggle grammars. Th
 
 Rule names follow the pattern `Section {X.Y.Z}-{description}` (e.g., `Section 3.4.1-addr-spec`). This makes it easy to map rules back to the specification.
 
-### Pattern: Notation Fields Are Positional
+### Pattern: Notation Fields Are Typed
 
-Rules access notation fields by position (index 0, 1, 2...). Your `as_list()` method must return fields in a consistent order, and your rules must access them at the correct indices.
+Rules access notation fields by name (e.g., `notation.field_name`), not by list position. Your `as_list()` method is an optional helper for bridging to generic interfaces.
 
 ### Pitfall: Grammar Regex Must Be Compiled Once
 

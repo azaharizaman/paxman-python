@@ -44,6 +44,7 @@ class EmailCapability(Capability[EmailNotation]):
 
     @staticmethod
     def create_contract(
+        *,
         include_obfuscated: bool = False,
         include_localhost: bool = True,
         excluded_rules: Sequence[str] | None = None,

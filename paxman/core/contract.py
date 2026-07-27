@@ -25,10 +25,11 @@ class Contract(Protocol):
 
     @property
     def pinned_rules(self) -> Sequence[str] | None:
-        """Pin to specific rules. If set, ONLY these rules run.
+        """Pin to specific rules by name. If set, ONLY these rules run.
 
-        Mutually exclusive with excluded_rules. When pinned_rules is set,
-        excluded_rules is ignored.
+        Takes precedence over excluded_rules — when pinned_rules is non-None,
+        excluded_rules is ignored. Year filtering still applies after pinning.
+        An empty tuple () pins to nothing (no rules run).
         """
         ...
 

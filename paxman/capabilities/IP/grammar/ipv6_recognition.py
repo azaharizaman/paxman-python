@@ -7,28 +7,32 @@ import re
 from paxman.capabilities.IP.notation import IPNotation
 from paxman.core.domain import Grammar
 
+# Boundary: start/end of string, whitespace, or common punctuation
+_IPV6_BOUNDARY = r"(?:^|(?<=[\s,;()]))"
+_IPV6_END = r"(?:$|(?=[\s,;().]))"
+
 # Full form: 8 groups of 1-4 hex digits separated by single colons
 _IPV6_FULL = re.compile(
-    r"(?:^|(?<=\s)|(?<=,))([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7})(?:$|(?=\s)|(?=,))"
+    _IPV6_BOUNDARY + r"([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7})" + _IPV6_END
 )
 
 # Compressed form: handles :: with groups on either side
 _IPV6_COMPRESSED = re.compile(
-    r"(?:^|(?<=\s)|(?<=,))"
-    r"((?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{0,4}::(?:[0-9a-fA-F]{0,4}:){0,6}[0-9a-fA-F]{1,4})"
-    r"(?:$|(?=\s)|(?=,))"
-    r"|"
-    r"(?:^|(?<=\s)|(?<=,))"
-    r"(::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4})"
-    r"(?:$|(?=\s)|(?=,))"
-    r"|"
-    r"(?:^|(?<=\s)|(?<=,))"
-    r"((?:[0-9a-fA-F]{1,4}:){1,6}[0-9a-fA-F]{0,4}::)"
-    r"(?:$|(?=\s)|(?=,))"
-    r"|"
-    r"(?:^|(?<=\s)|(?<=,))"
-    r"(::)"
-    r"(?:$|(?=\s)|(?=,))"
+    _IPV6_BOUNDARY
+    + r"((?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{0,4}::(?:[0-9a-fA-F]{0,4}:){0,6}[0-9a-fA-F]{1,4})"
+    + _IPV6_END
+    + "|"
+    + _IPV6_BOUNDARY
+    + r"(::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4})"
+    + _IPV6_END
+    + "|"
+    + _IPV6_BOUNDARY
+    + r"((?:[0-9a-fA-F]{1,4}:){1,6}[0-9a-fA-F]{0,4}::)"
+    + _IPV6_END
+    + "|"
+    + _IPV6_BOUNDARY
+    + r"(::)"
+    + _IPV6_END
 )
 
 

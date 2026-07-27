@@ -28,28 +28,23 @@ from paxman.core.errors import (
 )
 
 __all__ = [
-    # Domain
+    "Capability",
+    "CapabilityError",
     "Candidate",
+    "Contract",
+    "ContractError",
     "Grammar",
     "GrammarRule",
     "Notation",
+    "PaxmanError",
     "Provenance",
+    "RecognitionError",
     "RecognizedRep",
     "Resolution",
     "Rule",
     "RuleStrategy",
-    "VersionStamp",
-    # Contract
-    "Contract",
-    # Capability
-    "Capability",
-    # Errors
-    "CapabilityError",
-    "ContractError",
-    "PaxmanError",
-    "RecognitionError",
     "ValidationError",
-    # Discovery
+    "VersionStamp",
     "freeze_registry",
     "get_capability",
     "is_registry_frozen",
