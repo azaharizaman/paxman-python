@@ -41,7 +41,8 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if include_historical AND notation.shape == "name" AND name is in HISTORICAL_TO_ALPHA2.
+            True if include_historical AND notation.shape == "name"
+            AND name is in HISTORICAL_TO_ALPHA2.
         """
         country_contract = cast(CountryContract, contract)
         if not country_contract.include_historical:

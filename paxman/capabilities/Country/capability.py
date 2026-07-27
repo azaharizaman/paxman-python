@@ -10,12 +10,18 @@ from paxman.capabilities.Country.grammar.alpha3_recognition import Alpha3Grammar
 from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
 from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
 from paxman.capabilities.Country.notation import CountryNotation
-from paxman.capabilities.Country.rules.cldr_localized_ed2025 import SectionLocalizedNames
+from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
+    SectionLocalizedNames,
+)
 from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlpha2Codes
 from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
 from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
-from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import SectionNumericCodes
-from paxman.capabilities.Country.rules.paxman_historical_ed2025 import SectionHistoricalNames
+from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import (
+    SectionNumericCodes,
+)
+from paxman.capabilities.Country.rules.paxman_historical_ed2025 import (
+    SectionHistoricalNames,
+)
 from paxman.core.capability import Capability
 from paxman.core.domain import Grammar, Rule
 
@@ -47,7 +53,8 @@ class CountryCapability(Capability[CountryNotation]):
         """Return all validation rule instances.
 
         Returns:
-            List of 6 rules: iso_alpha2, iso_alpha3, iso_numeric, iso_name, cldr_localized, paxman_historical.
+            List of 6 rules: alpha2, alpha3, numeric, name,
+            cldr_localized, paxman_historical.
         """
         return [
             SectionAlpha2Codes(),
@@ -75,7 +82,8 @@ class CountryCapability(Capability[CountryNotation]):
             excluded_rules: Rule names to exclude.
             pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
             year: Year for temporal filtering.
-            output_format: Canonical output format ("alpha2", "alpha3", "numeric", "name").
+            output_format: Canonical output format
+            ("alpha2", "alpha3", "numeric", "name").
             include_localized: Enable CLDR multilingual names.
             include_historical: Enable deprecated country names.
             extra_synonyms: Caller-supplied aliases.

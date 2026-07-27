@@ -1,7 +1,11 @@
 """Tests for Country capability."""
 
 import pytest
+
+from paxman.capabilities.Country.capability import CountryCapability
+from paxman.capabilities.Country.contract import CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.core.capability import Capability
 
 
 class TestCountryNotation:
@@ -51,9 +55,6 @@ class TestCountryNotation:
         assert len(s) == 1
         d = {n1: "value"}
         assert d[n2] == "value"
-
-
-from paxman.capabilities.Country.contract import CountryContract
 
 
 class TestCountryContract:
@@ -145,10 +146,6 @@ class TestCountryContract:
         assert contract.include_historical is True
         assert contract.extra_synonyms == {"my_alias": "MY"}
         assert contract.output_format == "alpha3"
-
-
-from paxman.capabilities.Country.capability import CountryCapability
-from paxman.core.capability import Capability
 
 
 class TestCountryCapability:

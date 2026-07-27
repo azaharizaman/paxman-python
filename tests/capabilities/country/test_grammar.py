@@ -1,7 +1,9 @@
 """Tests for Country recognition grammars."""
 
-import pytest
 from paxman.capabilities.Country.grammar.alpha2_recognition import Alpha2Grammar
+from paxman.capabilities.Country.grammar.alpha3_recognition import Alpha3Grammar
+from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
+from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
 
 
 class TestAlpha2Grammar:
@@ -70,9 +72,6 @@ class TestAlpha2Grammar:
         assert self.grammar.name == "alpha2_recognition"
 
 
-from paxman.capabilities.Country.grammar.alpha3_recognition import Alpha3Grammar
-
-
 class TestAlpha3Grammar:
     """Tests for Alpha3Grammar."""
 
@@ -126,9 +125,6 @@ class TestAlpha3Grammar:
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "alpha3_recognition"
-
-
-from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
 
 
 class TestNumericGrammar:
@@ -191,9 +187,6 @@ class TestNumericGrammar:
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "numeric_recognition"
-
-
-from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
 
 
 class TestNameGrammar:

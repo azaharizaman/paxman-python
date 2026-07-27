@@ -1,14 +1,20 @@
 """Tests for Country validation rules."""
 
-import pytest
 from paxman.capabilities.Country.contract import CountryContract
+from paxman.capabilities.Country.data import ALPHA2_CODES
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
+    SectionLocalizedNames,
+)
 from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlpha2Codes
 from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
-from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import SectionNumericCodes
 from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
-from paxman.capabilities.Country.rules.cldr_localized_ed2025 import SectionLocalizedNames
-from paxman.capabilities.Country.rules.paxman_historical_ed2025 import SectionHistoricalNames
+from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import (
+    SectionNumericCodes,
+)
+from paxman.capabilities.Country.rules.paxman_historical_ed2025 import (
+    SectionHistoricalNames,
+)
 from paxman.core.domain import RuleStrategy
 
 
@@ -31,7 +37,6 @@ class TestSectionAlpha2Codes:
 
     def test_matches_all_valid_codes(self) -> None:
         """Edge case: all 249 codes match."""
-        from paxman.capabilities.Country.data import ALPHA2_CODES
         for code in list(ALPHA2_CODES)[:10]:  # Test first 10
             notation = CountryNotation(shape="alpha2", value=code)
             assert self.rule.matches(notation, self.contract) is True

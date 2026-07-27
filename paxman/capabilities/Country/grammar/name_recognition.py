@@ -13,7 +13,8 @@ class NameGrammar(Grammar[CountryNotation]):
     that might also match alpha2/alpha3/numeric grammars. This is intentional —
     multiple grammars matching the same input is fine because:
     - Each grammar produces a separate notation with the appropriate shape
-    - Rules validate based on shape (e.g., SectionAlpha2Codes only accepts shape="alpha2")
+    - Rules validate based on shape
+      (e.g., SectionAlpha2Codes only accepts shape="alpha2")
     - Multiple candidates with the same canonical value produce SUCCESS, not AMBIGUOUS
 
     Examples: "United States", "马来西亚", "Burma", "US" (also matched by alpha2)

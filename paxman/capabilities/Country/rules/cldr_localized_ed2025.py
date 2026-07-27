@@ -41,7 +41,8 @@ class SectionLocalizedNames(Rule[CountryNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if include_localized AND notation.shape == "name" AND name is in LOCALIZED_TO_ALPHA2.
+            True if include_localized AND notation.shape == "name"
+            AND name is in LOCALIZED_TO_ALPHA2.
         """
         country_contract = cast(CountryContract, contract)
         if not country_contract.include_localized:
