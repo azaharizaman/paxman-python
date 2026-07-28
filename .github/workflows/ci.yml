@@ -44,5 +44,14 @@ jobs:
       - name: Import lint
         run: uv run importlinter
 
-      - name: Tests
-        run: uv run pytest --tb=short -q
+      - name: Tests with coverage
+        run: uv run pytest --cov=paxman --cov-report=term-missing --cov-report=html --tb=short -q
+
+      - name: Enforce per-package coverage
+        run: |
+          echo "Checking per-package coverage thresholds..."
+          uv run coverage report --include="paxman/core/*" --fail-under=95
+          uv run coverage report --include="paxman/capabilities/*" --fail-under=95
+          uv run coverage report --include="paxman/engine/*" --fail-under=95
+          uv run coverage report --include="paxman/api/*" --fail-under=95
+          echo "All packages meet 95% coverage threshold."
