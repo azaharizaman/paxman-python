@@ -63,6 +63,31 @@ tests/capabilities/yourdomain/
 
 Use lowercase for the test directory name.
 
+### Optional: `rules/data/` subdirectory
+
+If your capability uses large lookup tables (e.g., country codes, status code mappings), create a `rules/data/` subdirectory to keep data files separate from rule logic:
+
+```
+rules/
+├── __init__.py
+├── your_rule.py
+└── data/
+    ├── __init__.py
+    └── lookup_table.py
+```
+
+Data files contain only module-level dictionaries and sets — no classes or functions. Rule files import from data files:
+
+```python
+# rules/your_rule.py
+from paxman.capabilities.YourDomain.rules.data.lookup_table import VALID_CODES
+
+class SectionYourRule(Rule[YourDomainNotation]):
+    TABLE = VALID_CODES
+```
+
+This pattern keeps rule logic readable and data maintainable. Use it when your lookup table exceeds ~20 entries.
+
 ---
 
 ## Step 3: Define the Notation
@@ -88,6 +113,21 @@ The engine passes typed notation objects to rules, not lists. Rules access field
 
 - Email: `local_part` + `domain_part` (2 fields)
 - Phone number: `country_code` + `area_code` + `local_number` (3 fields)
+- IP address: `address` (1 field) — when the value is atomic
+- Country: `shape` + `value` (2 fields) — discriminator pattern where `shape` tells rules which format `value` contains (e.g., `"alpha2"`, `"alpha3"`, `"numeric"`, `"name"`)
+
+**Optional: `slots=True`**
+
+You can add `slots=True` to your frozen dataclass for memory efficiency:
+
+```python
+@dataclass(frozen=True, slots=True)
+class YourDomainNotation:
+    field_one: str
+    field_two: str
+```
+
+This is optional. Use it when your notation will be instantiated many times (e.g., processing bulk input). The `as_list()` method works the same way.
 
 ---
 
@@ -113,7 +153,28 @@ Create `paxman/capabilities/YourDomain/grammar/your_grammar.py`:
 
 **Grammar design principles:**
 
-- Each grammar should handle exactly one pattern variant
+- Each grammar should handle one logical format (e.g., "obfuscated email", "IPv6 address")
+- A grammar may match multiple sub-patterns within that format (e.g., `user at domain dot tld` and `user at domain.tld`). When it does, use a `seen` set to deduplicate results:
+
+```python
+def recognize(self, text: str) -> list[YourDomainNotation]:
+    results: list[YourDomainNotation] = []
+    seen: set[tuple[str, ...]] = set()
+    for match in PATTERN_1.finditer(text):
+        notation = self._parse(match)
+        key = tuple(notation.as_list())
+        if key not in seen:
+            seen.add(key)
+            results.append(notation)
+    for match in PATTERN_2.finditer(text):
+        notation = self._parse(match)
+        key = tuple(notation.as_list())
+        if key not in seen:
+            seen.add(key)
+            results.append(notation)
+    return results
+```
+
 - Grammars do NOT validate — they only extract
 - A single grammar can return multiple notations if the input contains multiple matches
 - Grammar names must be unique within the capability
@@ -190,6 +251,25 @@ def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
 - Apply normalization rules from the specification (e.g., lowercase, remove whitespace, pad with zeros)
 - Use contract parameters to control output format (e.g., `contract.output_format`)
 
+### Accessing Capability-Specific Contract Fields
+
+Your rules receive the base `Contract` protocol type. To access capability-specific fields (like `two_digit_base_year` or `include_historical`), use `typing.cast`:
+
+```python
+from typing import cast
+from paxman.capabilities.YourDomain.contract import YourDomainContract
+
+class SectionYourRule(Rule[YourDomainNotation]):
+    def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
+        typed_contract = cast(YourDomainContract, contract)
+        base_year = typed_contract.two_digit_base_year
+        # ... use base_year in normalization logic
+```
+
+**Why cast?** The engine passes `Contract` (the protocol type) to rules. Your rules know they'll only be called with your capability's contract, so the cast is safe. The alternative — checking `isinstance` — adds unnecessary runtime overhead.
+
+**When to use:** Only when your rule needs capability-specific fields. Standard fields (`year`, `output_format`, `pinned_rules`) are available on the base protocol.
+
 ---
 
 ## Step 6: Create the Capability Class
@@ -224,6 +304,109 @@ Define the Contract in `paxman/capabilities/YourDomain/contract.py` (separate fi
 7. Add `year: int | None = None` for temporal filtering
 8. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags
 9. Implement `as_dict()` that returns a dictionary representation (used for replay hash computation)
+
+### Capability-Specific Fields
+
+Beyond the standard protocol fields, your contract can include domain-specific configuration. These fields control grammar activation and rule behavior:
+
+**Grammar toggle flags** — boolean fields that control which grammars are active:
+
+```python
+@dataclass(frozen=True)
+class YourDomainContract:
+    capability_name: str = field(default="yourdomain", init=False)
+    include_obfuscated: bool = False    # toggles obfuscated_recognition grammar
+    include_ipv6: bool = True           # toggles ipv6_recognition grammar
+    excluded_rules: tuple[str, ...] = ()
+    pinned_rules: tuple[str, ...] | None = None
+    year: int | None = None
+    output_format: str | None = None
+
+    @property
+    def active_grammars(self) -> list[str]:
+        grammars = ["standard_recognition"]
+        if self.include_obfuscated:
+            grammars.append("obfuscated_recognition")
+        if self.include_ipv6:
+            grammars.append("ipv6_recognition")
+        return grammars
+```
+
+**Rule parameters** — fields that rules read during normalization:
+
+```python
+two_digit_base_year: int | None = None  # Date: base year for 2-digit year parsing
+```
+
+**Pattern:** Each capability defines its own fields. There is no fixed set beyond the protocol requirements. Choose fields that:
+- Toggle optional grammars (boolean flags)
+- Pass parameters to rules (strings, ints, options)
+- Control output behavior (`output_format`)
+
+### Implementing `active_grammars`
+
+Two approaches exist for implementing `active_grammars`:
+
+1. **Conditional** (Email, IP): Build the list from boolean flags. Grammars are included only when their flag is `True`.
+
+```python
+@property
+def active_grammars(self) -> list[str]:
+    grammars = ["standard_recognition"]
+    if self.include_obfuscated:
+        grammars.append("obfuscated_recognition")
+    if self.include_localhost:
+        grammars.append("localhost_recognition")
+    return grammars
+```
+
+2. **Always-all** (Date, Country): Return all grammar names unconditionally. All grammars always run, and rules handle filtering via `notation.shape` or other discriminators.
+
+```python
+@property
+def active_grammars(self) -> list[str]:
+    return ["iso8601_recognition", "us_recognition", "european_recognition"]
+```
+
+Choose conditional when grammars are expensive or mutually exclusive. Choose always-all when grammars are cheap and rules need to see all representations.
+
+### Implementing `output_format`
+
+`output_format` can be implemented as:
+
+- A **data field** (most capabilities): `output_format: str | None = None`
+- A **property** (if your capability never supports output format variation):
+
+```python
+@property
+def output_format(self) -> str | None:
+    return None
+```
+
+Rules read `contract.output_format` in their `normalize()` method to control canonical output.
+
+### Implementing `as_dict()`
+
+The `as_dict()` method serializes the contract for deterministic replay hash computation. Return a dictionary of all fields that affect recognition or validation:
+
+```python
+def as_dict(self) -> dict[str, Any]:
+    return {
+        "capability_name": self.capability_name,
+        "include_obfuscated": self.include_obfuscated,
+        "excluded_rules": list(self.excluded_rules),
+        "pinned_rules": list(self.pinned_rules) if self.pinned_rules is not None else None,
+        "year": self.year,
+        "output_format": self.output_format,
+    }
+```
+
+**Rules for `as_dict()`:**
+- Include ALL fields that affect grammar selection or rule behavior
+- Exclude `capability_name` only if it never changes (it's always the same value)
+- Use `list()` to convert tuples for JSON serialization
+- Return `None` for optional fields when not set (not empty lists). Use `is not None` to distinguish "no pinning" (`None`) from "pin to nothing" (`()`)
+- The dictionary must be deterministic — same contract state → same dictionary → same replay hash
 
 **The Contract must satisfy the `Contract` protocol:**
 
@@ -418,6 +601,74 @@ Test through the public API (`paxman.api.canonicalize`):
 2. `test_canonicalize_missing` — no match
 3. `test_canonicalize_with_options` — contract configuration
 
+### Test Markers
+
+Use pytest markers to categorize tests. Place markers on either the class or individual methods:
+
+**Per-class** (when all methods share the same marker):
+
+```python
+@pytest.mark.capability
+class TestYourGrammar:
+    def test_recognizes_valid_input(self):
+        ...
+```
+
+**Per-method** (when methods have different markers):
+
+```python
+class TestYourGrammar:
+    @pytest.mark.capability
+    def test_recognizes_valid_input(self):
+        ...
+
+    @pytest.mark.unit
+    def test_regex_pattern_compiled(self):
+        ...
+```
+
+Both styles are acceptable. Be consistent within each test file.
+
+### Test Setup
+
+For tests that need repeated object construction, use `setup_method`:
+
+```python
+class TestYourRule:
+    def setup_method(self):
+        self.rule = YourRule()
+        self.contract = YourDomainContract()
+
+    def test_matches_valid_input(self):
+        notation = YourDomainNotation(field="value")
+        assert self.rule.matches(notation, self.contract) is True
+```
+
+For simpler tests, construct objects inline in each method. Both patterns are used in the codebase.
+
+### Registering Capabilities in Integration Tests
+
+Each integration test file registers the capability it tests. Do this inside test methods, not in fixtures:
+
+```python
+from paxman.core.discovery import register_capability, reset_registry
+
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    reset_registry()
+    yield
+    reset_registry()
+
+class TestYourCapabilityPipeline:
+    def test_success(self):
+        register_capability(YourDomainCapability())
+        contract = YourDomainCapability.create_contract()
+        result = run_capability("your input", contract)
+        assert result.status == Resolution.SUCCESS
+```
+
+**Why inline registration?** Each test registers only the capability it needs. This keeps tests independent and avoids fixture coupling.
+
 ---
 
 ## Step 11: Verify Quality Gates
@@ -493,6 +744,90 @@ Users should be able to construct a contract with zero arguments: `YourDomainCon
 
 Your capability cannot import from `paxman.capabilities.OtherCapability`. If you need shared utilities, they belong in `paxman.core` or a separate shared module.
 
+### Pattern: Multiple Rule Files Per Capability
+
+When your capability has rules from different specifications, put each in its own file:
+
+```
+rules/
+├── __init__.py
+├── specification_a_ed2020.py    # rules from Spec A
+├── specification_b_ed2022.py    # rules from Spec B
+└── data/
+    └── lookup_tables.py         # shared data
+```
+
+Each file defines its own `PUBLICATION` provenance. Rules from the same specification share a file (see Pattern: One Provenance Per File above).
+
+### Pattern: Multiple Rule Classes Per File
+
+When multiple rules share the same `PUBLICATION` provenance, put them in one file:
+
+```python
+# rules/specification_a_ed2020.py
+
+PUBLICATION = Provenance(
+    authority="ISO",
+    specification_name="ISO 3166-1",
+    ...
+)
+
+class SectionAlpha2Codes(Rule[CountryNotation]):
+    provenance = PUBLICATION
+    ...
+
+class SectionAlpha3Codes(Rule[CountryNotation]):
+    provenance = PUBLICATION
+    ...
+```
+
+This is the recommended pattern when rules come from the same section of the same specification.
+
+### Pattern: Grammar Naming Convention
+
+Grammar names follow the pattern `{format}_recognition`:
+
+| Capability | Grammar Name | What it recognizes |
+|-----------|-------------|-------------------|
+| Email | `standard_recognition` | `user@domain.tld` |
+| Email | `obfuscated_recognition` | `user at domain dot tld` |
+| Email | `localhost_recognition` | `user@localhost` |
+| Date | `iso8601_recognition` | `YYYY-MM-DD` |
+| Date | `us_recognition` | `MM/DD/YYYY` |
+| Date | `european_recognition` | `DD/MM/YYYY` |
+| Country | `alpha2_recognition` | `US` (2 letters) |
+| Country | `alpha3_recognition` | `USA` (3 letters) |
+| Country | `numeric_recognition` | `840` (1-3 digits) |
+| Country | `name_recognition` | `United States` |
+| IP | `ipv4_recognition` | `192.168.1.1` |
+| IP | `ipv6_recognition` | `2001:db8::1` |
+
+### Pattern: Rule Naming Convention
+
+Rule names follow `Section {reference}-{description}`:
+
+| Capability | Rule Name | Reference |
+|-----------|-----------|-----------|
+| Email | `Section 3.4.1-addr-spec` | RFC 5322 §3.4.1 |
+| Email | `Section 6.3-localhost` | RFC 6761 §6.3 |
+| Date | `Section 4.3.1-calendar-date` | ISO 8601 §4.3.1 |
+| Date | `Section 1-date-format` | US Federal Rules |
+| Date | `Section 4-date-format` | EN 50160 §4 |
+| Country | `Section-alpha2-codes` | ISO 3166-1 (alpha-2) |
+| Country | `Section-alpha3-codes` | ISO 3166-1 (alpha-3) |
+| Country | `Section-numeric-codes` | ISO 3166-1 (numeric) |
+| Country | `Section-names` | ISO 3166-1 (names) |
+| IP | `Section 3.2-ipv4-address` | RFC 791 §3.2 |
+| IP | `Section 4-ipv6-text-representation` | RFC 5952 §4 |
+
+### Pitfall: Forgetting to Register the Capability
+
+Your capability must be registered in `paxman/capabilities/__init__.py`. Without this, users cannot import it via `from paxman.capabilities import YourDomain`.
+
+### Pitfall: Not Using `typing.cast` for Contract-Specific Fields
+
+If your rule needs to access capability-specific contract fields (like `two_digit_base_year` or `include_historical`), you must use `typing.cast` to narrow the type. Accessing undefined attributes on the base `Contract` protocol will fail at runtime.
+
 ---
 
 ## Checklist
@@ -506,8 +841,14 @@ Use this checklist to verify your capability is complete:
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
 - [ ] Contract is a frozen dataclass satisfying the `Contract` protocol
 - [ ] Contract includes `pinned_rules: tuple[str, ...] | None = None` field
+- [ ] Contract includes `output_format: str | None = None` field or property
+- [ ] Contract implements `as_dict()` with all fields that affect behavior
+- [ ] If using lookup tables: `rules/data/` directory contains data files
+- [ ] If rules access capability-specific contract fields: uses `typing.cast`
+- [ ] If grammar handles multiple sub-patterns: implements dedup via `seen` set
 - [ ] Package `__init__.py` files export the public API
 - [ ] Capability is registered in `paxman/capabilities/__init__.py`
+- [ ] Test markers are consistent within each file
 - [ ] Grammar tests cover happy path, edge cases, multiple matches, and empty input
 - [ ] Rule tests cover valid input, invalid input, normalization, provenance, and naming
 - [ ] Notation tests cover creation, immutability, and equality
