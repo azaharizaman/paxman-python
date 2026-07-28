@@ -2,6 +2,11 @@
 
 All tables derived from ISO 3166-1:2024.
 Source: https://www.iso.org/standard/396855.html
+
+Note: NUMERIC_TO_ALPHA2 includes two deprecated transitional codes maintained
+by ISO for backward compatibility: "200" (CS — Serbia and Montenegro, dissolved
+2006) and "530" (AN — Netherlands Antilles, dissolved 2010). These codes remain
+in the M49 standard as historical transitions.
 """
 
 from __future__ import annotations

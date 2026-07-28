@@ -85,11 +85,6 @@ class TestCountryContract:
         contract = CountryContract()
         assert contract.year is None
 
-    def test_default_output_format(self) -> None:
-        """Verify output_format defaults to None."""
-        contract = CountryContract()
-        assert contract.output_format is None
-
     def test_default_include_localized(self) -> None:
         """Verify include_localized defaults to False."""
         contract = CountryContract()
@@ -99,11 +94,6 @@ class TestCountryContract:
         """Verify include_historical defaults to False."""
         contract = CountryContract()
         assert contract.include_historical is False
-
-    def test_default_extra_synonyms(self) -> None:
-        """Verify extra_synonyms defaults to empty dict."""
-        contract = CountryContract()
-        assert contract.extra_synonyms == {}
 
     def test_active_grammars_returns_all(self) -> None:
         """Verify all 4 grammars are active by default."""
@@ -123,10 +113,8 @@ class TestCountryContract:
         assert "excluded_rules" in d
         assert "pinned_rules" in d
         assert "year" in d
-        assert "output_format" in d
         assert "include_localized" in d
         assert "include_historical" in d
-        assert "extra_synonyms" in d
 
     def test_is_frozen(self) -> None:
         """Verify immutability."""
@@ -139,13 +127,9 @@ class TestCountryContract:
         contract = CountryContract(
             include_localized=True,
             include_historical=True,
-            extra_synonyms={"my_alias": "MY"},
-            output_format="alpha3",
         )
         assert contract.include_localized is True
         assert contract.include_historical is True
-        assert contract.extra_synonyms == {"my_alias": "MY"}
-        assert contract.output_format == "alpha3"
 
 
 class TestCountryCapability:
@@ -208,10 +192,8 @@ class TestCountryCapability:
         contract = CountryCapability.create_contract(
             include_localized=True,
             include_historical=True,
-            output_format="alpha3",
             year=2024,
         )
         assert contract.include_localized is True
         assert contract.include_historical is True
-        assert contract.output_format == "alpha3"
         assert contract.year == 2024

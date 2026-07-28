@@ -15,10 +15,8 @@ class CountryContract:
         excluded_rules: Tuple of rule names to exclude.
         pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
         year: Year for temporal filtering.
-        output_format: Canonical output format ("alpha2", "alpha3", "numeric", "name").
         include_localized: Enable CLDR multilingual names.
         include_historical: Enable deprecated country names.
-        extra_synonyms: Caller-supplied aliases (validated at construction).
     """
 
     capability_name: str = field(default="country", init=False)
@@ -27,12 +25,10 @@ class CountryContract:
     excluded_rules: tuple[str, ...] = field(default_factory=tuple)
     pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
-    output_format: str | None = None
 
     # Capability-specific fields
     include_localized: bool = False
     include_historical: bool = False
-    extra_synonyms: dict[str, str] = field(default_factory=lambda: {})
 
     @property
     def active_grammars(self) -> list[str]:
@@ -48,6 +44,14 @@ class CountryContract:
             "name_recognition",
         ]
 
+    @property
+    def output_format(self) -> str | None:
+        """Output format — not supported by Country capability.
+
+        Country always normalizes to alpha-2 codes.
+        """
+        return None
+
     def as_dict(self) -> dict[str, Any]:
         """Serialize for replay hash computation.
 
@@ -62,5 +66,4 @@ class CountryContract:
             "output_format": self.output_format,
             "include_localized": self.include_localized,
             "include_historical": self.include_historical,
-            "extra_synonyms": self.extra_synonyms,
         }

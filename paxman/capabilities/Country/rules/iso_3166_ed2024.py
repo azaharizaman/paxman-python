@@ -63,20 +63,7 @@ class SectionAlpha2Codes(Rule[CountryNotation]):
         Returns:
             Uppercase alpha-2 code.
         """
-        code = notation.value.upper()
-        if contract.output_format == "alpha3":
-            for alpha3, alpha2 in ALPHA3_TO_ALPHA2.items():
-                if alpha2 == code:
-                    return alpha3
-        if contract.output_format == "numeric":
-            for numeric, alpha2 in NUMERIC_TO_ALPHA2.items():
-                if alpha2 == code:
-                    return numeric
-        if contract.output_format == "name":
-            for name, alpha2 in NAME_TO_ALPHA2.items():
-                if alpha2 == code:
-                    return name
-        return code
+        return notation.value.upper()
 
 
 class SectionAlpha3Codes(Rule[CountryNotation]):
