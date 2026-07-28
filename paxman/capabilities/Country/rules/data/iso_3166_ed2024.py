@@ -802,7 +802,8 @@ NAME_TO_ALPHA2: dict[str, str] = {
     "CAMBODIA": "KH",
     "CAMEROON": "CM",
     "CANADA": "CA",
-    "CAPE VERDE": "CV",
+    "CABO VERDE": "CV",  # ISO 3166-1:2024 official short name
+    "CAPE VERDE": "CV",  # Legacy alias
     "CAYMAN ISLANDS": "KY",
     "CENTRAL AFRICAN REPUBLIC": "CF",
     "CHAD": "TD",
@@ -815,7 +816,8 @@ NAME_TO_ALPHA2: dict[str, str] = {
     "COSTA RICA": "CR",
     "CROATIA": "HR",
     "CUBA": "CU",
-    "CURACAO": "CW",
+    "CURAÇAO": "CW",  # ISO 3166-1:2024 official short name
+    "CURACAO": "CW",  # Legacy alias
     "CYPRUS": "CY",
     "CZECHIA": "CZ",
     "DEMOCRATIC REPUBLIC OF THE CONGO": "CD",
@@ -866,7 +868,8 @@ NAME_TO_ALPHA2: dict[str, str] = {
     "ISLE OF MAN": "IM",
     "ISRAEL": "IL",
     "ITALY": "IT",
-    "IVORY COAST": "CI",
+    "CÔTE D'IVOIRE": "CI",  # ISO 3166-1:2024 official short name
+    "IVORY COAST": "CI",  # Legacy alias
     "JAMAICA": "JM",
     "JAPAN": "JP",
     "JERSEY": "JE",
@@ -981,7 +984,8 @@ NAME_TO_ALPHA2: dict[str, str] = {
     "TONGA": "TO",
     "TRINIDAD AND TOBAGO": "TT",
     "TUNISIA": "TN",
-    "TURKEY": "TR",
+    "TÜRKIYE": "TR",  # ISO 3166-1:2024 official short name
+    "TURKEY": "TR",  # Legacy alias
     "TURKMENISTAN": "TM",
     "TURKS AND CAICOS ISLANDS": "TC",
     "TUVALU": "TV",

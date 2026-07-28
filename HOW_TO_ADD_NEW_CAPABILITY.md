@@ -327,6 +327,8 @@ class YourDomainContract:
         grammars = ["standard_recognition"]
         if self.include_obfuscated:
             grammars.append("obfuscated_recognition")
+        if self.include_ipv6:
+            grammars.append("ipv6_recognition")
         return grammars
 ```
 
@@ -393,7 +395,7 @@ def as_dict(self) -> dict[str, Any]:
         "capability_name": self.capability_name,
         "include_obfuscated": self.include_obfuscated,
         "excluded_rules": list(self.excluded_rules),
-        "pinned_rules": list(self.pinned_rules) if self.pinned_rules else None,
+        "pinned_rules": list(self.pinned_rules) if self.pinned_rules is not None else None,
         "year": self.year,
         "output_format": self.output_format,
     }
@@ -403,7 +405,7 @@ def as_dict(self) -> dict[str, Any]:
 - Include ALL fields that affect grammar selection or rule behavior
 - Exclude `capability_name` only if it never changes (it's always the same value)
 - Use `list()` to convert tuples for JSON serialization
-- Return `None` for optional fields when not set (not empty lists)
+- Return `None` for optional fields when not set (not empty lists). Use `is not None` to distinguish "no pinning" (`None`) from "pin to nothing" (`()`)
 - The dictionary must be deterministic — same contract state → same dictionary → same replay hash
 
 **The Contract must satisfy the `Contract` protocol:**

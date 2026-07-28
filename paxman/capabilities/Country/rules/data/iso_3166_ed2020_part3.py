@@ -1,6 +1,6 @@
 """ISO 3166-3:2020 formerly used country names.
 
-Source: https://www.iso.org/standard/63545.html
+Source: https://www.iso.org/standard/72484.html
 Section 4.2: Formerly used names of countries
 """
 
