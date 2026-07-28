@@ -1,7 +1,7 @@
-"""Historical country names (deprecated/former names).
+"""ISO 3166-3:2020 formerly used country names.
 
-Maps deprecated or former country names to their current ISO 3166-1 alpha-2 codes.
-Only includes names that are NOT already in the active ISO 3166-1 list.
+Source: https://www.iso.org/standard/63545.html
+Section 4.2: Formerly used names of countries
 """
 
 from __future__ import annotations

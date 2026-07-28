@@ -1,18 +1,18 @@
 """Tests for Country validation rules."""
 
 from paxman.capabilities.Country.contract import CountryContract
-from paxman.capabilities.Country.data import ALPHA2_CODES
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
     SectionLocalizedNames,
 )
-from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlpha2Codes
-from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
-from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
-from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import (
+from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import ALPHA2_CODES
+from paxman.capabilities.Country.rules.iso_3166_ed2024 import (
+    SectionAlpha2Codes,
+    SectionAlpha3Codes,
+    SectionNames,
     SectionNumericCodes,
 )
-from paxman.capabilities.Country.rules.paxman_historical_ed2025 import (
+from paxman.capabilities.Country.rules.iso_3166_historical_ed2020 import (
     SectionHistoricalNames,
 )
 from paxman.core.domain import RuleStrategy
@@ -366,9 +366,10 @@ class TestSectionHistoricalNames:
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
-        assert self.rule.provenance.authority == "Paxman"
-        assert self.rule.provenance.specification_name == "Historical Country Names"
-        assert self.rule.provenance.publication_year == 2025
+        assert self.rule.provenance.authority == "ISO"
+        assert self.rule.provenance.specification_name == "ISO 3166-3"
+        assert self.rule.provenance.publication_year == 2020
+        assert self.rule.provenance.lifecycle == "active"
 
     def test_rule_name(self) -> None:
         """Verify name follows convention."""

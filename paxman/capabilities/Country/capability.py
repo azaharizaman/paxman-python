@@ -13,13 +13,13 @@ from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
     SectionLocalizedNames,
 )
-from paxman.capabilities.Country.rules.iso_3166_alpha2_ed2024 import SectionAlpha2Codes
-from paxman.capabilities.Country.rules.iso_3166_alpha3_ed2024 import SectionAlpha3Codes
-from paxman.capabilities.Country.rules.iso_3166_name_ed2024 import SectionNames
-from paxman.capabilities.Country.rules.iso_3166_numeric_ed2024 import (
+from paxman.capabilities.Country.rules.iso_3166_ed2024 import (
+    SectionAlpha2Codes,
+    SectionAlpha3Codes,
+    SectionNames,
     SectionNumericCodes,
 )
-from paxman.capabilities.Country.rules.paxman_historical_ed2025 import (
+from paxman.capabilities.Country.rules.iso_3166_historical_ed2020 import (
     SectionHistoricalNames,
 )
 from paxman.core.capability import Capability

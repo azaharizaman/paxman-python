@@ -1,6 +1,6 @@
-"""ISO 3166-1 lookup tables for Country capability.
+"""ISO 3166-1:2024 lookup tables.
 
-All tables are derived from ISO 3166-1:2024.
+All tables derived from ISO 3166-1:2024.
 Source: https://www.iso.org/standard/396855.html
 """
 

@@ -1,28 +1,30 @@
-"""Paxman historical country name validation rule."""
+"""ISO 3166-3:2020 historical country name validation rule."""
 
 from __future__ import annotations
 
 from typing import cast
 
 from paxman.capabilities.Country.contract import CountryContract
-from paxman.capabilities.Country.historical_data import HISTORICAL_TO_ALPHA2
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
+    HISTORICAL_TO_ALPHA2,
+)
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
 PUBLICATION = Provenance(
-    authority="Paxman",
-    specification_name="Historical Country Names",
-    kind="policy",
-    reference_url="https://github.com/paxman-dev/paxman/blob/main/docs/historical-countries.md",
-    version=None,
+    authority="ISO",
+    specification_name="ISO 3166-3",
+    kind="specification",
+    reference_url="https://www.iso.org/standard/72484.html",
+    version="2020",
     lifecycle="active",
-    publication_year=2025,
+    publication_year=2020,
 )
 
 
 class SectionHistoricalNames(Rule[CountryNotation]):
-    """Paxman Section: historical country names.
+    """ISO 3166-3 Section 4.2: formerly used country names.
 
     Validates name shape against deprecated country names.
     Only active when contract.include_historical is True.
@@ -31,7 +33,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
     name = "Section-historical-names"
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
-    citation = "Paxman historical country names"
+    citation = "ISO 3166-3 Section 4.2 (formerly used names)"
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid historical name.

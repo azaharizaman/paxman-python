@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import cast
 
-from paxman.capabilities.Country.cldr_data import LOCALIZED_TO_ALPHA2
 from paxman.capabilities.Country.contract import CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.rules.data.cldr_ed2025 import LOCALIZED_TO_ALPHA2
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
