@@ -190,59 +190,129 @@ class TestNumericGrammar:
 
 
 class TestNameGrammar:
-    """Tests for NameGrammar."""
+    """Tests for NameGrammar (lookup-table-based recognition)."""
 
     def setup_method(self) -> None:
         self.grammar = NameGrammar()
 
     def test_recognizes_full_name(self) -> None:
-        """Happy path: grammar finds name pattern."""
+        """Happy path: grammar resolves ISO English name to canonical form."""
         results = self.grammar.recognize("United States")
         assert len(results) == 1
         assert results[0].shape == "name"
         assert results[0].value == "United States"
 
-    def test_recognizes_unicode(self) -> None:
-        """Edge case: Unicode input."""
-        results = self.grammar.recognize("马来西亚")
-        assert len(results) == 1
-        assert results[0].value == "马来西亚"
-
-    def test_recognizes_alpha2(self) -> None:
-        """Design note: name grammar also matches alpha2 shapes."""
-        results = self.grammar.recognize("US")
-        assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "US"
-
-    def test_recognizes_alpha3(self) -> None:
-        """Design note: name grammar also matches alpha3 shapes."""
+    def test_recognizes_variant(self) -> None:
+        """Variant names resolve to canonical ISO name."""
         results = self.grammar.recognize("USA")
         assert len(results) == 1
         assert results[0].shape == "name"
+        assert results[0].value == "United States"
 
-    def test_recognizes_numeric(self) -> None:
-        """Design note: name grammar also matches numeric shapes."""
-        results = self.grammar.recognize("840")
+    def test_recognizes_alpha2_as_name(self) -> None:
+        """Alpha-2-like name 'US' resolves to canonical 'United States'."""
+        results = self.grammar.recognize("US")
         assert len(results) == 1
         assert results[0].shape == "name"
+        assert results[0].value == "United States"
 
-    def test_preserves_case(self) -> None:
-        """Edge case: original case is preserved."""
-        results = self.grammar.recognize("united states")
+    def test_recognizes_lowercase(self) -> None:
+        """Lowercase input still resolves correctly."""
+        results = self.grammar.recognize("canada")
         assert len(results) == 1
-        assert results[0].value == "united states"
+        assert results[0].value == "Canada"
+
+    def test_recognizes_mixed_case(self) -> None:
+        """Mixed case input resolves correctly."""
+        results = self.grammar.recognize("fRAnce")
+        assert len(results) == 1
+        assert results[0].value == "France"
 
     def test_recognizes_with_whitespace(self) -> None:
-        """Edge case: whitespace is trimmed."""
-        results = self.grammar.recognize("  Burma  ")
+        """Whitespace is trimmed and collapsed."""
+        results = self.grammar.recognize("  United   Kingdom  ")
         assert len(results) == 1
-        assert results[0].value == "Burma"
+        assert results[0].value == "United Kingdom"
 
-    def test_returns_empty_for_empty_input(self) -> None:
+    def test_recognizes_with_accents(self) -> None:
+        """Accented input is normalized and resolved."""
+        results = self.grammar.recognize("Côte d'Ivoire")
+        assert len(results) == 1
+        assert results[0].value == "Côte d'Ivoire"
+
+    def test_recognizes_chinese_name(self) -> None:
+        """Chinese names resolve to ISO English name."""
+        results = self.grammar.recognize("马来西亚")
+        assert len(results) == 1
+        assert results[0].shape == "name"
+        assert results[0].value == "Malaysia"
+
+    def test_recognizes_chinese_name_simple(self) -> None:
+        """Chinese name '中国' resolves to 'China'."""
+        results = self.grammar.recognize("中国")
+        assert len(results) == 1
+        assert results[0].value == "China"
+
+    def test_recognizes_historical_name(self) -> None:
+        """Historical name resolves to historical canonical form."""
+        results = self.grammar.recognize("Burma")
+        assert len(results) == 1
+        assert results[0].shape == "name"
+        assert results[0].value == "BURMA"
+
+    def test_recognizes_historical_ussr(self) -> None:
+        """Historical name 'USSR' resolves to 'USSR'."""
+        results = self.grammar.recognize("USSR")
+        assert len(results) == 1
+        assert results[0].value == "USSR"
+
+    def test_recognizes_synonym_via_english_table(self) -> None:
+        """Synonym 'Holland' resolves to 'Netherlands' via English table."""
+        results = self.grammar.recognize("Holland")
+        assert len(results) == 1
+        assert results[0].value == "Netherlands"
+
+    def test_rejects_numeric(self) -> None:
+        """Numeric input is not a name pattern."""
+        results = self.grammar.recognize("840")
+        assert len(results) == 0
+
+    def test_rejects_unknown_name(self) -> None:
+        """Unknown name returns empty list."""
+        results = self.grammar.recognize("XYZ")
+        assert len(results) == 0
+
+    def test_rejects_gibberish(self) -> None:
+        """Gibberish input returns empty list."""
+        results = self.grammar.recognize("asdfghjkl")
+        assert len(results) == 0
+
+    def test_rejects_partial_name(self) -> None:
+        """Partial name not in any table returns empty list."""
+        results = self.grammar.recognize("United")
+        assert len(results) == 0
+
+    def test_rejects_empty_string(self) -> None:
         """Empty string returns empty list."""
         results = self.grammar.recognize("")
         assert results == []
+
+    def test_rejects_whitespace_only(self) -> None:
+        """Whitespace-only input returns empty list."""
+        results = self.grammar.recognize("   ")
+        assert results == []
+
+    def test_strips_punctuation(self) -> None:
+        """Punctuation is stripped during normalization."""
+        results = self.grammar.recognize("U.S.A.")
+        assert len(results) == 1
+        assert results[0].value == "United States"
+
+    def test_strips_apostrophes(self) -> None:
+        """Apostrophes are stripped during normalization."""
+        results = self.grammar.recognize("Cote d'Ivoire")
+        assert len(results) == 1
+        assert results[0].value == "Côte d'Ivoire"
 
     def test_name(self) -> None:
         """Verify grammar name."""

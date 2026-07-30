@@ -1,38 +1,121 @@
-"""Country name recognition grammar."""
+"""Country name recognition grammar.
+
+Uses per-locale lookup tables to recognize country names and variants
+and resolve them to their canonical ISO 3166-1 English short names (or
+historical canonical names for historical entities).
+
+Lookup order: English → Historical → Chinese — first match wins.
+"""
 
 from __future__ import annotations
 
+import re
+import unicodedata
+
+from paxman.capabilities.Country.grammar.data.chinese_names import (
+    CHINESE_NAME_TO_CANONICAL,
+)
+from paxman.capabilities.Country.grammar.data.english_names import (
+    ENGLISH_NAME_TO_CANONICAL,
+)
+from paxman.capabilities.Country.grammar.data.historical_names import (
+    HISTORICAL_NAME_TO_CANONICAL,
+)
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.core.domain import Grammar
 
+# Compiled normalizer: keep only letters, digits, and whitespace
+# (strip punctuation and other symbols).
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _normalize(text: str) -> str:
+    """Normalize input for lookup table matching.
+
+    NFKD-decomposes (splits accented chars like ô → o + combining mark),
+    strips combining marks and punctuation, collapses whitespace, and
+    uppercases. Unicode letters (including CJK) and digits are preserved.
+
+    Args:
+        text: Raw input text.
+
+    Returns:
+        Normalized key for table lookup.
+    """
+    # NFKD decompose: "ô" → "o" + combining circumflex
+    decomposed = unicodedata.normalize("NFKD", text)
+    # Keep only alphanumeric and whitespace (strips combining marks + punctuation)
+    cleaned = "".join(
+        c for c in decomposed if c.isalnum() or c.isspace()
+    )
+    # Collapse whitespace
+    cleaned = _WHITESPACE_RE.sub(" ", cleaned)
+    # Uppercase
+    return cleaned.upper().strip()
+
 
 class NameGrammar(Grammar[CountryNotation]):
-    """Recognizes any non-empty string as country name shape.
+    """Recognizes country names from lookup tables.
 
-    Design note: This grammar matches ANY non-empty input, including values
-    that might also match alpha2/alpha3/numeric grammars. This is intentional —
-    multiple grammars matching the same input is fine because:
-    - Each grammar produces a separate notation with the appropriate shape
-    - Rules validate based on shape
-      (e.g., SectionAlpha2Codes only accepts shape="alpha2")
-    - Multiple candidates with the same canonical value produce SUCCESS, not AMBIGUOUS
+    Matches input against English, historical, and Chinese name tables.
+    Returns the canonical ISO English short name (or historical canonical
+    name for historical entities) as the notation value.
 
-    Examples: "United States", "马来西亚", "Burma", "US" (also matched by alpha2)
-    Non-examples: "" (empty)
+    Unlike the other country grammars (alpha2, alpha3, numeric), this
+    grammar resolves names to their canonical form at recognition time.
+    This is intentional — names have multiple valid forms (e.g., "USA",
+    "America", "United States of America") that all resolve to the same
+    canonical value ("United States"), and resolution at the grammar layer
+    simplifies downstream validation.
+
+    Examples: "United States" → value="United States"
+              "USA" → value="United States"
+              "US" → value="United States"
+              "中国" → value="China"
+              "Burma" → value="BURMA"
+    Non-examples: "840" → [] (no name match)
+                  "" → [] (empty)
+                  "XYZ" → [] (unknown name)
     """
 
     name = "name_recognition"
 
     def recognize(self, text: str) -> list[CountryNotation]:
-        """Extract name patterns from text.
+        """Extract country names from text via lookup tables.
 
         Args:
             text: Raw input text.
 
         Returns:
-            List of CountryNotations with shape="name".
+            List of CountryNotations with shape="name" and the canonical
+            name as value, or empty list if input is empty/unknown.
         """
         trimmed = text.strip()
         if not trimmed:
             return []
-        return [CountryNotation(shape="name", value=trimmed)]
+
+        normalized = _normalize(trimmed)
+
+        # Lookup order: English → Historical → Chinese
+        if normalized in ENGLISH_NAME_TO_CANONICAL:
+            return [
+                CountryNotation(
+                    shape="name", value=ENGLISH_NAME_TO_CANONICAL[normalized]
+                )
+            ]
+
+        if normalized in HISTORICAL_NAME_TO_CANONICAL:
+            return [
+                CountryNotation(
+                    shape="name", value=HISTORICAL_NAME_TO_CANONICAL[normalized]
+                )
+            ]
+
+        if normalized in CHINESE_NAME_TO_CANONICAL:
+            return [
+                CountryNotation(
+                    shape="name", value=CHINESE_NAME_TO_CANONICAL[normalized]
+                )
+            ]
+
+        return []

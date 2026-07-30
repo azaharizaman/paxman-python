@@ -115,8 +115,8 @@ class TestCountryPipeline:
     def test_missing_input(self) -> None:
         """No country patterns recognized returns MISSING.
 
-        Only empty/whitespace input produces MISSING because NameGrammar
-        matches any non-empty string (shape="name").
+        Empty, whitespace-only, and truly unknown inputs produce MISSING
+        because NameGrammar only matches known names via lookup tables.
         """
         register_capability(CountryCapability())
         contract = CountryCapability.create_contract()
@@ -148,22 +148,52 @@ class TestCountryPipeline:
 
     @pytest.mark.integration
     def test_historical_name_enabled(self) -> None:
-        """Historical name recognized when include_historical=True."""
+        """Historical name recognized when include_historical=True.
+
+        Canonical value is the historical entity's own former alpha-2 code
+        (e.g., BURMA → BU), not the successor state's code (not MM).
+        """
         register_capability(CountryCapability())
         contract = CountryCapability.create_contract(include_historical=True)
         result = run_capability("Burma", contract)
 
         assert result.status == Resolution.SUCCESS
-        assert result.canonicalized_value == "MM"
+        assert result.canonicalized_value == "BU"
+
+    @pytest.mark.integration
+    def test_historical_round_trip(self) -> None:
+        """Historical alpha-2 code round-trips correctly.
+
+        canonicalize("USSR") → "SU"
+        canonicalize("SU")   → "SU" (via historical alpha-2 validation)
+
+        This satisfies the round-trip invariant: any output format value
+        when re-canonicalized produces at least one candidate that
+        canonicalizes to the same value.
+        """
+        register_capability(CountryCapability())
+
+        # Step 1: Historical name → former alpha-2 code
+        contract = CountryCapability.create_contract(include_historical=True)
+        result = run_capability("USSR", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "SU"
+
+        # Step 2: Former alpha-2 code → same code (round-trip)
+        result = run_capability("SU", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "SU"
 
     @pytest.mark.integration
     def test_localized_name_disabled(self) -> None:
         """Localized name not recognized by default."""
         register_capability(CountryCapability())
         contract = CountryCapability.create_contract()
-        result = run_capability("马来西亚", contract)
+        result = run_capability("Alemania", contract)
 
-        assert result.status == Resolution.INVALID
+        # "Alemania" is only in CLDR (not in grammar tables),
+        # so without include_localized, no grammar recognizes it → MISSING
+        assert result.status == Resolution.MISSING
 
     @pytest.mark.integration
     def test_localized_name_enabled(self) -> None:
@@ -229,10 +259,10 @@ class TestCountryPipeline:
         contract = CountryCapability.create_contract(
             excluded_rules=["Section-alpha2-codes"]
         )
-        result = run_capability("US", contract)
+        # "DE" is a pure alpha-2 code not in grammar name tables,
+        # so with alpha-2 rule excluded, no rule can validate it
+        result = run_capability("DE", contract)
 
-        # Alpha-2 input should be INVALID when alpha-2 rule is excluded
-        # (name grammar also matches "US" but it's not in NAME_TO_ALPHA2 as "US")
         assert result.status == Resolution.INVALID
 
     @pytest.mark.integration
@@ -255,3 +285,86 @@ class TestCountryPipeline:
 
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "AF"
+
+    @pytest.mark.integration
+    def test_alpha2_output_alpha3(self) -> None:
+        """Alpha-2 input with alpha3 output format returns alpha-3 code."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="alpha3")
+        result = run_capability("DE", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "DEU"
+
+    @pytest.mark.integration
+    def test_alpha2_output_numeric(self) -> None:
+        """Alpha-2 input with numeric output format returns M49 code."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="numeric")
+        result = run_capability("DE", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "276"
+
+    @pytest.mark.integration
+    def test_alpha2_output_name(self) -> None:
+        """Alpha-2 input with name output format returns official name."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="name")
+        result = run_capability("DE", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "GERMANY"
+
+    @pytest.mark.integration
+    def test_alpha3_output_alpha3(self) -> None:
+        """Alpha-3 input with alpha3 output format returns canonical alpha-3."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="alpha3")
+        result = run_capability("DEU", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "DEU"
+
+    @pytest.mark.integration
+    def test_alpha3_output_numeric(self) -> None:
+        """Alpha-3 input with numeric output format."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="numeric")
+        result = run_capability("DEU", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "276"
+
+    @pytest.mark.integration
+    def test_name_output_name(self) -> None:
+        """Name input with name output format returns canonical official name."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="name")
+        result = run_capability("Germany", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "GERMANY"
+
+    @pytest.mark.integration
+    def test_numeric_output_alpha3(self) -> None:
+        """Numeric input with alpha3 output format."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(output_format="alpha3")
+        result = run_capability("276", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "DEU"
+
+    @pytest.mark.integration
+    def test_historical_name_ignores_output_format(self) -> None:
+        """Historical name always returns former alpha-2 code, not converted."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_historical=True,
+            output_format="alpha3",
+        )
+        result = run_capability("USSR", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "SU"

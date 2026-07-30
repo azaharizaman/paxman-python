@@ -73,6 +73,7 @@ class CountryCapability(Capability[CountryNotation]):
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
+        output_format: str = "alpha2",
         include_localized: bool = False,
         include_historical: bool = False,
     ) -> CountryContract:
@@ -82,6 +83,8 @@ class CountryCapability(Capability[CountryNotation]):
             excluded_rules: Rule names to exclude.
             pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
             year: Year for temporal filtering.
+            output_format: Output format for canonical values ("alpha2", "alpha3",
+                "numeric", "name"). Default "alpha2".
             include_localized: Enable CLDR multilingual names.
             include_historical: Enable deprecated country names.
 
@@ -92,6 +95,7 @@ class CountryCapability(Capability[CountryNotation]):
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
+            output_format=output_format,
             include_localized=include_localized,
             include_historical=include_historical,
         )
