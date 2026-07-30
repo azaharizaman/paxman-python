@@ -6,6 +6,7 @@ from paxman.capabilities.Country.capability import CountryCapability
 from paxman.capabilities.Country.contract import CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.core.capability import Capability
+from paxman.core.errors import ContractError
 
 
 class TestCountryNotation:
@@ -131,6 +132,44 @@ class TestCountryContract:
         assert contract.include_localized is True
         assert contract.include_historical is True
 
+    def test_default_output_format(self) -> None:
+        """Verify output_format defaults to alpha2."""
+        contract = CountryContract()
+        assert contract.output_format == "alpha2"
+
+    def test_custom_output_format_alpha3(self) -> None:
+        """Verify output_format can be set to alpha3."""
+        contract = CountryContract(output_format="alpha3")
+        assert contract.output_format == "alpha3"
+
+    def test_custom_output_format_numeric(self) -> None:
+        """Verify output_format can be set to numeric."""
+        contract = CountryContract(output_format="numeric")
+        assert contract.output_format == "numeric"
+
+    def test_custom_output_format_name(self) -> None:
+        """Verify output_format can be set to name."""
+        contract = CountryContract(output_format="name")
+        assert contract.output_format == "name"
+
+    def test_invalid_output_format_raises_contract_error(self) -> None:
+        """Verify invalid output_format raises ContractError."""
+        with pytest.raises(ContractError):
+            CountryContract(output_format="invalid")
+
+    def test_as_dict_contains_output_format(self) -> None:
+        """Verify as_dict includes output_format."""
+        contract = CountryContract(output_format="numeric")
+        d = contract.as_dict()
+        assert "output_format" in d
+        assert d["output_format"] == "numeric"
+
+    def test_as_dict_default_output_format(self) -> None:
+        """Verify as_dict shows default alpha2 output_format."""
+        contract = CountryContract()
+        d = contract.as_dict()
+        assert d["output_format"] == "alpha2"
+
 
 class TestCountryCapability:
     """Tests for CountryCapability wiring."""
@@ -197,3 +236,19 @@ class TestCountryCapability:
         assert contract.include_localized is True
         assert contract.include_historical is True
         assert contract.year == 2024
+
+    def test_create_contract_default_output_format(self) -> None:
+        """Verify create_contract defaults to alpha2."""
+        contract = CountryCapability.create_contract()
+        assert contract.output_format == "alpha2"
+
+    def test_create_contract_with_output_format(self) -> None:
+        """Verify create_contract passes through output_format."""
+        contract = CountryCapability.create_contract(output_format="numeric")
+        assert contract.output_format == "numeric"
+
+    def test_create_contract_all_formats(self) -> None:
+        """Verify all valid output_format values pass through create_contract."""
+        for fmt in ("alpha2", "alpha3", "numeric", "name"):
+            contract = CountryCapability.create_contract(output_format=fmt)
+            assert contract.output_format == fmt
