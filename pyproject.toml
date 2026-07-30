@@ -25,6 +25,21 @@ markers = [
 ]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+source = ["paxman"]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 95
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.",
+]
+
 [tool.ruff]
 line-length = 88
 target-version = "py311"
