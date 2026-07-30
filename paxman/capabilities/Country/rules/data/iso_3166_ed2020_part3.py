@@ -63,6 +63,7 @@ FORMER_NAME_TO_ALPHA2: dict[str, str] = {
 FORMER_ALPHA2_CODES: frozenset[str] = frozenset({
     "BU",   # Burma → reassignable after 50-year transition
     "DY",   # Dahomey → reassignable
+    "CS",   # Czechoslovakia / Serbia and Montenegro → round-trip support
     "TP",   # East Timor → reassignable
     "DD",   # German Democratic Republic → reassignable
     "FX",   # France, Metropolitan → reassignable
@@ -78,10 +79,10 @@ FORMER_ALPHA2_CODES: frozenset[str] = frozenset({
     "CT",   # Canton and Enderbury Islands → reassignable
     "VD",   # Viet-Nam, Dem. Rep. → reassignable
     "YD",   # Yemen, Democratic → reassignable
-    # Note: CS (Czechoslovakia / Serbia and Montenegro) and GE (Gilbert Islands)
-    # are also unassigned but excluded here because CS is preserved as a
-    # transitional code in M49 numeric, and GE name change was temporary
-    # (official ISO 3166-3 entry but alpha-2 was never reassigned).
+    # Note: CS (Czechoslovakia / Serbia and Montenegro) was added for
+    # round-trip support (numeric code 200 is no longer active). GE
+    # (Gilbert Islands) is intentionally omitted — the name change was
+    # temporary and the alpha-2 code was never reassigned.
 })
 
 # Former numeric (M49) codes that were retired from ISO 3166-1

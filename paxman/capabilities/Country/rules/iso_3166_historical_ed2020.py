@@ -27,6 +27,14 @@ from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
+def _normalize_numeric_key(value: str) -> str:
+    """Zero-pad numeric value to 3 digits (M49 standard format)."""
+    try:
+        return f"{int(value):03d}"
+    except ValueError:
+        return value.upper()
+
+
 PUBLICATION = Provenance(
     authority="ISO",
     specification_name="ISO 3166-3",
@@ -80,7 +88,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             return notation.value.upper() in FORMER_ALPHA2_CODES
 
         if notation.shape == "numeric":
-            return notation.value.upper() in FORMER_NUMERIC_TO_ALPHA2
+            return _normalize_numeric_key(notation.value) in FORMER_NUMERIC_TO_ALPHA2
 
         return False
 
@@ -101,7 +109,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             return notation.value.upper()
 
         if notation.shape == "numeric":
-            return FORMER_NUMERIC_TO_ALPHA2[notation.value.upper()]
+            return FORMER_NUMERIC_TO_ALPHA2[_normalize_numeric_key(notation.value)]
 
         # Should not reach here if matches() properly validated
         msg = f"Unsupported notation shape for historical rule: {notation.shape}"
