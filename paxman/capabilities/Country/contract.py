@@ -5,6 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from paxman.core.errors import ContractError
+
+
+VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"alpha2", "alpha3", "numeric", "name"})
+
 
 @dataclass(frozen=True, slots=True)
 class CountryContract:
@@ -12,6 +17,8 @@ class CountryContract:
 
     Attributes:
         capability_name: Fixed to "country" (not user-settable).
+        output_format: Output format for canonical values. One of "alpha2",
+            "alpha3", "numeric", "name". Defaults to "alpha2".
         excluded_rules: Tuple of rule names to exclude.
         pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
         year: Year for temporal filtering.
@@ -29,6 +36,7 @@ class CountryContract:
     # Capability-specific fields
     include_localized: bool = False
     include_historical: bool = False
+    output_format: str = "alpha2"
 
     @property
     def active_grammars(self) -> list[str]:
@@ -44,13 +52,14 @@ class CountryContract:
             "name_recognition",
         ]
 
-    @property
-    def output_format(self) -> str | None:
-        """Output format — not supported by Country capability.
-
-        Country always normalizes to alpha-2 codes.
-        """
-        return None
+    def __post_init__(self) -> None:
+        """Validate output_format value."""
+        if self.output_format not in VALID_OUTPUT_FORMATS:
+            msg = (
+                f"Invalid output_format: {self.output_format!r}. "
+                f"Must be one of {sorted(VALID_OUTPUT_FORMATS)}"
+            )
+            raise ContractError(msg)
 
     def as_dict(self) -> dict[str, Any]:
         """Serialize for replay hash computation.
