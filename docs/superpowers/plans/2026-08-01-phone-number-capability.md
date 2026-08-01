@@ -2857,6 +2857,11 @@ class TestPhoneContractValidation:
         with pytest.raises(ContractError):
             PhoneContract(default_country="us")
 
+    def test_rejects_non_string_default_country(self) -> None:
+        """Non-string default_country raises ContractError, not TypeError."""
+        with pytest.raises(ContractError):
+            PhoneContract(default_country=5)  # type: ignore[arg-type]
+
     def test_rejects_invalid_length_default_country(self) -> None:
         """default_country must be exactly 2 letters."""
         with pytest.raises(ContractError):
@@ -2881,9 +2886,15 @@ def _validate_alpha2(value: str | None) -> None:
 
     Raises:
         ContractError: If the value is present but not an uppercase
-            2-letter ISO 3166-1 alpha-2 code.
+            2-letter ASCII ISO 3166-1 alpha-2 code (or not a str at all).
     """
-    if value is not None and (len(value) != 2 or not value.isalpha() or not value.isupper()):
+    if value is None:
+        return
+    if not isinstance(value, str):
+        raise ContractError(
+            f"default_country must be an uppercase ISO 3166-1 alpha-2 code, got {value!r}"
+        )
+    if len(value) != 2 or not value.isascii() or not value.isalpha() or not value.isupper():
         raise ContractError(
             f"default_country must be an uppercase ISO 3166-1 alpha-2 code, got {value!r}"
         )
@@ -2908,10 +2919,10 @@ Then add `__post_init__` to the `PhoneContract` class body:
 ```
 
 Run: `uv run pytest tests/capabilities/phone/test_capability.py::TestPhoneContractValidation -v`
-Expected: 5 passed
+Expected: 6 passed
 
 Run: `uv run pytest tests/capabilities/phone/test_capability.py -v`
-Expected: 8 + 12 + 9 + 5 = 34 passed
+Expected: 8 + 12 + 9 + 6 = 35 passed
 
 - [ ] **Step 5: Update Phone package init**
 
@@ -3084,8 +3095,8 @@ class TestPhonePipeline:
         assert len(result.candidates) == 1
 
     @pytest.mark.integration
-    def test_ambiguity_unreachable_by_design(self) -> None:
-        """e164 and tel-URI inputs never produce conflicting candidates."""
+    def test_tel_uri_extension_preserved(self) -> None:
+        """tel-URI extension survives rfc3966 output (single candidate)."""
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(output_format="rfc3966")
         result = run_capability("tel:+15551234567;ext=890", contract)
@@ -3093,6 +3104,35 @@ class TestPhonePipeline:
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "tel:+15551234567;ext=890"
         assert len(result.candidates) == 1
+
+    @pytest.mark.integration
+    def test_pinned_rules_only(self) -> None:
+        """Pinning to one rule runs only that rule."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(
+            pinned_rules=["Section 6.1-international-number"]
+        )
+        result = run_capability("+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15551234567"
+        # Only the pinned rule produced candidates.
+        assert {c.validation_rule for c in result.candidates} == {
+            "Section 6.1-international-number"
+        }
+
+    @pytest.mark.integration
+    def test_excluded_rule_skipped(self) -> None:
+        """Excluding a rule prevents it from producing candidates."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(
+            excluded_rules=["Section 6.2-country-code"]
+        )
+        result = run_capability("+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15551234567"
+        assert "Section 6.2-country-code" not in {
+            c.validation_rule for c in result.candidates
+        }
 
     @pytest.mark.integration
     def test_success_international_00(self) -> None:
@@ -3158,7 +3198,7 @@ class TestPhonePipeline:
 - [ ] **Step 2: Run tests to verify they pass**
 
 Run: `uv run pytest tests/integration/test_phone_pipeline.py -v`
-Expected: 12 passed
+Expected: 14 passed
 
 - [ ] **Step 3: Commit**
 
