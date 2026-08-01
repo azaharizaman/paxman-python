@@ -1514,6 +1514,118 @@ git commit -m "feat(phone): add national (NANP) grammar"
 
 ---
 
+## Task 8b: Grammar Test Hygiene (code-review fold-in)
+
+**Files:**
+- Update: `tests/capabilities/phone/test_grammar.py`
+- Update: `paxman/capabilities/Phone/grammar/international_00_recognition.py` (comment only)
+
+The code-quality review of Tasks 4-8 approved the wave with 4 minor hygiene items. Address them:
+
+- [ ] **Step 1: Add dedup + multi-match + boundary tests**
+
+Append to `tests/capabilities/phone/test_grammar.py`:
+
+```python
+# Append to tests/capabilities/phone/test_grammar.py
+
+
+class TestGrammarDedup:
+    """Dedup behavior across grammars (same value via different formats)."""
+
+    def setup_method(self) -> None:
+        self.e164 = E164Grammar()
+        self.tel_uri = TelUriGrammar()
+        self.i00 = International00Grammar()
+        self.national = NationalGrammar()
+
+    def test_e164_dedups_same_value_different_formats(self) -> None:
+        """The same number in two formats yields one notation (seen-set)."""
+        results = self.e164.recognize("Call +1 555 123 4567 or +15551234567")
+        assert len(results) == 1
+        assert results[0].value == "15551234567"
+
+    def test_tel_uri_multiple_matches(self) -> None:
+        """Multiple distinct tel: URIs are all returned."""
+        results = self.tel_uri.recognize("tel:+15551234567 and tel:+442079460958")
+        assert len(results) == 2
+
+    def test_i00_multiple_matches(self) -> None:
+        """Multiple distinct 00-prefixed numbers are all returned."""
+        results = self.i00.recognize("00 44 20 7946 0958 or 00 1 555 234 5678")
+        assert len(results) == 2
+
+    def test_national_multiple_matches(self) -> None:
+        """Multiple distinct national numbers are all returned."""
+        results = self.national.recognize(
+            "Call (555) 123-4567 today or (212) 234-5678"
+        )
+        assert len(results) == 2
+
+    def test_e164_trailing_period_still_digit_correct(self) -> None:
+        """A trailing sentence period is stripped, value stays digit-only."""
+        results = self.e164.recognize("End of +15551234567.")
+        assert len(results) == 1
+        assert results[0].value == "15551234567"
+
+
+class TestInternational00Boundary:
+    """Boundary cases for the 00-prefix lookbehind."""
+
+    def setup_method(self) -> None:
+        self.grammar = International00Grammar()
+
+    def test_ignores_00_embedded_in_digits(self) -> None:
+        """'100442079460958' must NOT match (00 preceded by digit)."""
+        results = self.grammar.recognize("100442079460958")
+        assert len(results) == 0
+
+    def test_ignores_00_after_plus(self) -> None:
+        """'+00442079460958' is contradictory input; 00 grammar skips it."""
+        # The e164 grammar may match it; the 00 grammar must not treat
+        # '+00...' as a 00-prefixed number.
+        results = self.grammar.recognize("+00442079460958")
+        assert len(results) == 0
+```
+
+- [ ] **Step 2: Update International00Grammar comment**
+
+In `paxman/capabilities/Phone/grammar/international_00_recognition.py`, extend the comment above `_INTERNATIONAL_00_PATTERN` to note the boundary explicitly:
+
+```python
+# "00" followed by the international number digits (optional separators).
+# The leading digit of the number must be 1-9 (country codes never start
+# with 0), and a single "0" alone is not the international prefix.
+# Separators between "00" and the first digit are allowed ("00 44 ...").
+# The (?<!\d) lookbehind excludes "00" preceded by a digit ("10044..." is
+# not an international prefix) but deliberately does NOT exclude "+":
+# "+0044..." is contradictory input handled by the e164 grammar instead.
+_INTERNATIONAL_00_PATTERN = re.compile(r"(?<!\d)00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
+```
+
+- [ ] **Step 3: Run tests to verify they pass**
+
+Run: `uv run pytest tests/capabilities/phone/test_grammar.py -v`
+Expected: 40 + 7 = 47 passed
+
+- [ ] **Step 4: Run type checker and linters**
+
+Run: `uv run pyright paxman/capabilities/Phone/grammar/`
+Expected: No errors
+
+Run: `uv run ruff check paxman/capabilities/Phone/ tests/capabilities/phone/`
+Expected: Zero errors
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tests/capabilities/phone/test_grammar.py paxman/capabilities/Phone/grammar/international_00_recognition.py
+git commit -m "test(phone): grammar dedup, multi-match, and boundary tests
+docs(phone): document 00-prefix lookbehind boundary"
+```
+
+---
+
 ## Task 9: Create E.164 International Number Rule (PARSER)
 
 **Files:**
