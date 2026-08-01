@@ -267,3 +267,59 @@ class TestNationalGrammar:
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "national_recognition"
+
+
+class TestGrammarDedup:
+    """Dedup behavior across grammars (same value via different formats)."""
+
+    def setup_method(self) -> None:
+        self.e164 = E164Grammar()
+        self.tel_uri = TelUriGrammar()
+        self.i00 = International00Grammar()
+        self.national = NationalGrammar()
+
+    def test_e164_dedups_same_value_different_formats(self) -> None:
+        """The same number in two formats yields one notation (seen-set)."""
+        results = self.e164.recognize("Call +1 555 123 4567 or +15551234567")
+        assert len(results) == 1
+        assert results[0].value == "15551234567"
+
+    def test_tel_uri_multiple_matches(self) -> None:
+        """Multiple distinct tel: URIs are all returned."""
+        results = self.tel_uri.recognize("tel:+15551234567 and tel:+442079460958")
+        assert len(results) == 2
+
+    def test_i00_multiple_matches(self) -> None:
+        """Multiple distinct 00-prefixed numbers are all returned."""
+        results = self.i00.recognize("00 44 20 7946 0958 or 00 1 555 234 5678")
+        assert len(results) == 2
+
+    def test_national_multiple_matches(self) -> None:
+        """Multiple distinct national numbers are all returned."""
+        results = self.national.recognize("Call (555) 123-4567 today or (212) 234-5678")
+        assert len(results) == 2
+
+    def test_e164_trailing_period_still_digit_correct(self) -> None:
+        """A trailing sentence period is stripped, value stays digit-only."""
+        results = self.e164.recognize("End of +15551234567.")
+        assert len(results) == 1
+        assert results[0].value == "15551234567"
+
+
+class TestInternational00Boundary:
+    """Boundary cases for the 00-prefix lookbehind."""
+
+    def setup_method(self) -> None:
+        self.grammar = International00Grammar()
+
+    def test_ignores_00_embedded_in_digits(self) -> None:
+        """'100442079460958' must NOT match (00 preceded by digit)."""
+        results = self.grammar.recognize("100442079460958")
+        assert len(results) == 0
+
+    def test_ignores_00_after_plus(self) -> None:
+        """'+00442079460958' is contradictory input; 00 grammar skips it."""
+        # The e164 grammar may match it; the 00 grammar must not treat
+        # '+00...' as a 00-prefixed number.
+        results = self.grammar.recognize("+00442079460958")
+        assert len(results) == 0
