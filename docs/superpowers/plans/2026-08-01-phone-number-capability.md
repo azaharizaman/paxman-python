@@ -2628,7 +2628,97 @@ class PhoneCapability(Capability[PhoneNotation]):
         )
 ```
 
-- [ ] **Step 4: Update Phone package init**
+- [ ] **Step 4: Add contract validation (code-review fold-in)**
+
+The code-quality review of Task 3 flagged that `PhoneContract` accepts any `output_format`/`default_country` string without validation (Country validates in `__post_init__`; Email/Date do not). Now that rules will consume these fields, add validation. Append tests to `tests/capabilities/phone/test_capability.py`:
+
+```python
+# Append to tests/capabilities/phone/test_capability.py
+
+from paxman.core.errors import ContractError
+
+
+class TestPhoneContractValidation:
+    """Tests for PhoneContract __post_init__ validation."""
+
+    def test_rejects_unknown_output_format(self) -> None:
+        """Unsupported output_format raises ContractError."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format="uppercase")
+
+    def test_rejects_lowercase_output_format(self) -> None:
+        """output_format is case-sensitive and must be one of the enum values."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format="E164")
+
+    def test_accepts_all_valid_output_formats(self) -> None:
+        """All documented output formats construct successfully."""
+        for fmt in ("e164", "rfc3966", "national"):
+            contract = PhoneContract(output_format=fmt)
+            assert contract.output_format == fmt
+
+    def test_rejects_non_alpha2_default_country(self) -> None:
+        """default_country must be an uppercase ISO 3166-1 alpha-2 code."""
+        with pytest.raises(ContractError):
+            PhoneContract(default_country="us")
+
+    def test_rejects_invalid_length_default_country(self) -> None:
+        """default_country must be exactly 2 letters."""
+        with pytest.raises(ContractError):
+            PhoneContract(default_country="USA")
+```
+
+Implement `__post_init__` in `paxman/capabilities/Phone/contract.py`:
+
+```python
+# Add to paxman/capabilities/Phone/contract.py
+
+from paxman.core.errors import ContractError
+
+_VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"e164", "rfc3966", "national"})
+
+
+def _validate_alpha2(value: str | None) -> None:
+    """Validate an ISO 3166-1 alpha-2 country code.
+
+    Args:
+        value: Country code to validate (None is allowed — means "no default").
+
+    Raises:
+        ContractError: If the value is present but not an uppercase
+            2-letter ISO 3166-1 alpha-2 code.
+    """
+    if value is not None and (len(value) != 2 or not value.isalpha() or not value.isupper()):
+        raise ContractError(
+            f"default_country must be an uppercase ISO 3166-1 alpha-2 code, got {value!r}"
+        )
+```
+
+Then add `__post_init__` to the `PhoneContract` class body:
+
+```python
+    def __post_init__(self) -> None:
+        """Validate contract configuration.
+
+        Raises:
+            ContractError: If output_format is unsupported or default_country
+                is present but not an uppercase alpha-2 code.
+        """
+        if self.output_format not in _VALID_OUTPUT_FORMATS:
+            raise ContractError(
+                f"output_format must be one of {sorted(_VALID_OUTPUT_FORMATS)}, "
+                f"got {self.output_format!r}"
+            )
+        _validate_alpha2(self.default_country)
+```
+
+Run: `uv run pytest tests/capabilities/phone/test_capability.py::TestPhoneContractValidation -v`
+Expected: 5 passed
+
+Run: `uv run pytest tests/capabilities/phone/test_capability.py -v`
+Expected: 8 + 12 + 9 + 5 = 34 passed
+
+- [ ] **Step 5: Update Phone package init**
 
 ```python
 # paxman/capabilities/Phone/__init__.py
@@ -2643,21 +2733,21 @@ from paxman.capabilities.Phone.notation import PhoneNotation
 __all__ = ["PhoneCapability", "PhoneContract", "PhoneNotation"]
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [ ] **Step 6: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_capability.py -v`
-Expected: 8 + 12 + 9 = 29 passed
+Expected: 34 passed
 
-- [ ] **Step 6: Run type checker**
+- [ ] **Step 7: Run type checker**
 
 Run: `uv run pyright paxman/capabilities/Phone/`
 Expected: No errors
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
-git add paxman/capabilities/Phone/capability.py paxman/capabilities/Phone/__init__.py
-git commit -m "feat(phone): add PhoneCapability class and package exports"
+git add paxman/capabilities/Phone/capability.py paxman/capabilities/Phone/__init__.py paxman/capabilities/Phone/contract.py tests/capabilities/phone/test_capability.py
+git commit -m "feat(phone): add PhoneCapability class, package exports, and contract validation"
 ```
 
 ---
