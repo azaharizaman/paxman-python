@@ -5,6 +5,29 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from paxman.core.errors import ContractError
+
+_VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"e164", "rfc3966", "national"})
+
+
+def _validate_alpha2(value: str | None) -> None:
+    """Validate an ISO 3166-1 alpha-2 country code.
+
+    Args:
+        value: Country code to validate (None is allowed — means "no default").
+
+    Raises:
+        ContractError: If the value is present but not an uppercase
+            2-letter ISO 3166-1 alpha-2 code.
+    """
+    if value is not None and (
+        len(value) != 2 or not value.isalpha() or not value.isupper()
+    ):
+        raise ContractError(
+            "default_country must be an uppercase ISO 3166-1 alpha-2 code, "
+            f"got {value!r}"
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class PhoneContract:
@@ -32,6 +55,20 @@ class PhoneContract:
     excluded_rules: tuple[str, ...] = field(default_factory=tuple)
     pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
+
+    def __post_init__(self) -> None:
+        """Validate contract configuration.
+
+        Raises:
+            ContractError: If output_format is unsupported or default_country
+                is present but not an uppercase alpha-2 code.
+        """
+        if self.output_format not in _VALID_OUTPUT_FORMATS:
+            raise ContractError(
+                f"output_format must be one of {sorted(_VALID_OUTPUT_FORMATS)}, "
+                f"got {self.output_format!r}"
+            )
+        _validate_alpha2(self.default_country)
 
     @property
     def active_grammars(self) -> list[str]:

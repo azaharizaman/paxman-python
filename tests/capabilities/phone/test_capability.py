@@ -2,8 +2,11 @@
 
 import pytest
 
+from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.core.capability import Capability
+from paxman.core.errors import ContractError
 
 
 class TestPhoneNotation:
@@ -133,3 +136,102 @@ class TestPhoneContract:
         contract = PhoneContract()
         with pytest.raises(AttributeError):
             contract.year = 2024  # type: ignore[misc]
+
+
+class TestPhoneCapability:
+    """Tests for PhoneCapability wiring."""
+
+    def test_is_capability_subclass(self) -> None:
+        """Verify inheritance from base Capability."""
+        assert issubclass(PhoneCapability, Capability)
+
+    def test_name(self) -> None:
+        """Verify capability name."""
+        assert PhoneCapability.name == "phone"
+
+    def test_version(self) -> None:
+        """Verify capability version."""
+        assert PhoneCapability.version == "1.0.0"
+
+    def test_get_grammars_returns_all(self) -> None:
+        """Verify grammar count."""
+        capability = PhoneCapability()
+        grammars = capability.get_grammars()
+        assert len(grammars) == 4
+
+    def test_get_rules_returns_all(self) -> None:
+        """Verify rule count."""
+        capability = PhoneCapability()
+        rules = capability.get_rules()
+        assert len(rules) == 5
+
+    def test_grammar_name(self) -> None:
+        """Verify grammar names follow convention."""
+        capability = PhoneCapability()
+        names = {g.name for g in capability.get_grammars()}
+        assert names == {
+            "e164_recognition",
+            "tel_uri_recognition",
+            "international_00_recognition",
+            "national_recognition",
+        }
+
+    def test_rule_name(self) -> None:
+        """Verify rule names follow convention."""
+        capability = PhoneCapability()
+        names = {r.name for r in capability.get_rules()}
+        assert names == {
+            "Section 6.1-international-number",
+            "Section 6.2-country-code",
+            "Section 3-tel-uri",
+            "Section 1.1-nanp-structure",
+            "Section 1.2-service-npa",
+        }
+
+    def test_create_contract_default(self) -> None:
+        """Verify create_contract factory defaults."""
+        contract = PhoneCapability.create_contract()
+        assert contract.capability_name == "phone"
+        assert contract.default_country is None
+        assert contract.output_format == "e164"
+
+    def test_create_contract_with_params(self) -> None:
+        """Verify create_contract factory passes parameters."""
+        contract = PhoneCapability.create_contract(
+            default_country="US",
+            output_format="rfc3966",
+            excluded_rules=["Section 1.2-service-npa"],
+        )
+        assert contract.default_country == "US"
+        assert contract.output_format == "rfc3966"
+        assert contract.excluded_rules == ("Section 1.2-service-npa",)
+
+
+class TestPhoneContractValidation:
+    """Tests for PhoneContract __post_init__ validation."""
+
+    def test_rejects_unknown_output_format(self) -> None:
+        """Unsupported output_format raises ContractError."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format="uppercase")
+
+    def test_rejects_lowercase_output_format(self) -> None:
+        """output_format is case-sensitive and must be one of the enum values."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format="E164")
+
+    def test_accepts_all_valid_output_formats(self) -> None:
+        """All documented output formats construct successfully."""
+        for fmt in ("e164", "rfc3966", "national"):
+            contract = PhoneContract(output_format=fmt)
+            assert contract.output_format == fmt
+
+    def test_rejects_non_alpha2_default_country(self) -> None:
+        """default_country must be an uppercase ISO 3166-1 alpha-2 code."""
+        with pytest.raises(ContractError):
+            PhoneContract(default_country="us")
+
+    def test_rejects_invalid_length_default_country(self) -> None:
+        """default_country must be exactly 2 letters."""
+        with pytest.raises(ContractError):
+            PhoneContract(default_country="USA")
