@@ -1376,9 +1376,31 @@ class TestNationalGrammar:
         assert results[0].value == "5551234567"
 
     def test_ignores_international(self) -> None:
-        """Grammar does not match +-prefixed numbers."""
+        """Grammar does not match +-prefixed numbers (compact)."""
         results = self.grammar.recognize("+15551234567")
         assert len(results) == 0
+
+    def test_ignores_international_with_separators(self) -> None:
+        """Grammar does not match inside separated E.164 numbers.
+
+        Regression for spec review: the lookbehind must reject matches whose
+        preceding characters belong to an E.164 number ("+1-555-123-4567"
+        belongs to the e164 grammar), not just compact "+15551234567".
+        """
+        for text in ("+1-555-123-4567", "+1 555 123 4567", "+1.555.123.4567"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
+
+    def test_ignores_international_with_parens(self) -> None:
+        """Grammar does not match inside parenthesized E.164 numbers."""
+        results = self.grammar.recognize("+1 (555) 123-4567")
+        assert len(results) == 0
+
+    def test_ignores_tel_uri(self) -> None:
+        """Grammar does not match inside tel: URIs."""
+        for text in ("tel:+1-201-555-0123", "tel:+15551234567", "tel:+1 (555) 123-4567"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
 
     def test_ignores_short_number(self) -> None:
         """Grammar does not match 7-digit local-only numbers."""
@@ -1423,12 +1445,19 @@ from paxman.core.domain import Grammar
 # recognition heuristic — strict validation (including NXX first digit 2-9)
 # happens in the rules. NXX is deliberately loose here so the grammar
 # recognizes the NANP *shape* even for unassignable exchanges (e.g.,
-# "555-123-4567"), which the NANP rule then rejects as INVALID. The
-# negative lookbehind excludes digits and "+" so this grammar does NOT match
-# inside E.164 numbers ("+1-555-123-4567" belongs to the e164 grammar) or
-# inside tel: URIs.
+# "555-123-4567"), which the NANP rule then rejects as INVALID.
+#
+# Four fixed-width negative lookbehinds ensure this grammar does NOT match
+# inside E.164 numbers or tel: URIs (those belong to the e164 / tel-URI
+# grammars). They reject a match when the characters immediately before it
+# belong to an international number:
+#   1. digit or "+"          -> "+15551234567" (compact)
+#   2. separator after d/+   -> "+1-555-123-4567", "+1 555 123 4567", "+1.555..."
+#   3. "( " after sep after d/+ -> "+1 (555) 123-4567" (parens w/ separator)
+#   4. "(" directly after d/+ -> "+1(555)123-4567"  (parens, no separator)
 _NATIONAL_PATTERN = re.compile(
-    r"(?<![\d+])(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"
+    r"(?<![\d+])(?<![\d+][\s.\-])(?<![\d+][\s.\-]\()(?<![\d+]\()"
+    r"(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"
     r"(\d{3})[\s.\-]?(\d{4})(?!\d)"
 )
 
@@ -1469,7 +1498,7 @@ class NationalGrammar(Grammar[PhoneNotation]):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_grammar.py::TestNationalGrammar -v`
-Expected: 11 passed
+Expected: 15 passed
 
 - [ ] **Step 5: Run type checker**
 
