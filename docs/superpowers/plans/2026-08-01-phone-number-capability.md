@@ -3264,6 +3264,8 @@ Add a row to the capabilities table:
 
 Note: The README currently lists **IP** as a registered built-in capability, but `paxman/capabilities/__init__.py` does not export IP (only Country/Date/Email). This is a pre-existing inconsistency — do NOT "fix" it in this task; it is out of scope. Only add the Phone row.
 
+Also update the intro sentence "Paxman ships with four built-in capabilities:" → "five built-in capabilities" (the table now lists 5 rows; leaving "four" would be a stale count introduced by this diff).
+
 - [ ] **Step 2: Add a Phone Capability section**
 
 Add a section following the existing capability sections (mirroring the Email/Date/Country/IP sections):

@@ -50,7 +50,7 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with four built-in capabilities:
+Paxman ships with five built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
