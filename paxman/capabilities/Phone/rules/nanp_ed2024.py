@@ -33,8 +33,8 @@ PUBLICATION = Provenance(
 # Future milestones add "CA" and other NANP members.
 _NANP_COUNTRIES: frozenset[str] = frozenset({"US"})
 
-# Optional trunk 1, then NPA NXX XXXX. Group 1 = NPA, group 2 = NXX,
-# group 3 = line number.
+# Optional trunk 1, then NPA NXX XXXX. Group 1 = optional trunk,
+# group 2 = NPA, group 3 = NXX, group 4 = line number.
 _NANP_PATTERN = re.compile(r"^(1)?([2-9]\d{2})([2-9]\d{2})(\d{4})$")
 
 

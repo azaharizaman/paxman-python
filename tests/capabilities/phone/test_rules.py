@@ -140,6 +140,16 @@ class TestSection6_2CountryCode:
         notation = PhoneNotation(shape="e164", value="999123456789")
         assert self.rule.matches(notation, self.contract) is False
 
+    def test_rejects_non_digits(self) -> None:
+        """Value containing non-digits."""
+        notation = PhoneNotation(shape="e164", value="1555a1234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_too_long(self) -> None:
+        """16+ digits exceeds E.164 maximum (shared structural predicate)."""
+        notation = PhoneNotation(shape="e164", value="1234567890123456")
+        assert self.rule.matches(notation, self.contract) is False
+
     def test_rejects_wrong_shape(self) -> None:
         """Notation with wrong shape."""
         notation = PhoneNotation(shape="national", value="15551234567")
@@ -194,6 +204,11 @@ class TestSection3TelUri:
     def test_rejects_too_long(self) -> None:
         """16+ digits exceeds E.164 maximum."""
         notation = PhoneNotation(shape="rfc3966", value="1234567890123456")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_non_digits(self) -> None:
+        """Value containing non-digits."""
+        notation = PhoneNotation(shape="rfc3966", value="1555a1234567")
         assert self.rule.matches(notation, self.contract) is False
 
     def test_rejects_wrong_shape(self) -> None:
@@ -344,6 +359,12 @@ class TestSection1_1NANPStructure:
         contract = PhoneContract(default_country="US", output_format="national")
         assert self.rule.normalize(notation, contract) == "5552345678"
 
+    def test_normalize_rfc3966_format(self) -> None:
+        """Verify rfc3966 output format (coverage: NANP _canonical branch)."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        contract = PhoneContract(default_country="US", output_format="rfc3966")
+        assert self.rule.normalize(notation, contract) == "tel:+15552345678"
+
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
         assert self.rule.provenance.authority == "NANPA"
@@ -410,6 +431,17 @@ class TestSection1_2ServiceNPA:
         """Trunk 1 is not duplicated in canonical output."""
         notation = PhoneNotation(shape="national", value="18005551234")
         assert self.rule.normalize(notation, self.contract) == "+18005551234"
+
+    def test_normalize_rfc3966_format(self) -> None:
+        """Verify rfc3966 output format (coverage: NANP _canonical branch)."""
+        notation = PhoneNotation(shape="national", value="8005551234")
+        contract = PhoneContract(default_country="US", output_format="rfc3966")
+        assert self.rule.normalize(notation, contract) == "tel:+18005551234"
+
+    def test_rejects_structural_failure(self) -> None:
+        """Non-NANP digits fail the structural check (digits is None branch)."""
+        notation = PhoneNotation(shape="national", value="800555123")
+        assert self.rule.matches(notation, self.contract) is False
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""

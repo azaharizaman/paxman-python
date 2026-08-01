@@ -26,6 +26,24 @@ _MAX_E164_DIGITS = 15
 _DIGITS_ONLY = re.compile(r"^\d+$")
 
 
+def _valid_e164_value(value: str) -> bool:
+    """Check E.164 structural validity (shared by both rules).
+
+    Args:
+        value: Digit-only E.164 number (no leading +).
+
+    Returns:
+        True if the value is digits-only, 1-15 digits long, and carries an
+        assigned country-code prefix. A bare country code (no NSN) and
+        16+ digit values are rejected.
+    """
+    if not _DIGITS_ONLY.match(value):
+        return False
+    if not 1 <= len(value) <= _MAX_E164_DIGITS:
+        return False
+    return split_country_code(value) is not None
+
+
 def _canonical(value: str, contract: Contract) -> str:
     """Render the canonical form per contract.output_format.
 
@@ -71,11 +89,7 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
         """
         if notation.shape != "e164":
             return False
-        if not _DIGITS_ONLY.match(notation.value):
-            return False
-        if not 1 <= len(notation.value) <= _MAX_E164_DIGITS:
-            return False
-        return split_country_code(notation.value) is not None
+        return _valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical E.164 form.
@@ -114,9 +128,7 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
         """
         if notation.shape != "e164":
             return False
-        if not _DIGITS_ONLY.match(notation.value):
-            return False
-        return split_country_code(notation.value) is not None
+        return _valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical E.164 form.
