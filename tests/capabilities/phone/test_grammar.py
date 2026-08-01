@@ -228,6 +228,32 @@ class TestNationalGrammar:
         results = self.grammar.recognize("+15551234567")
         assert len(results) == 0
 
+    def test_ignores_international_with_separators(self) -> None:
+        """Grammar does not match inside separated E.164 numbers.
+
+        Regression for spec review: the lookbehind must reject matches whose
+        preceding characters belong to an E.164 number ("+1-555-123-4567"
+        belongs to the e164 grammar), not just compact "+15551234567".
+        """
+        for text in ("+1-555-123-4567", "+1 555 123 4567", "+1.555.123.4567"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
+
+    def test_ignores_international_with_parens(self) -> None:
+        """Grammar does not match inside parenthesized E.164 numbers."""
+        results = self.grammar.recognize("+1 (555) 123-4567")
+        assert len(results) == 0
+
+    def test_ignores_tel_uri(self) -> None:
+        """Grammar does not match inside tel: URIs."""
+        for text in (
+            "tel:+1-201-555-0123",
+            "tel:+15551234567",
+            "tel:+1 (555) 123-4567",
+        ):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
+
     def test_ignores_short_number(self) -> None:
         """Grammar does not match 7-digit local-only numbers."""
         results = self.grammar.recognize("555-1234")

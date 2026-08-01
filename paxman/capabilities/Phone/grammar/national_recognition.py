@@ -13,14 +13,23 @@ import re
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
-# Optional trunk 1, optional (NPA), NXX, XXXX. The NPA first digit 2-9 is a
-# recognition heuristic — strict validation happens in the rules. The NXX is
-# left loose (`\d{3}`) so common spellings like "555-123-4567" are captured.
-# The negative lookbehind excludes digits and "+" so this grammar does NOT
-# match inside E.164 numbers ("+1-555-123-4567" belongs to the e164 grammar)
-# or inside tel: URIs.
+# Optional trunk 1, optional (NPA), NXX, XXXX. NPA first digit 2-9 is a
+# recognition heuristic — strict validation (including NXX first digit 2-9)
+# happens in the rules. NXX is deliberately loose here so the grammar
+# recognizes the NANP *shape* even for unassignable exchanges (e.g.,
+# "555-123-4567"), which the NANP rule then rejects as INVALID.
+#
+# Four fixed-width negative lookbehinds ensure this grammar does NOT match
+# inside E.164 numbers or tel: URIs (those belong to the e164 / tel-URI
+# grammars). They reject a match when the characters immediately before it
+# belong to an international number:
+#   1. digit or "+"          -> "+15551234567" (compact)
+#   2. separator after d/+   -> "+1-555-123-4567", "+1 555 123 4567", "+1.555..."
+#   3. "( " after sep after d/+ -> "+1 (555) 123-4567" (parens w/ separator)
+#   4. "(" directly after d/+ -> "+1(555)123-4567"  (parens, no separator)
 _NATIONAL_PATTERN = re.compile(
-    r"(?<![\d+])(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"
+    r"(?<![\d+])(?<![\d+][\s.\-])(?<![\d+][\s.\-]\()(?<![\d+]\()"
+    r"(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"
     r"(\d{3})[\s.\-]?(\d{4})(?!\d)"
 )
 
