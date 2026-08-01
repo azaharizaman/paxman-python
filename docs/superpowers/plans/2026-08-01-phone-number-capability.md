@@ -2157,7 +2157,7 @@ Expected: No errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add paxman/capabilities/Phone/rules/rfc_3966_ed2004.py
+git add paxman/capabilities/Phone/rules/rfc_3966_ed2004.py tests/capabilities/phone/test_rules.py
 git commit -m "feat(phone): add RFC 3966 tel-URI rule"
 ```
 
@@ -2582,7 +2582,7 @@ Expected: No errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add paxman/capabilities/Phone/rules/nanp_ed2024.py
+git add paxman/capabilities/Phone/rules/nanp_ed2024.py tests/capabilities/phone/test_rules.py
 git commit -m "feat(phone): add NANP structure and service NPA rules"
 ```
 
