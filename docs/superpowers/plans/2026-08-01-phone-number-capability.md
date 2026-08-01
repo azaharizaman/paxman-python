@@ -1641,7 +1641,6 @@ docs(phone): document 00-prefix lookbehind boundary"
 # tests/capabilities/phone/test_rules.py
 """Tests for Phone validation rules."""
 
-import pytest
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.e164_ed2010 import (
@@ -1821,7 +1820,6 @@ from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.data.e164_country_codes import (
     split_country_code,
@@ -2070,7 +2068,6 @@ Expected: FAIL with "ModuleNotFoundError"
 
 from __future__ import annotations
 
-from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.data.e164_country_codes import (
     split_country_code,
