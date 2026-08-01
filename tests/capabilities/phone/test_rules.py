@@ -6,6 +6,7 @@ from paxman.capabilities.Phone.rules.e164_ed2010 import (
     Section6_1InternationalNumber,
     Section6_2CountryCode,
 )
+from paxman.capabilities.Phone.rules.rfc_3966_ed2004 import Section3TelUri
 from paxman.core.domain import RuleStrategy
 
 
@@ -162,3 +163,78 @@ class TestSection6_2CountryCode:
     def test_citation(self) -> None:
         """Verify citation is set."""
         assert "country code" in self.rule.citation.lower()
+
+
+class TestSection3TelUri:
+    """Tests for Section3TelUri rule."""
+
+    def setup_method(self) -> None:
+        self.rule = Section3TelUri()
+        self.contract = PhoneContract()
+
+    def test_matches_valid_global_number(self) -> None:
+        """Happy path: valid tel: URI global number."""
+        notation = PhoneNotation(shape="rfc3966", value="15551234567")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_with_extension(self) -> None:
+        """Edge case: extension present."""
+        notation = PhoneNotation(shape="rfc3966", value="15551234567", extension="890")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_rejects_unassigned_cc(self) -> None:
+        """Unassigned country code in URI."""
+        notation = PhoneNotation(shape="rfc3966", value="999123456789")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_too_long(self) -> None:
+        """16+ digits exceeds E.164 maximum."""
+        notation = PhoneNotation(shape="rfc3966", value="1234567890123456")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        notation = PhoneNotation(shape="e164", value="15551234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output (default e164)."""
+        notation = PhoneNotation(shape="rfc3966", value="15551234567")
+        assert self.rule.normalize(notation, self.contract) == "+15551234567"
+
+    def test_normalize_rfc3966_format(self) -> None:
+        """Verify rfc3966 output format."""
+        notation = PhoneNotation(shape="rfc3966", value="15551234567")
+        contract = PhoneContract(output_format="rfc3966")
+        assert self.rule.normalize(notation, contract) == "tel:+15551234567"
+
+    def test_normalize_with_extension_in_rfc3966_format(self) -> None:
+        """Verify extension is preserved in rfc3966 output."""
+        notation = PhoneNotation(shape="rfc3966", value="15551234567", extension="890")
+        contract = PhoneContract(output_format="rfc3966")
+        assert self.rule.normalize(notation, contract) == "tel:+15551234567;ext=890"
+
+    def test_normalize_national_format(self) -> None:
+        """Verify national (NSN) output format strips the country code."""
+        notation = PhoneNotation(shape="rfc3966", value="15551234567")
+        contract = PhoneContract(output_format="national")
+        assert self.rule.normalize(notation, contract) == "5551234567"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "IETF"
+        assert self.rule.provenance.specification_name == "RFC 3966"
+        assert self.rule.provenance.publication_year == 2004
+        assert self.rule.provenance.lifecycle == "active"
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section 3-tel-uri"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.PARSER
+
+    def test_citation(self) -> None:
+        """Verify citation is set."""
+        assert "3" in self.rule.citation
