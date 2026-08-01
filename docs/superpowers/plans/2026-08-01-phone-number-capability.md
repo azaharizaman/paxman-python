@@ -1776,6 +1776,16 @@ class TestSection6_2CountryCode:
         notation = PhoneNotation(shape="e164", value="999123456789")
         assert self.rule.matches(notation, self.contract) is False
 
+    def test_rejects_non_digits(self) -> None:
+        """Value containing non-digits."""
+        notation = PhoneNotation(shape="e164", value="1555a1234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_too_long(self) -> None:
+        """16+ digits exceeds E.164 maximum (shared structural predicate)."""
+        notation = PhoneNotation(shape="e164", value="1234567890123456")
+        assert self.rule.matches(notation, self.contract) is False
+
     def test_rejects_wrong_shape(self) -> None:
         """Notation with wrong shape."""
         notation = PhoneNotation(shape="national", value="15551234567")
@@ -1842,6 +1852,24 @@ _MAX_E164_DIGITS = 15
 _DIGITS_ONLY = re.compile(r"^\d+$")
 
 
+def _valid_e164_value(value: str) -> bool:
+    """Check E.164 structural validity (shared by both rules).
+
+    Args:
+        value: Digit-only E.164 number (no leading +).
+
+    Returns:
+        True if the value is digits-only, 1-15 digits long, and carries an
+        assigned country-code prefix. A bare country code (no NSN) and
+        16+ digit values are rejected.
+    """
+    if not _DIGITS_ONLY.match(value):
+        return False
+    if not 1 <= len(value) <= _MAX_E164_DIGITS:
+        return False
+    return split_country_code(value) is not None
+
+
 def _canonical(value: str, contract: Contract) -> str:
     """Render the canonical form per contract.output_format.
 
@@ -1887,11 +1915,7 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
         """
         if notation.shape != "e164":
             return False
-        if not _DIGITS_ONLY.match(notation.value):
-            return False
-        if not 1 <= len(notation.value) <= _MAX_E164_DIGITS:
-            return False
-        return split_country_code(notation.value) is not None
+        return _valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical E.164 form.
@@ -1930,9 +1954,7 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
         """
         if notation.shape != "e164":
             return False
-        if not _DIGITS_ONLY.match(notation.value):
-            return False
-        return split_country_code(notation.value) is not None
+        return _valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical E.164 form.
@@ -1950,7 +1972,7 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_rules.py::TestSection6_1InternationalNumber tests/capabilities/phone/test_rules.py::TestSection6_2CountryCode -v`
-Expected: 18 + 10 = 28 passed
+Expected: 18 + 12 = 30 passed
 
 - [ ] **Step 5: Run type checker**
 
@@ -2005,6 +2027,11 @@ class TestSection3TelUri:
     def test_rejects_too_long(self) -> None:
         """16+ digits exceeds E.164 maximum."""
         notation = PhoneNotation(shape="rfc3966", value="1234567890123456")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_non_digits(self) -> None:
+        """Value containing non-digits."""
+        notation = PhoneNotation(shape="rfc3966", value="1555a1234567")
         assert self.rule.matches(notation, self.contract) is False
 
     def test_rejects_wrong_shape(self) -> None:
@@ -2144,7 +2171,7 @@ class Section3TelUri(Rule[PhoneNotation]):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_rules.py::TestSection3TelUri -v`
-Expected: 13 passed
+Expected: 14 passed
 
 - [ ] **Step 5: Run type checker**
 
@@ -2277,6 +2304,12 @@ class TestSection1_1NANPStructure:
         contract = PhoneContract(default_country="US", output_format="national")
         assert self.rule.normalize(notation, contract) == "5552345678"
 
+    def test_normalize_rfc3966_format(self) -> None:
+        """Verify rfc3966 output format (coverage: NANP _canonical branch)."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        contract = PhoneContract(default_country="US", output_format="rfc3966")
+        assert self.rule.normalize(notation, contract) == "tel:+15552345678"
+
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
         assert self.rule.provenance.authority == "NANPA"
@@ -2344,6 +2377,17 @@ class TestSection1_2ServiceNPA:
         notation = PhoneNotation(shape="national", value="18005551234")
         assert self.rule.normalize(notation, self.contract) == "+18005551234"
 
+    def test_normalize_rfc3966_format(self) -> None:
+        """Verify rfc3966 output format (coverage: NANP _canonical branch)."""
+        notation = PhoneNotation(shape="national", value="8005551234")
+        contract = PhoneContract(default_country="US", output_format="rfc3966")
+        assert self.rule.normalize(notation, contract) == "tel:+18005551234"
+
+    def test_rejects_structural_failure(self) -> None:
+        """Non-NANP digits fail the structural check (digits is None branch)."""
+        notation = PhoneNotation(shape="national", value="800555123")
+        assert self.rule.matches(notation, self.contract) is False
+
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
         assert self.rule.provenance.authority == "NANPA"
@@ -2406,8 +2450,8 @@ PUBLICATION = Provenance(
 # Future milestones add "CA" and other NANP members.
 _NANP_COUNTRIES: frozenset[str] = frozenset({"US"})
 
-# Optional trunk 1, then NPA NXX XXXX. Group 1 = NPA, group 2 = NXX,
-# group 3 = line number.
+# Optional trunk 1, then NPA NXX XXXX. Group 1 = optional trunk,
+# group 2 = NPA, group 3 = NXX, group 4 = line number.
 _NANP_PATTERN = re.compile(r"^(1)?([2-9]\d{2})([2-9]\d{2})(\d{4})$")
 
 
@@ -2569,7 +2613,7 @@ class Section1_2ServiceNPA(Rule[PhoneNotation]):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_rules.py::TestSection1_1NANPStructure tests/capabilities/phone/test_rules.py::TestSection1_2ServiceNPA -v`
-Expected: 22 + 12 = 34 passed
+Expected: 23 + 14 = 37 passed
 
 - [ ] **Step 5: Run type checker**
 
