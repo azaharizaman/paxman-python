@@ -1498,7 +1498,7 @@ class NationalGrammar(Grammar[PhoneNotation]):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_grammar.py::TestNationalGrammar -v`
-Expected: 15 passed
+Expected: 14 passed
 
 - [ ] **Step 5: Run type checker**
 
