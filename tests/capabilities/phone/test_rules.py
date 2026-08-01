@@ -6,6 +6,10 @@ from paxman.capabilities.Phone.rules.e164_ed2010 import (
     Section6_1InternationalNumber,
     Section6_2CountryCode,
 )
+from paxman.capabilities.Phone.rules.nanp_ed2024 import (
+    Section1_1NANPStructure,
+    Section1_2ServiceNPA,
+)
 from paxman.capabilities.Phone.rules.rfc_3966_ed2004 import Section3TelUri
 from paxman.core.domain import RuleStrategy
 
@@ -238,3 +242,188 @@ class TestSection3TelUri:
     def test_citation(self) -> None:
         """Verify citation is set."""
         assert "3" in self.rule.citation
+
+
+class TestSection1_1NANPStructure:
+    """Tests for Section1_1NANPStructure rule."""
+
+    def setup_method(self) -> None:
+        self.rule = Section1_1NANPStructure()
+        self.contract = PhoneContract(default_country="US")
+
+    def test_matches_valid_national(self) -> None:
+        """Happy path: valid NANP number (NXX first digit 2-9)."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_with_trunk(self) -> None:
+        """Edge case: leading trunk 1."""
+        notation = PhoneNotation(shape="national", value="15552345678")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_toll_free(self) -> None:
+        """Edge case: toll-free NPA."""
+        notation = PhoneNotation(shape="national", value="8005551234")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_rejects_n11_npa(self) -> None:
+        """911 is not an assignable NPA."""
+        notation = PhoneNotation(shape="national", value="9115551234")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_n11_nxx(self) -> None:
+        """411 is not an assignable NXX."""
+        notation = PhoneNotation(shape="national", value="5554111234")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_fictional_555_range(self) -> None:
+        """555-0100..555-0199 (NXX=555, line 01xx) is reserved for fiction."""
+        notation = PhoneNotation(shape="national", value="5555550100")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_fictional_555_upper_bound(self) -> None:
+        """Upper edge of the fictional range is still reserved."""
+        notation = PhoneNotation(shape="national", value="15555550199")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_accepts_555_outside_fictional_range(self) -> None:
+        """555 NXX with a line number outside 0100-0199 is structurally valid."""
+        notation = PhoneNotation(shape="national", value="5555550200")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_rejects_npa_starting_with_0(self) -> None:
+        """NPA first digit must be 2-9."""
+        notation = PhoneNotation(shape="national", value="05551234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_nxx_starting_with_1(self) -> None:
+        """NXX first digit must be 2-9 (123 is not an assignable exchange)."""
+        notation = PhoneNotation(shape="national", value="5551234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_too_short(self) -> None:
+        """9 digits is not a full NANP number."""
+        notation = PhoneNotation(shape="national", value="555123456")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_too_long(self) -> None:
+        """12 digits is not a full NANP number."""
+        notation = PhoneNotation(shape="national", value="155551234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        notation = PhoneNotation(shape="e164", value="15551234567")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_without_default_country(self) -> None:
+        """National numbers need default_country."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        contract = PhoneContract()
+        assert self.rule.matches(notation, contract) is False
+
+    def test_rejects_non_us_default_country(self) -> None:
+        """default_country outside NANP does not match (Milestone 1: US only)."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        contract = PhoneContract(default_country="GB")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        assert self.rule.normalize(notation, self.contract) == "+15552345678"
+
+    def test_normalize_strips_trunk(self) -> None:
+        """Trunk 1 is not duplicated in canonical output."""
+        notation = PhoneNotation(shape="national", value="15552345678")
+        assert self.rule.normalize(notation, self.contract) == "+15552345678"
+
+    def test_normalize_national_format(self) -> None:
+        """Verify national output format (NSN)."""
+        notation = PhoneNotation(shape="national", value="5552345678")
+        contract = PhoneContract(default_country="US", output_format="national")
+        assert self.rule.normalize(notation, contract) == "5552345678"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "NANPA"
+        assert self.rule.provenance.publication_year == 2024
+        assert self.rule.provenance.lifecycle == "active"
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section 1.1-nanp-structure"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.REGEX
+
+    def test_citation(self) -> None:
+        """Verify citation is set."""
+        assert "structure" in self.rule.citation.lower()
+
+
+class TestSection1_2ServiceNPA:
+    """Tests for Section1_2ServiceNPA rule."""
+
+    def setup_method(self) -> None:
+        self.rule = Section1_2ServiceNPA()
+        self.contract = PhoneContract(default_country="US")
+
+    def test_matches_toll_free(self) -> None:
+        """Happy path: toll-free NPA."""
+        notation = PhoneNotation(shape="national", value="8005551234")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_premium(self) -> None:
+        """Edge case: premium rate 900."""
+        notation = PhoneNotation(shape="national", value="9005551234")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_matches_833(self) -> None:
+        """Edge case: newer toll-free NPA."""
+        notation = PhoneNotation(shape="national", value="8335551234")
+        assert self.rule.matches(notation, self.contract) is True
+
+    def test_rejects_geographic_npa(self) -> None:
+        """Geographic NPA (212) is not a service code."""
+        notation = PhoneNotation(shape="national", value="2125551234")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_without_default_country(self) -> None:
+        """Service NPAs still need default_country."""
+        notation = PhoneNotation(shape="national", value="8005551234")
+        contract = PhoneContract()
+        assert self.rule.matches(notation, contract) is False
+
+    def test_rejects_wrong_shape(self) -> None:
+        """Notation with wrong shape."""
+        notation = PhoneNotation(shape="e164", value="8005551234")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_normalize_produces_canonical(self) -> None:
+        """Verify exact canonical output."""
+        notation = PhoneNotation(shape="national", value="8005551234")
+        assert self.rule.normalize(notation, self.contract) == "+18005551234"
+
+    def test_normalize_strips_trunk(self) -> None:
+        """Trunk 1 is not duplicated in canonical output."""
+        notation = PhoneNotation(shape="national", value="18005551234")
+        assert self.rule.normalize(notation, self.contract) == "+18005551234"
+
+    def test_provenance_attributes(self) -> None:
+        """Verify authority, spec name, year, lifecycle."""
+        assert self.rule.provenance.authority == "NANPA"
+        assert self.rule.provenance.publication_year == 2024
+
+    def test_rule_name(self) -> None:
+        """Verify name follows convention."""
+        assert self.rule.name == "Section 1.2-service-npa"
+
+    def test_strategy(self) -> None:
+        """Verify the rule strategy enum."""
+        assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
+
+    def test_citation(self) -> None:
+        """Verify citation is set."""
+        assert "service" in self.rule.citation.lower()
