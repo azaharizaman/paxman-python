@@ -1,0 +1,135 @@
+"""Integration tests for the Phone capability pipeline."""
+
+import pytest
+
+from paxman.capabilities.Phone.capability import PhoneCapability
+from paxman.core.discovery import register_capability, reset_registry
+from paxman.core.domain import Resolution
+from paxman.engine.orchestrator import run_capability
+
+
+@pytest.fixture(autouse=True)
+def _clean_registry() -> None:
+    """Reset the capability registry before and after each test."""
+    reset_registry()
+    yield
+    reset_registry()
+
+
+class TestPhonePipeline:
+    """Full-pipeline tests for the Phone capability.
+
+    Note on AMBIGUOUS: after the grammar-overlap fixes (e164/national
+    grammars no longer match inside tel: URIs), AMBIGUOUS is unreachable
+    by design — each input maps to exactly one grammar/shape, and the two
+    E.164 rules (Section 6.1 / 6.2) always agree on the canonical value.
+    The tel-URI test below asserts single-candidate output, which is the
+    observable consequence of that design invariant.
+    """
+
+    @pytest.mark.integration
+    def test_success_e164(self) -> None:
+        """International number resolves to E.164."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("+1 555 123 4567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15551234567"
+
+    @pytest.mark.integration
+    def test_success_national_with_default_country(self) -> None:
+        """National number resolves when default_country is set."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(default_country="US")
+        result = run_capability("(555) 234-5678", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15552345678"
+
+    @pytest.mark.integration
+    def test_success_tel_uri(self) -> None:
+        """tel: URI resolves to E.164."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("tel:+1-201-555-0123", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+12015550123"
+
+    @pytest.mark.integration
+    def test_tel_uri_single_candidate(self) -> None:
+        """tel: URIs yield exactly one candidate (no grammar overlap)."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("tel:+1-201-555-0123", contract)
+        assert result.status == Resolution.SUCCESS
+        assert len(result.candidates) == 1
+
+    @pytest.mark.integration
+    def test_ambiguity_unreachable_by_design(self) -> None:
+        """e164 and tel-URI inputs never produce conflicting candidates."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(output_format="rfc3966")
+        result = run_capability("tel:+15551234567;ext=890", contract)
+        # Extension is preserved; no conflicting candidate drops it.
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "tel:+15551234567;ext=890"
+        assert len(result.candidates) == 1
+
+    @pytest.mark.integration
+    def test_success_international_00(self) -> None:
+        """00-prefixed international number resolves to E.164."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("00 44 20 7946 0958", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+442079460958"
+
+    @pytest.mark.integration
+    def test_missing(self) -> None:
+        """Nothing recognized."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("hello world", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.integration
+    def test_invalid_unassigned_cc(self) -> None:
+        """Recognized but no rule validates (unassigned country code)."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("+999123456789", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.integration
+    def test_invalid_national_without_default_country(self) -> None:
+        """National input without default_country is invalid, not missing."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("(555) 234-5678", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.integration
+    def test_invalid_nanp_structure(self) -> None:
+        """N11 NPA is recognized but fails NANP validation."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(default_country="US")
+        result = run_capability("(911) 555-1234", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.integration
+    def test_output_format_rfc3966(self) -> None:
+        """output_format=rfc3966 renders tel: URI."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(output_format="rfc3966")
+        result = run_capability("+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "tel:+15551234567"
+
+    @pytest.mark.integration
+    def test_version_stamp(self) -> None:
+        """Replay hash is present and deterministic."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result1 = run_capability("+15551234567", contract)
+        result2 = run_capability("+15551234567", contract)
+        assert result1.version_stamp.replay_hash == result2.version_stamp.replay_hash
+        assert len(result1.version_stamp.replay_hash) == 64  # SHA-256 hex
