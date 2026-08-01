@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from paxman.core.errors import ContractError
 
@@ -18,10 +18,21 @@ def _validate_alpha2(value: str | None) -> None:
 
     Raises:
         ContractError: If the value is present but not an uppercase
-            2-letter ISO 3166-1 alpha-2 code.
+            2-letter ASCII ISO 3166-1 alpha-2 code (or not a str at all).
     """
-    if value is not None and (
-        len(value) != 2 or not value.isalpha() or not value.isupper()
+    if value is None:
+        return
+    candidate = cast(object, value)
+    if not isinstance(candidate, str):
+        raise ContractError(
+            "default_country must be an uppercase ISO 3166-1 alpha-2 code, "
+            f"got {value!r}"
+        )
+    if (
+        len(candidate) != 2
+        or not candidate.isascii()
+        or not candidate.isalpha()
+        or not candidate.isupper()
     ):
         raise ContractError(
             "default_country must be an uppercase ISO 3166-1 alpha-2 code, "

@@ -64,7 +64,7 @@ class TestPhonePipeline:
         assert len(result.candidates) == 1
 
     @pytest.mark.integration
-    def test_ambiguity_unreachable_by_design(self) -> None:
+    def test_tel_uri_extension_preserved(self) -> None:
         """e164 and tel-URI inputs never produce conflicting candidates."""
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(output_format="rfc3966")
@@ -73,6 +73,35 @@ class TestPhonePipeline:
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "tel:+15551234567;ext=890"
         assert len(result.candidates) == 1
+
+    @pytest.mark.integration
+    def test_pinned_rules_only(self) -> None:
+        """Pinning to one rule runs only that rule."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(
+            pinned_rules=["Section 6.1-international-number"]
+        )
+        result = run_capability("+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15551234567"
+        # Only the pinned rule produced candidates.
+        assert {c.validation_rule for c in result.candidates} == {
+            "Section 6.1-international-number"
+        }
+
+    @pytest.mark.integration
+    def test_excluded_rule_skipped(self) -> None:
+        """Excluding a rule prevents it from producing candidates."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(
+            excluded_rules=["Section 6.2-country-code"]
+        )
+        result = run_capability("+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15551234567"
+        assert "Section 6.2-country-code" not in {
+            c.validation_rule for c in result.candidates
+        }
 
     @pytest.mark.integration
     def test_success_international_00(self) -> None:
