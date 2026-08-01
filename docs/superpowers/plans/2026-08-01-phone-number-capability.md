@@ -774,7 +774,6 @@ Expected: `8 8`
 # tests/capabilities/phone/test_data.py
 """Tests for Phone lookup table data integrity."""
 
-import pytest
 from paxman.capabilities.Phone.rules.data.e164_country_codes import (
     ASSIGNED_COUNTRY_CODES,
 )
@@ -962,10 +961,11 @@ from paxman.core.domain import Grammar
 # A "+" followed by digits with optional separators (space, dash, dot, parens).
 # The grammar is intentionally loose — validation happens in rules. The
 # negative lookbehind excludes both digits and ":" so tel: URIs are NOT
-# double-matched by this grammar (RFC 3966 handles those).
+# double-matched by this grammar (RFC 3966 handles those). The "+" itself is
+# stripped from the value (digit-only), so "+" is in the separator map.
 _E164_PATTERN = re.compile(r"(?<![\d:])\+\d[\d\s().\-]*")
 
-_ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
+_ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
 
 
 class E164Grammar(Grammar[PhoneNotation]):
@@ -1104,12 +1104,14 @@ from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
 # tel: URI with global number digits (optional separators) and optional
-# ";ext=" parameter. The scheme is matched case-insensitively.
+# ";ext=" parameter. The scheme is matched case-insensitively. The "+" in
+# the global number is stripped from the value (digit-only), so "+" is in
+# the separator map.
 _TEL_URI_PATTERN = re.compile(
     r"tel:([+\d][\d\s().\-]*)(?:;ext=(\d+))?", re.IGNORECASE
 )
 
-_ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
+_ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
 
 
 class TelUriGrammar(Grammar[PhoneNotation]):
@@ -1158,7 +1160,7 @@ Expected: No errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add paxman/capabilities/Phone/grammar/tel_uri_recognition.py
+git add paxman/capabilities/Phone/grammar/tel_uri_recognition.py tests/capabilities/phone/test_grammar.py
 git commit -m "feat(phone): add tel-URI grammar"
 ```
 
@@ -1304,7 +1306,7 @@ Expected: No errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add paxman/capabilities/Phone/grammar/international_00_recognition.py
+git add paxman/capabilities/Phone/grammar/international_00_recognition.py tests/capabilities/phone/test_grammar.py
 git commit -m "feat(phone): add international 00 grammar"
 ```
 
@@ -1417,14 +1419,17 @@ import re
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
-# Optional trunk 1, optional (NPA), NXX, XXXX. NPA/NXX first digit 2-9 is a
-# recognition heuristic — strict validation happens in the rules. The
+# Optional trunk 1, optional (NPA), NXX, XXXX. NPA first digit 2-9 is a
+# recognition heuristic — strict validation (including NXX first digit 2-9)
+# happens in the rules. NXX is deliberately loose here so the grammar
+# recognizes the NANP *shape* even for unassignable exchanges (e.g.,
+# "555-123-4567"), which the NANP rule then rejects as INVALID. The
 # negative lookbehind excludes digits and "+" so this grammar does NOT match
 # inside E.164 numbers ("+1-555-123-4567" belongs to the e164 grammar) or
 # inside tel: URIs.
 _NATIONAL_PATTERN = re.compile(
     r"(?<![\d+])(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"
-    r"([2-9]\d{2})[\s.\-]?(\d{4})(?!\d)"
+    r"(\d{3})[\s.\-]?(\d{4})(?!\d)"
 )
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
@@ -1474,7 +1479,7 @@ Expected: No errors
 - [ ] **Step 6: Commit**
 
 ```bash
-git add paxman/capabilities/Phone/grammar/national_recognition.py
+git add paxman/capabilities/Phone/grammar/national_recognition.py tests/capabilities/phone/test_grammar.py
 git commit -m "feat(phone): add national (NANP) grammar"
 ```
 
@@ -2039,13 +2044,13 @@ class TestSection1_1NANPStructure:
         self.contract = PhoneContract(default_country="US")
 
     def test_matches_valid_national(self) -> None:
-        """Happy path: valid NANP number."""
-        notation = PhoneNotation(shape="national", value="5551234567")
+        """Happy path: valid NANP number (NXX first digit 2-9)."""
+        notation = PhoneNotation(shape="national", value="5552345678")
         assert self.rule.matches(notation, self.contract) is True
 
     def test_matches_with_trunk(self) -> None:
         """Edge case: leading trunk 1."""
-        notation = PhoneNotation(shape="national", value="15551234567")
+        notation = PhoneNotation(shape="national", value="15552345678")
         assert self.rule.matches(notation, self.contract) is True
 
     def test_matches_toll_free(self) -> None:
@@ -2083,6 +2088,11 @@ class TestSection1_1NANPStructure:
         notation = PhoneNotation(shape="national", value="05551234567")
         assert self.rule.matches(notation, self.contract) is False
 
+    def test_rejects_nxx_starting_with_1(self) -> None:
+        """NXX first digit must be 2-9 (123 is not an assignable exchange)."""
+        notation = PhoneNotation(shape="national", value="5551234567")
+        assert self.rule.matches(notation, self.contract) is False
+
     def test_rejects_too_short(self) -> None:
         """9 digits is not a full NANP number."""
         notation = PhoneNotation(shape="national", value="555123456")
@@ -2100,31 +2110,31 @@ class TestSection1_1NANPStructure:
 
     def test_rejects_without_default_country(self) -> None:
         """National numbers need default_country."""
-        notation = PhoneNotation(shape="national", value="5551234567")
+        notation = PhoneNotation(shape="national", value="5552345678")
         contract = PhoneContract()
         assert self.rule.matches(notation, contract) is False
 
     def test_rejects_non_us_default_country(self) -> None:
         """default_country outside NANP does not match (Milestone 1: US only)."""
-        notation = PhoneNotation(shape="national", value="5551234567")
+        notation = PhoneNotation(shape="national", value="5552345678")
         contract = PhoneContract(default_country="GB")
         assert self.rule.matches(notation, contract) is False
 
     def test_normalize_produces_canonical(self) -> None:
         """Verify exact canonical output."""
-        notation = PhoneNotation(shape="national", value="5551234567")
-        assert self.rule.normalize(notation, self.contract) == "+15551234567"
+        notation = PhoneNotation(shape="national", value="5552345678")
+        assert self.rule.normalize(notation, self.contract) == "+15552345678"
 
     def test_normalize_strips_trunk(self) -> None:
         """Trunk 1 is not duplicated in canonical output."""
-        notation = PhoneNotation(shape="national", value="15551234567")
-        assert self.rule.normalize(notation, self.contract) == "+15551234567"
+        notation = PhoneNotation(shape="national", value="15552345678")
+        assert self.rule.normalize(notation, self.contract) == "+15552345678"
 
     def test_normalize_national_format(self) -> None:
         """Verify national output format (NSN)."""
-        notation = PhoneNotation(shape="national", value="5551234567")
+        notation = PhoneNotation(shape="national", value="5552345678")
         contract = PhoneContract(default_country="US", output_format="national")
-        assert self.rule.normalize(notation, contract) == "5551234567"
+        assert self.rule.normalize(notation, contract) == "5552345678"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -2418,7 +2428,7 @@ class Section1_2ServiceNPA(Rule[PhoneNotation]):
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/capabilities/phone/test_rules.py::TestSection1_1NANPStructure tests/capabilities/phone/test_rules.py::TestSection1_2ServiceNPA -v`
-Expected: 21 + 12 = 33 passed
+Expected: 22 + 12 = 34 passed
 
 - [ ] **Step 5: Run type checker**
 
@@ -2866,9 +2876,9 @@ class TestPhonePipeline:
         """National number resolves when default_country is set."""
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(default_country="US")
-        result = run_capability("(555) 123-4567", contract)
+        result = run_capability("(555) 234-5678", contract)
         assert result.status == Resolution.SUCCESS
-        assert result.canonicalized_value == "+15551234567"
+        assert result.canonicalized_value == "+15552345678"
 
     @pytest.mark.integration
     def test_success_tel_uri(self) -> None:
@@ -2929,7 +2939,7 @@ class TestPhonePipeline:
         """National input without default_country is invalid, not missing."""
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract()
-        result = run_capability("(555) 123-4567", contract)
+        result = run_capability("(555) 234-5678", contract)
         assert result.status == Resolution.INVALID
 
     @pytest.mark.integration
@@ -3010,9 +3020,9 @@ class TestCanonicalizePhone:
         """National number with default_country through the public API."""
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(default_country="US")
-        result = canonicalize("(555) 123-4567", contract)
+        result = canonicalize("(555) 234-5678", contract)
         assert result.status == Resolution.SUCCESS
-        assert result.canonicalized_value == "+15551234567"
+        assert result.canonicalized_value == "+15552345678"
 
     @pytest.mark.e2e
     def test_canonicalize_phone_missing(self) -> None:
@@ -3090,8 +3100,8 @@ result = paxman.canonicalize("+1 555 123 4567", contract)
 
 # National number (requires default_country)
 contract = Phone.create_contract(default_country="US")
-result = paxman.canonicalize("(555) 123-4567", contract)
-# → "+15551234567"
+result = paxman.canonicalize("(555) 234-5678", contract)
+# → "+15552345678"
 
 # Output as RFC 3966 tel-URI
 contract = Phone.create_contract(output_format="rfc3966")
@@ -3151,7 +3161,7 @@ Expected: All `feat(phone)`/`test(phone)`/`docs(phone)` commits present, no push
 After all tasks are complete:
 
 - `paxman.canonicalize("+1 555 123 4567", Phone.create_contract())` → `SUCCESS` `+15551234567`
-- `paxman.canonicalize("(555) 123-4567", Phone.create_contract(default_country="US"))` → `SUCCESS` `+15551234567`
+- `paxman.canonicalize("(555) 234-5678", Phone.create_contract(default_country="US"))` → `SUCCESS` `+15552345678`
 - `paxman.canonicalize("+999123456789", Phone.create_contract())` → `INVALID`
 - `paxman.canonicalize("hello", Phone.create_contract())` → `MISSING`
 - All 3 `RuleStrategy` types demonstrated across 5 rules with full provenance
