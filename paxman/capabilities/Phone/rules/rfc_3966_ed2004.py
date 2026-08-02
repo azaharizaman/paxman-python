@@ -6,6 +6,7 @@ from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.data.e164_country_codes import (
     split_country_code,
 )
+from paxman.capabilities.Phone.rules.e164_ed2010 import valid_e164_value
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
@@ -19,15 +20,14 @@ PUBLICATION = Provenance(
     publication_year=2004,
 )
 
-_MAX_E164_DIGITS = 15
-
 
 class Section3TelUri(Rule[PhoneNotation]):
     """RFC 3966 Section 3 — The tel URI for telephone numbers.
 
     Validates tel: URIs carrying global numbers (per RFC 3966 Section 3.1).
-    Local numbers with phone-context are Milestone-12+ scope and rejected
-    here (they carry no E.164 country code).
+    The tel-URI grammar only recognizes global numbers (leading "+");
+    local numbers (no "+", with or without phone-context) are Milestone-12+
+    scope and never reach this rule.
     """
 
     name = "Section 3-tel-uri"
@@ -43,16 +43,13 @@ class Section3TelUri(Rule[PhoneNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if shape == "rfc3966", value is 1-15 digits with an
-            assigned country code prefix.
+            True if shape == "rfc3966" and the value passes the shared
+            E.164 structural check (assigned country code, 2-15 digits,
+            NSN length floor). Per-country NSN lengths are not validated.
         """
         if notation.shape != "rfc3966":
             return False
-        if not notation.value.isdigit():
-            return False
-        if not 1 <= len(notation.value) <= _MAX_E164_DIGITS:
-            return False
-        return split_country_code(notation.value) is not None
+        return valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical form.

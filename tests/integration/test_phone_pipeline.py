@@ -19,12 +19,12 @@ def _clean_registry() -> None:
 class TestPhonePipeline:
     """Full-pipeline tests for the Phone capability.
 
-    Note on AMBIGUOUS: after the grammar-overlap fixes (e164/national
-    grammars no longer match inside tel: URIs), AMBIGUOUS is unreachable
-    by design — each input maps to exactly one grammar/shape, and the two
-    E.164 rules (Section 6.1 / 6.2) always agree on the canonical value.
-    The tel-URI test below asserts single-candidate output, which is the
-    observable consequence of that design invariant.
+    Note on AMBIGUOUS: grammar exclusivity holds per matched span — each
+    single-number input maps to exactly one grammar/shape, and the two
+    E.164 rules (Section 6.1 / 6.2) always agree on the canonical value,
+    so single-number inputs are never AMBIGUOUS. Multi-number inputs whose
+    numbers resolve to different canonical values DO produce AMBIGUOUS
+    (engine semantics, same as Email/Date).
     """
 
     @pytest.mark.integration
@@ -62,6 +62,71 @@ class TestPhonePipeline:
         result = run_capability("tel:+1-201-555-0123", contract)
         assert result.status == Resolution.SUCCESS
         assert len(result.candidates) == 1
+
+    @pytest.mark.integration
+    def test_no_plus_tel_uri_is_not_global(self) -> None:
+        """No-plus tel: URIs are local numbers — never global candidates.
+
+        Regression for RFC 3966 §3.1 (global numbers require '+'); local
+        numbers are out of scope, so the tel-URI rule must not fire.
+        """
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("tel:2125550123", contract)
+        assert result.status == Resolution.INVALID
+        assert all(c.validation_rule != "Section 3-tel-uri" for c in result.candidates)
+
+    @pytest.mark.integration
+    def test_no_plus_tel_uri_local_number_via_national(self) -> None:
+        """NANP-shaped local tel: URI resolves via the national grammar.
+
+        With default_country="US", the number content of a local tel: URI
+        is recognized as a national number — no AMBIGUOUS (previously the
+        tel-URI grammar produced a conflicting foreign-country reading).
+        """
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(default_country="US")
+        result = run_capability("tel:2125556789", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+12125556789"
+        assert len(result.candidates) == 1
+
+    @pytest.mark.integration
+    def test_email_plus_tag_not_a_phone(self) -> None:
+        """Email plus-addresses must not canonicalize to phone numbers."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("user+1555@example.com", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.integration
+    def test_decimal_number_not_a_phone(self) -> None:
+        """A decimal number must not canonicalize to a phone number."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("0.00442079460958", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.integration
+    def test_short_nsn_rejected(self) -> None:
+        """A degenerate 1-digit NSN ('+12') is INVALID, not SUCCESS."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = run_capability("+12", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.integration
+    def test_multi_number_ambiguous(self) -> None:
+        """Two different numbers in one input yield AMBIGUOUS.
+
+        Documented engine semantics (same as Email/Date): conflicting
+        canonical values for the same input produce AMBIGUOUS.
+        """
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(default_country="US")
+        result = run_capability("+15552345678 and (555) 234-5679", contract)
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
 
     @pytest.mark.integration
     def test_tel_uri_extension_preserved(self) -> None:

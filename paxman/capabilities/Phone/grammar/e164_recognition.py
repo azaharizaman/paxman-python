@@ -9,9 +9,11 @@ from paxman.core.domain import Grammar
 
 # A "+" followed by digits with optional separators (space, dash, dot, parens).
 # The grammar is intentionally loose — validation happens in rules. The
-# negative lookbehind excludes both digits and ":" so tel: URIs are NOT
-# double-matched by this grammar (RFC 3966 handles those).
-_E164_PATTERN = re.compile(r"(?<![\d:])\+\d[\d\s().\-]*")
+# negative lookbehind excludes word characters (letters, digits, underscore),
+# ":" and "." — so email plus-tags ("user+123@"), algebra ("x+11"), decimals
+# (".+1.5"), and "tel:+..." (which the tel-URI grammar handles) are NOT
+# double-matched.
+_E164_PATTERN = re.compile(r"(?<![\w:.])\+\d[\d\s().\-]*")
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
 

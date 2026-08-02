@@ -56,6 +56,11 @@ class TestSection6_1InternationalNumber:
         notation = PhoneNotation(shape="e164", value="1")
         assert self.rule.matches(notation, self.contract) is False
 
+    def test_rejects_one_digit_nsn(self) -> None:
+        """A 1-digit NSN (e.g., '+12' → CC 1 + NSN '2') is degenerate."""
+        notation = PhoneNotation(shape="e164", value="12")
+        assert self.rule.matches(notation, self.contract) is False
+
     def test_rejects_bare_two_digit_cc(self) -> None:
         """A 2-digit country code with no NSN is not valid either."""
         notation = PhoneNotation(shape="e164", value="44")
@@ -204,6 +209,11 @@ class TestSection3TelUri:
     def test_rejects_too_long(self) -> None:
         """16+ digits exceeds E.164 maximum."""
         notation = PhoneNotation(shape="rfc3966", value="1234567890123456")
+        assert self.rule.matches(notation, self.contract) is False
+
+    def test_rejects_one_digit_nsn(self) -> None:
+        """A 1-digit NSN is degenerate (shared E.164 structural check)."""
+        notation = PhoneNotation(shape="rfc3966", value="12")
         assert self.rule.matches(notation, self.contract) is False
 
     def test_rejects_non_digits(self) -> None:

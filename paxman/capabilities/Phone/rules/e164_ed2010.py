@@ -23,25 +23,35 @@ PUBLICATION = Provenance(
 
 _MAX_E164_DIGITS = 15
 
+# Minimum national significant number length. No national numbering plan
+# uses a 1-digit NSN; the floor rejects degenerate values like "+12"
+# (CC 1 + NSN "2"). Per-country NSN lengths are NOT validated here —
+# that is deferred Milestone-3+ work (area-code/NXX tables).
+_MIN_NSN_LENGTH = 2
+
 _DIGITS_ONLY = re.compile(r"^\d+$")
 
 
-def _valid_e164_value(value: str) -> bool:
-    """Check E.164 structural validity (shared by both rules).
+def valid_e164_value(value: str) -> bool:
+    """Check E.164 structural validity (shared by the E.164 and RFC 3966 rules).
 
     Args:
         value: Digit-only E.164 number (no leading +).
 
     Returns:
-        True if the value is digits-only, 1-15 digits long, and carries an
-        assigned country-code prefix. A bare country code (no NSN) and
-        16+ digit values are rejected.
+        True if the value is digits-only, 1-15 digits long, carries an
+        assigned country-code prefix, and its NSN is at least
+        _MIN_NSN_LENGTH digits. A bare country code (no NSN), degenerate
+        1-digit NSNs, and 16+ digit values are rejected.
     """
     if not _DIGITS_ONLY.match(value):
         return False
     if not 1 <= len(value) <= _MAX_E164_DIGITS:
         return False
-    return split_country_code(value) is not None
+    country_code = split_country_code(value)
+    if country_code is None:
+        return False
+    return len(value) - len(country_code) >= _MIN_NSN_LENGTH
 
 
 def _canonical(value: str, contract: Contract) -> str:
@@ -69,6 +79,7 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
 
     Validates the E.164 number structure: 1-15 digits, first digit 1-9,
     and a country code (1-3 digits, longest prefix) assigned by ITU-T.
+    Per-country NSN lengths are not validated (structural check only).
     """
 
     name = "Section 6.1-international-number"
@@ -89,7 +100,7 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
         """
         if notation.shape != "e164":
             return False
-        return _valid_e164_value(notation.value)
+        return valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical E.164 form.
@@ -128,7 +139,7 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
         """
         if notation.shape != "e164":
             return False
-        return _valid_e164_value(notation.value)
+        return valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
         """Normalize to canonical E.164 form.

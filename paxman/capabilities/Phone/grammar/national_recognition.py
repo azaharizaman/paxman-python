@@ -27,6 +27,10 @@ from paxman.core.domain import Grammar
 #   2. separator after d/+   -> "+1-555-123-4567", "+1 555 123 4567", "+1.555..."
 #   3. "( " after sep after d/+ -> "+1 (555) 123-4567" (parens w/ separator)
 #   4. "(" directly after d/+ -> "+1(555)123-4567"  (parens, no separator)
+#
+# No-plus local tel: URIs ("tel:212-555-6789") are NOT global numbers
+# (RFC 3966 §3.1) and are not recognized by the tel-URI grammar; their
+# NANP-shaped number content may be recognized here as a national number.
 _NATIONAL_PATTERN = re.compile(
     r"(?<![\d+])(?<![\d+][\s.\-])(?<![\d+][\s.\-]\()(?<![\d+]\()"
     r"(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"

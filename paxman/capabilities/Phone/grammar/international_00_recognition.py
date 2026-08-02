@@ -17,10 +17,10 @@ from paxman.core.domain import Grammar
 # The leading digit of the number must be 1-9 (country codes never start
 # with 0), and a single "0" alone is not the international prefix.
 # Separators between "00" and the first digit are allowed ("00 44 ...").
-# The (?<![\d+]) lookbehind excludes "00" preceded by a digit ("10044..." is
-# not an international prefix) and also excludes "+" ("+0044..." is
-# contradictory input handled by the e164 grammar instead).
-_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\d+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
+# The (?<![\w:.+]) lookbehind excludes word characters, ":", "." and "+"
+# so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes
+# and "+0044..." (contradictory input) is left to the e164 grammar.
+_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
 

@@ -165,3 +165,20 @@ class TestCanonicalizePhone:
         result = canonicalize("+15551234567", contract)
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "tel:+15551234567"
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_email_plus_tag_missing(self) -> None:
+        """Email plus-addresses are not phone numbers (public API)."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("user+1555@example.com", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_no_plus_tel_uri(self) -> None:
+        """No-plus tel: URIs are local numbers — not global candidates."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("tel:2125550123", contract)
+        assert result.status == Resolution.INVALID
+        assert all(c.validation_rule != "Section 3-tel-uri" for c in result.candidates)

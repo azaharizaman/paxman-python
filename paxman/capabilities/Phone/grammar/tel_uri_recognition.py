@@ -7,9 +7,14 @@ import re
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
-# tel: URI with global number digits (optional separators) and optional
-# ";ext=" parameter. The scheme is matched case-insensitively.
-_TEL_URI_PATTERN = re.compile(r"tel:([+\d][\d\s().\-]*)(?:;ext=(\d+))?", re.IGNORECASE)
+# tel: URI with a GLOBAL number (optional separators) and optional ";ext="
+# parameter. Per RFC 3966 §3.1 global numbers REQUIRE a leading "+" —
+# no-plus URIs are local numbers (out of scope), so this grammar does not
+# match them. The scheme is matched case-insensitively; the (?<![\w])
+# lookbehind keeps "xtel:"/"hotel:" from matching the scheme.
+_TEL_URI_PATTERN = re.compile(
+    r"(?<![\w])tel:\+(\d[\d\s().\-]*)(?:;ext=(\d+))?", re.IGNORECASE
+)
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
 

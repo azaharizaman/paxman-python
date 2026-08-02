@@ -66,6 +66,16 @@ class TestE164Grammar:
         results = self.grammar.recognize("(555) 123-4567")
         assert len(results) == 0
 
+    def test_ignores_plus_after_word_char(self) -> None:
+        """A "+" preceded by a letter/digit must not match.
+
+        Regression for false positives: email plus-tags ("user+123@..."),
+        algebra ("x+11"), and arithmetic ("1+11") are not phone numbers.
+        """
+        for text in ("user+123@example.com", "a+123", "x+11=y", "1+11=12"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
+
     def test_returns_empty_for_empty_input(self) -> None:
         """Empty string returns empty list."""
         results = self.grammar.recognize("")
@@ -118,6 +128,23 @@ class TestTelUriGrammar:
         """Grammar does not match numbers without tel: scheme."""
         results = self.grammar.recognize("+15551234567")
         assert len(results) == 0
+
+    def test_ignores_local_number_without_plus(self) -> None:
+        """No-plus tel: URIs are local numbers, not global numbers.
+
+        Regression for RFC 3966 §3.1: global-number-digits requires a
+        leading "+". Without it the URI is a local number (out of scope),
+        so the grammar must NOT extract a global-shaped notation from it.
+        """
+        for text in ("tel:2125550123", "tel:15551234567", "tel:44 20 7946 0958"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
+
+    def test_ignores_scheme_inside_word(self) -> None:
+        """The tel: scheme must not match inside another word."""
+        for text in ("hotel:+15551234567", "xtel:+15551234567"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
 
     def test_returns_empty_for_empty_input(self) -> None:
         """Empty string returns empty list."""
@@ -323,3 +350,13 @@ class TestInternational00Boundary:
         # '+00...' as a 00-prefixed number.
         results = self.grammar.recognize("+00442079460958")
         assert len(results) == 0
+
+    def test_ignores_00_after_word_char_or_dot(self) -> None:
+        """A '00' preceded by a letter or '.' must not match.
+
+        Regression for false positives: '0.00442079460958' (decimal) and
+        'user00123@example.com' (email local part) are not phone numbers.
+        """
+        for text in ("0.00442079460958", "user00123@example.com", "x0044 20 7946 0958"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 0
