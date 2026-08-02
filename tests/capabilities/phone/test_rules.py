@@ -1,5 +1,7 @@
 """Tests for Phone validation rules."""
 
+import pytest
+
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.e164_ed2010 import (
@@ -36,10 +38,16 @@ class TestSection6_1InternationalNumber:
         notation = PhoneNotation(shape="e164", value="886212345678")
         assert self.rule.matches(notation, self.contract) is True
 
-    def test_matches_longest_prefix_wins(self) -> None:
-        """Edge case: 886 (Taiwan) not mis-split as 86 (China) + 6."""
+    def test_longest_prefix_wins(self) -> None:
+        """886 (Taiwan) resolves as 886, not 86 (China) + 6.
+
+        Longest-prefix matching must select the 3-digit Taiwan code; a
+        shorter-prefix split would strip only "86" from the NSN and leave
+        the national output one digit longer.
+        """
         notation = PhoneNotation(shape="e164", value="886212345678")
-        assert self.rule.matches(notation, self.contract) is True
+        contract = PhoneContract(output_format="national")
+        assert self.rule.normalize(notation, contract) == "212345678"
 
     def test_matches_max_length(self) -> None:
         """Edge case: exactly 15 digits."""
@@ -265,8 +273,8 @@ class TestSection3TelUri:
         assert self.rule.strategy == RuleStrategy.PARSER
 
     def test_citation(self) -> None:
-        """Verify citation is set."""
-        assert "3" in self.rule.citation
+        """Verify citation identifies the RFC 3966 tel-URI rule."""
+        assert "tel URI" in self.rule.citation
 
 
 class TestSection1_1NANPStructure:
@@ -363,6 +371,12 @@ class TestSection1_1NANPStructure:
         notation = PhoneNotation(shape="national", value="15552345678")
         assert self.rule.normalize(notation, self.contract) == "+15552345678"
 
+    def test_normalize_rejects_invalid_structure(self) -> None:
+        """Normalize raises ValueError when the structure check fails."""
+        notation = PhoneNotation(shape="national", value="800555123")
+        with pytest.raises(ValueError):
+            self.rule.normalize(notation, self.contract)
+
     def test_normalize_national_format(self) -> None:
         """Verify national output format (NSN)."""
         notation = PhoneNotation(shape="national", value="5552345678")
@@ -452,6 +466,12 @@ class TestSection1_2ServiceNPA:
         """Non-NANP digits fail the structural check (digits is None branch)."""
         notation = PhoneNotation(shape="national", value="800555123")
         assert self.rule.matches(notation, self.contract) is False
+
+    def test_normalize_rejects_invalid_structure(self) -> None:
+        """Normalize raises ValueError when the structure check fails."""
+        notation = PhoneNotation(shape="national", value="800555123")
+        with pytest.raises(ValueError):
+            self.rule.normalize(notation, self.contract)
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
