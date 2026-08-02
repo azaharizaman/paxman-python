@@ -136,6 +136,19 @@ class Rule(ABC, Generic[NotationT]):
     provenance: Provenance
     citation: str
 
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Enforce Rule metadata at class-definition time."""
+        super().__init_subclass__(**kwargs)
+        missing = [
+            attr
+            for attr in ("name", "strategy", "provenance", "citation")
+            if not hasattr(cls, attr)
+        ]
+        if missing:
+            raise TypeError(
+                f"{cls.__name__} must define Rule metadata: {', '.join(missing)}"
+            )
+
     @abstractmethod
     def matches(self, notation: NotationT, contract: Contract) -> bool: ...
 
