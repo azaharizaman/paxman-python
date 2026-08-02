@@ -311,6 +311,18 @@ class TestGrammarDedup:
         assert len(results) == 1
         assert results[0].value == "15551234567"
 
+    def test_e164_merges_space_separated_following_number(self) -> None:
+        """A space-separated number after an E.164 match is merged into it.
+
+        Regression: the trailing character class of _E164_PATTERN consumes
+        separators and following digit runs, so "+15551234567 5551234567"
+        yields ONE notation with the concatenated value. Changes to
+        _E164_PATTERN must not alter this behavior silently.
+        """
+        results = self.e164.recognize("+15551234567 5551234567")
+        assert len(results) == 1
+        assert results[0].value == "155512345675551234567"
+
     def test_tel_uri_multiple_matches(self) -> None:
         """Multiple distinct tel: URIs are all returned."""
         results = self.tel_uri.recognize("tel:+15551234567 and tel:+442079460958")

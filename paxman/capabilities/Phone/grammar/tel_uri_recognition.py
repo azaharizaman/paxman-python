@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
@@ -15,8 +16,6 @@ from paxman.core.domain import Grammar
 _TEL_URI_PATTERN = re.compile(
     r"(?<![\w])tel:\+(\d[\d\s().\-]*)(?:;ext=(\d+))?", re.IGNORECASE
 )
-
-_ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
 
 
 class TelUriGrammar(Grammar[PhoneNotation]):
@@ -39,14 +38,11 @@ class TelUriGrammar(Grammar[PhoneNotation]):
             digit-only number (leading "+" and separators removed);
             extension is the ";ext=" parameter value if present.
         """
-        results: list[PhoneNotation] = []
-        seen: set[tuple[str, ...]] = set()
-        for match in _TEL_URI_PATTERN.finditer(text):
-            digits = match.group(1).translate(_ALLOWED_SEPARATORS)
-            extension = match.group(2) or ""
-            notation = PhoneNotation(shape="rfc3966", value=digits, extension=extension)
-            key = tuple(notation.as_list())
-            if key not in seen:
-                seen.add(key)
-                results.append(notation)
-        return results
+        return dedup(
+            PhoneNotation(
+                shape="rfc3966",
+                value=strip_separators(match.group(1), plus=True),
+                extension=match.group(2) or "",
+            )
+            for match in _TEL_URI_PATTERN.finditer(text)
+        )

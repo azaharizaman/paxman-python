@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
@@ -12,10 +13,10 @@ from paxman.core.domain import Grammar
 # negative lookbehind excludes word characters (letters, digits, underscore),
 # ":" and "." — so email plus-tags ("user+123@"), algebra ("x+11"), decimals
 # (".+1.5"), and "tel:+..." (which the tel-URI grammar handles) are NOT
-# double-matched.
-_E164_PATTERN = re.compile(r"(?<![\w:.])\+\d[\d\s().\-]*")
-
-_ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
+# double-matched. The trailing (?<=\d) lookbehind forces the match to end on
+# a digit, so the trailing character class cannot swallow separators,
+# whitespace, or sentence punctuation after the number.
+_E164_PATTERN = re.compile(r"(?<![\w:.])\+\d[\d\s().\-]*(?<=\d)")
 
 
 class E164Grammar(Grammar[PhoneNotation]):
@@ -37,13 +38,9 @@ class E164Grammar(Grammar[PhoneNotation]):
             List of PhoneNotations with shape="e164" and value set to the
             digit-only number (leading "+" and separators removed).
         """
-        results: list[PhoneNotation] = []
-        seen: set[tuple[str, ...]] = set()
-        for match in _E164_PATTERN.finditer(text):
-            digits = match.group(0).translate(_ALLOWED_SEPARATORS)
-            notation = PhoneNotation(shape="e164", value=digits)
-            key = tuple(notation.as_list())
-            if key not in seen:
-                seen.add(key)
-                results.append(notation)
-        return results
+        return dedup(
+            PhoneNotation(
+                shape="e164", value=strip_separators(match.group(0), plus=True)
+            )
+            for match in _E164_PATTERN.finditer(text)
+        )

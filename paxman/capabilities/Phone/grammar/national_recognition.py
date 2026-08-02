@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
@@ -37,8 +38,6 @@ _NATIONAL_PATTERN = re.compile(
     r"(\d{3})[\s.\-]?(\d{4})(?!\d)"
 )
 
-_ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
-
 
 class NationalGrammar(Grammar[PhoneNotation]):
     """Recognizes NANP national dialing formats.
@@ -59,13 +58,7 @@ class NationalGrammar(Grammar[PhoneNotation]):
             List of PhoneNotations with shape="national". value is the
             digit-only number; a leading trunk "1" is preserved when present.
         """
-        results: list[PhoneNotation] = []
-        seen: set[tuple[str, ...]] = set()
-        for match in _NATIONAL_PATTERN.finditer(text):
-            digits = match.group(0).translate(_ALLOWED_SEPARATORS)
-            notation = PhoneNotation(shape="national", value=digits)
-            key = tuple(notation.as_list())
-            if key not in seen:
-                seen.add(key)
-                results.append(notation)
-        return results
+        return dedup(
+            PhoneNotation(shape="national", value=strip_separators(match.group(0)))
+            for match in _NATIONAL_PATTERN.finditer(text)
+        )

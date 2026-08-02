@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
@@ -21,8 +22,6 @@ from paxman.core.domain import Grammar
 # so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes
 # and "+0044..." (contradictory input) is left to the e164 grammar.
 _INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
-
-_ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
 
 
 class International00Grammar(Grammar[PhoneNotation]):
@@ -44,15 +43,11 @@ class International00Grammar(Grammar[PhoneNotation]):
             List of PhoneNotations with shape="e164". value is the digit-only
             number with the "00" prefix stripped (the E.164 number itself).
         """
-        results: list[PhoneNotation] = []
-        seen: set[tuple[str, ...]] = set()
-        for match in _INTERNATIONAL_00_PATTERN.finditer(text):
-            raw = match.group(0)
-            # Strip the leading "00" before removing separators.
-            digits = raw[2:].translate(_ALLOWED_SEPARATORS)
-            notation = PhoneNotation(shape="e164", value=digits)
-            key = tuple(notation.as_list())
-            if key not in seen:
-                seen.add(key)
-                results.append(notation)
-        return results
+        return dedup(
+            PhoneNotation(
+                shape="e164",
+                # Strip the leading "00" before removing separators.
+                value=strip_separators(match.group(0)[2:]),
+            )
+            for match in _INTERNATIONAL_00_PATTERN.finditer(text)
+        )
