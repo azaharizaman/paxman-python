@@ -960,10 +960,12 @@ from paxman.core.domain import Grammar
 
 # A "+" followed by digits with optional separators (space, dash, dot, parens).
 # The grammar is intentionally loose — validation happens in rules. The
-# negative lookbehind excludes both digits and ":" so tel: URIs are NOT
-# double-matched by this grammar (RFC 3966 handles those). The "+" itself is
-# stripped from the value (digit-only), so "+" is in the separator map.
-_E164_PATTERN = re.compile(r"(?<![\d:])\+\d[\d\s().\-]*")
+# negative lookbehind excludes word characters (letters, digits, underscore),
+# ":" and "." — so email plus-tags ("user+123@"), algebra ("x+11"), decimals
+# (".+1.5"), and "tel:+..." (which the tel-URI grammar handles) are NOT
+# double-matched. The "+" itself is stripped (digit-only value), so "+" is in
+# the separator map.
+_E164_PATTERN = re.compile(r"(?<![\w:.])\+\d[\d\s().\-]*")
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
 
@@ -1103,12 +1105,13 @@ import re
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import Grammar
 
-# tel: URI with global number digits (optional separators) and optional
-# ";ext=" parameter. The scheme is matched case-insensitively. The "+" in
-# the global number is stripped from the value (digit-only), so "+" is in
-# the separator map.
+# tel: URI with a GLOBAL number (optional separators) and optional ";ext="
+# parameter. Per RFC 3966 §3.1 global numbers REQUIRE a leading "+" —
+# no-plus URIs are local numbers (out of scope), so this grammar does not
+# match them. The scheme is matched case-insensitively; the (?<![\w])
+# lookbehind keeps "xtel:"/"hotel:" from matching the scheme.
 _TEL_URI_PATTERN = re.compile(
-    r"tel:([+\d][\d\s().\-]*)(?:;ext=(\d+))?", re.IGNORECASE
+    r"(?<![\w])tel:\+(\d[\d\s().\-]*)(?:;ext=(\d+))?", re.IGNORECASE
 )
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", "+ ().-")
@@ -1255,10 +1258,10 @@ from paxman.core.domain import Grammar
 # The leading digit of the number must be 1-9 (country codes never start
 # with 0), and a single "0" alone is not the international prefix.
 # Separators between "00" and the first digit are allowed ("00 44 ...").
-# The (?<![\d+]) lookbehind excludes "00" preceded by a digit ("10044..." is
-# not an international prefix) or by "+" ("+0044..." is contradictory input
-# handled by the e164 grammar instead).
-_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\d+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
+# The (?<![\w:.+]) lookbehind excludes word characters, ":", "." and "+"
+# so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes and
+# "+0044..." (contradictory input) is left to the e164 grammar.
+_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
 
 _ALLOWED_SEPARATORS = str.maketrans("", "", " ().-")
 
@@ -1600,10 +1603,10 @@ In `paxman/capabilities/Phone/grammar/international_00_recognition.py`, extend t
 # The leading digit of the number must be 1-9 (country codes never start
 # with 0), and a single "0" alone is not the international prefix.
 # Separators between "00" and the first digit are allowed ("00 44 ...").
-# The (?<![\d+]) lookbehind excludes "00" preceded by a digit ("10044..." is
-# not an international prefix) or by "+" ("+0044..." is contradictory input
-# handled by the e164 grammar instead).
-_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\d+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
+# The (?<![\w:.+]) lookbehind excludes word characters, ":", "." and "+"
+# so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes and
+# "+0044..." (contradictory input) is left to the e164 grammar.
+_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
 ```
 
 - [ ] **Step 3: Run tests to verify they pass**
@@ -3050,12 +3053,15 @@ def _clean_registry() -> None:
 class TestPhonePipeline:
     """Full-pipeline tests for the Phone capability.
 
-    Note on AMBIGUOUS: after the grammar-overlap fixes (e164/national
-    grammars no longer match inside tel: URIs), AMBIGUOUS is unreachable
-    by design — each input maps to exactly one grammar/shape, and the two
-    E.164 rules (Section 6.1 / 6.2) always agree on the canonical value.
-    The tel-URI test below asserts single-candidate output, which is the
-    observable consequence of that design invariant.
+    Note on AMBIGUOUS: grammar exclusivity holds per matched span — each
+    single-number input maps to exactly one grammar/shape, and the two
+    E.164 rules (Section 6.1 / 6.2) always agree on the canonical value,
+    so single-number inputs are never AMBIGUOUS. Multi-number inputs whose
+    numbers resolve to different canonical values DO produce AMBIGUOUS
+    (engine semantics, same as Email/Date). No-plus local tel: URIs are
+    not global numbers (RFC 3966 §3.1) and are not recognized by the
+    tel-URI grammar; their number content may be recognized by the
+    national grammar when it is NANP-shaped.
     """
 
     @pytest.mark.integration
