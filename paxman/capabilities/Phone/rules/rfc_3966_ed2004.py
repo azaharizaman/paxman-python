@@ -61,12 +61,21 @@ class Section3TelUri(Rule[PhoneNotation]):
         Returns:
             "+" + value (default), "tel:+value[;ext=extension]" (rfc3966),
             or the national significant number (national).
+
+        Raises:
+            ValueError: If the national format is requested and the value
+                has no assigned country code prefix (matches() runs first,
+                so this only fires on direct misuse).
         """
         if contract.output_format == "rfc3966":
             base = f"tel:+{notation.value}"
             return f"{base};ext={notation.extension}" if notation.extension else base
         if contract.output_format == "national":
             country_code = split_country_code(notation.value)
-            assert country_code is not None  # matches() ran first
+            if country_code is None:
+                raise ValueError(
+                    f"{self.name}: cannot normalize {notation.value!r}: "
+                    "no assigned country code"
+                )
             return notation.value[len(country_code) :]
         return f"+{notation.value}"

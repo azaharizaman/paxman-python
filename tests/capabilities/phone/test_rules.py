@@ -106,6 +106,13 @@ class TestSection6_1InternationalNumber:
         contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "5551234567"
 
+    def test_normalize_national_rejects_unassigned_cc(self) -> None:
+        """National normalization raises when no country code can be split."""
+        notation = PhoneNotation(shape="e164", value="999123456789")
+        contract = PhoneContract(output_format="national")
+        with pytest.raises(ValueError):
+            self.rule.normalize(notation, contract)
+
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
         assert self.rule.provenance.authority == "ITU-T"
@@ -256,6 +263,13 @@ class TestSection3TelUri:
         notation = PhoneNotation(shape="rfc3966", value="15551234567")
         contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "5551234567"
+
+    def test_normalize_national_rejects_unassigned_cc(self) -> None:
+        """National normalization raises when no country code can be split."""
+        notation = PhoneNotation(shape="rfc3966", value="999123456789")
+        contract = PhoneContract(output_format="national")
+        with pytest.raises(ValueError):
+            self.rule.normalize(notation, contract)
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
