@@ -50,7 +50,7 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with four built-in capabilities:
+Paxman ships with five built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
@@ -58,6 +58,7 @@ Paxman ships with four built-in capabilities:
 | **Date** | Dates | 3 (ISO, US, European) | 3 | ISO 8601, US federal, EN 50160 |
 | **Country** | Country codes/names | 4 (alpha-2, alpha-3, numeric, name) | 6 | ISO 3166, CLDR |
 | **IP** | IP addresses | 2 (IPv4, IPv6) | 2 | RFC 791, RFC 5952 |
+| **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
 
 ### Email Capability
 
@@ -162,6 +163,31 @@ result = paxman.canonicalize("2001:db8::1", contract)
 # → Status: MISSING
 ```
 
+### Phone Capability
+
+Recognizes international (E.164, 00-prefix), tel-URI, and NANP national phone numbers.
+
+```python
+from paxman.capabilities import Phone
+
+register_capability(Phone())
+
+# International number
+contract = Phone.create_contract()
+result = paxman.canonicalize("+1 555 123 4567", contract)
+# → "+15551234567"
+
+# National number (requires default_country)
+contract = Phone.create_contract(default_country="US")
+result = paxman.canonicalize("(555) 234-5678", contract)
+# → "+15552345678"
+
+# Output as RFC 3966 tel-URI
+contract = Phone.create_contract(output_format="rfc3966")
+result = paxman.canonicalize("+15551234567", contract)
+# → "tel:+15551234567"
+```
+
 ---
 
 ## Contract Configuration
@@ -187,6 +213,8 @@ Every capability provides a `create_contract()` factory method with common and c
 | Country | `include_localized` | `bool` | Enable CLDR multilingual name recognition |
 | Country | `include_historical` | `bool` | Enable deprecated/historical country name recognition |
 | IP | `include_ipv6` | `bool` | Enable IPv6 recognition (default: `True`) |
+| Phone | `default_country` | `str` | ISO 3166-1 alpha-2 country code to resolve national numbers (e.g., `"US"`) |
+| Phone | `output_format` | `str` | Output format (`"e164"` default, `"rfc3966"`, `"national"`) |
 
 ### Rule Pinning and Exclusion
 

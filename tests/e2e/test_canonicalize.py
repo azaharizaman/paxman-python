@@ -7,6 +7,7 @@ import pytest
 from paxman.api import canonicalize
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
+from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
 from paxman.core.errors import CapabilityError
@@ -117,3 +118,67 @@ class TestDateCapabilityE2E:
         result = canonicalize("07/02/2026", contract)
         assert result.status == Resolution.AMBIGUOUS
         assert result.canonicalized_value is None
+
+
+class TestCanonicalizePhone:
+    """End-to-end tests for the Phone capability through paxman.canonicalize."""
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_success(self) -> None:
+        """Full happy path through the public API."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("+44 20 7946 0958", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+442079460958"
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_national(self) -> None:
+        """National number with default_country through the public API."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(default_country="US")
+        result = canonicalize("(555) 234-5678", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "+15552345678"
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_missing(self) -> None:
+        """No phone pattern recognized."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("no phone number here", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_invalid(self) -> None:
+        """Unassigned country code is invalid."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("+999123456789", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_with_options(self) -> None:
+        """output_format option through the public API."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(output_format="rfc3966")
+        result = canonicalize("+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "tel:+15551234567"
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_email_plus_tag_missing(self) -> None:
+        """Email plus-addresses are not phone numbers (public API)."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("user+1555@example.com", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_canonicalize_phone_no_plus_tel_uri(self) -> None:
+        """No-plus tel: URIs are local numbers — not global candidates."""
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract()
+        result = canonicalize("tel:2125550123", contract)
+        assert result.status == Resolution.INVALID
+        assert all(c.validation_rule != "Section 3-tel-uri" for c in result.candidates)

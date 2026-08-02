@@ -11,7 +11,7 @@ from typing import Any
 from paxman.core.capability import Capability
 from paxman.core.errors import CapabilityError
 
-_registry: dict[str, Capability] = {}
+_registry: dict[str, Capability[Any]] = {}
 _frozen: bool = False
 
 
@@ -41,7 +41,7 @@ def register_capability(capability: Any) -> None:
     _registry[capability.name] = capability
 
 
-def get_capability(name: str) -> Capability:
+def get_capability(name: str) -> Capability[Any]:
     """Look up a capability by name.
 
     Raises:

@@ -247,7 +247,6 @@ ENGLISH_NAME_TO_CANONICAL: dict[str, str] = {
     "YEMEN": "Yemen",
     "ZAMBIA": "Zambia",
     "ZIMBABWE": "Zimbabwe",
-
     # --- Territories and minor outlying islands ---
     "ALAND ISLANDS": "Åland Islands",
     "ANGUILLA": "Anguilla",
@@ -261,12 +260,12 @@ ENGLISH_NAME_TO_CANONICAL: dict[str, str] = {
     "FRENCH SOUTHERN TERRITORIES": "French Southern Territories",
     "HEARD ISLAND AND MCDONALD ISLANDS": "Heard Island and McDonald Islands",
     "SINT MAARTEN": "Sint Maarten",
-    "SOUTH GEORGIA AND THE SOUTH SANDWICH ISLANDS": "South Georgia and the South Sandwich Islands",
+    "SOUTH GEORGIA AND THE SOUTH SANDWICH ISLANDS": (
+        "South Georgia and the South Sandwich Islands"
+    ),
     "SVALBARD AND JAN MAYEN": "Svalbard and Jan Mayen",
     "UNITED STATES MINOR OUTLYING ISLANDS": "United States Minor Outlying Islands",
-
     # --- Common English Variants ---
-
     # United States
     "US": "United States",
     "USA": "United States",
@@ -275,14 +274,12 @@ ENGLISH_NAME_TO_CANONICAL: dict[str, str] = {
     "AMERICA": "United States",
     "THE STATES": "United States",
     "UNITED STATES OF AMERICA": "United States",
-
     # United Kingdom
     "UK": "United Kingdom",
     "U K": "United Kingdom",
     "GREAT BRITAIN": "United Kingdom",
     "BRITAIN": "United Kingdom",
     "ENGLAND": "United Kingdom",
-
     # Abbreviation variants
     "UAE": "United Arab Emirates",
     "U A E": "United Arab Emirates",
@@ -300,7 +297,6 @@ ENGLISH_NAME_TO_CANONICAL: dict[str, str] = {
     "CAR": "Central African Republic",
     "C A R": "Central African Republic",
     "UAR": "Egypt",
-
     # Saint variants
     "ST KITTS": "Saint Kitts and Nevis",
     "ST KITTS AND NEVIS": "Saint Kitts and Nevis",
@@ -313,14 +309,11 @@ ENGLISH_NAME_TO_CANONICAL: dict[str, str] = {
     "ST MARTIN": "Saint Martin",
     "ST PIERRE": "Saint Pierre and Miquelon",
     "ST PIERRE AND MIQUELON": "Saint Pierre and Miquelon",
-
     # Common alternate names for current countries
     "HOLLAND": "Netherlands",
     "THE NETHERLANDS": "Netherlands",
     "CZECH REPUBLIC": "Czechia",
     "IVORY COAST": "Côte d'Ivoire",
-    "NORTH KOREA": "North Korea",
-    "SOUTH KOREA": "South Korea",
     "BOSNIA": "Bosnia and Herzegovina",
     "TRINIDAD": "Trinidad and Tobago",
     "ANTIGUA": "Antigua and Barbuda",

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
+from paxman.core.errors import ContractError
 
 PUBLICATION = Provenance(
     authority="CENELEC",
@@ -32,8 +34,27 @@ class Section4DateFormat(Rule[DateNotation]):
     citation = "Section 4 (date format)"
 
     def _interpret_two_digit_year(self, year_str: str, contract: Contract) -> int:
-        """Interpret two-digit year using contract's base year."""
+        """Interpret two-digit year using contract's base year.
+
+        Args:
+            year_str: The year field from the notation.
+            contract: Contract configuration.
+
+        Returns:
+            The full year (base year + two-digit offset, or the year as-is).
+
+        Raises:
+            ContractError: If the contract is not a DateContract. The
+                two-digit year helper needs the date-specific
+                ``two_digit_base_year`` parameter, so the contract is
+                narrowed with a runtime check (not a bare cast).
+        """
         if len(year_str) == 2:
+            if not isinstance(contract, DateContract):
+                raise ContractError(
+                    f"{self.name} requires a DateContract, "
+                    f"got {type(contract).__name__}"
+                )
             base_year = contract.two_digit_base_year or 2000
             return base_year + int(year_str)
         return int(year_str)
