@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import ClassVar
 
-from paxman.core.capability_contract import CapabilityContract
+from paxman.core.contract import CapabilityContract
 
 
 @dataclass(frozen=True)
@@ -14,8 +14,9 @@ class CountryContract(CapabilityContract):
 
     Attributes:
         capability_name: Fixed to "country" (not user-settable).
-        output_format: Output format for canonical values. One of "alpha2",
-            "alpha3", "numeric", "name". Defaults to "alpha2".
+        output_format: Canonical output format ("alpha2" default, "alpha3",
+            "numeric", or "name"). Optional — None/"default"/"alpha2" all
+            resolve to "alpha2".
         excluded_rules: Tuple of rule names to exclude.
         pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
         year: Year for temporal filtering.
@@ -30,15 +31,9 @@ class CountryContract(CapabilityContract):
 
     capability_name: str = field(default="country", init=False)
 
-    # Standard contract fields
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    pinned_rules: tuple[str, ...] | None = None
-    year: int | None = None
-
     # Capability-specific fields
     include_localized: bool = False
     include_historical: bool = False
-    output_format: str | None = None
 
     @property
     def active_grammars(self) -> list[str]:
