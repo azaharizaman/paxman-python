@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any, Protocol, cast, runtime_checkable
 
+from paxman.core.capability_contract import CapabilityContract as CapabilityContract
 from paxman.core.errors import ContractError
 
 

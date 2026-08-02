@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic
+from collections.abc import Sequence
+from typing import Generic, Protocol, runtime_checkable
 
+from paxman.core.capability_contract import CapabilityContract
 from paxman.core.domain import Grammar, NotationT, Rule
 
 
@@ -36,4 +38,28 @@ class Capability(ABC, Generic[NotationT]):
     @abstractmethod
     def get_rules(self) -> list[Rule[NotationT]]:
         """Return default validation rules for this capability."""
+        ...
+
+
+@runtime_checkable
+class ContractFactory(Protocol):
+    """Factory protocol for capability contract creation.
+
+    Every capability exposes a ``create_contract`` staticmethod with the
+    unanimous common parameter block — ``excluded_rules``, ``pinned_rules``,
+    ``year``, ``output_format``, all keyword-only — followed by capability-
+    specific parameters.  This protocol makes that common block structural:
+    the five capability classes satisfy it by declaring ``create_contract``
+    with those parameters (plus their own extras).
+    """
+
+    @staticmethod
+    def create_contract(
+        *,
+        excluded_rules: Sequence[str] | None = None,
+        pinned_rules: Sequence[str] | None = None,
+        year: int | None = None,
+        output_format: str | None = None,
+    ) -> CapabilityContract:
+        """Create a configured contract with the unanimous common block."""
         ...
