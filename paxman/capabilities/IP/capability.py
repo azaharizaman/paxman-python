@@ -39,11 +39,11 @@ class IPCapability(Capability[IPNotation]):
     @staticmethod
     def create_contract(
         *,
-        include_ipv6: bool = True,
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        include_ipv6: bool = True,
     ) -> IPContract:
         """Create an IPContract with the given configuration."""
         return IPContract(
