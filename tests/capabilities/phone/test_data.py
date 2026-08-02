@@ -10,7 +10,12 @@ class TestE164CountryCodes:
     """Tests for the E.164 country code table."""
 
     def test_verified_count(self) -> None:
-        """The table is locked to the verified count of assigned codes."""
+        """The table is locked to the verified count of assigned codes.
+
+        The count survived the 2026 reconciliation: 979 (UIPRS) added and
+        684 (American Samoa — a NANP +1-684 code, never a standalone E.164
+        code) removed.
+        """
         assert len(ASSIGNED_COUNTRY_CODES) == 217
 
     def test_all_keys_are_1_to_3_digits(self) -> None:
@@ -39,12 +44,18 @@ class TestE164CountryCodes:
         assert "44" in ASSIGNED_COUNTRY_CODES  # UK
         assert "886" in ASSIGNED_COUNTRY_CODES  # Taiwan
         assert "800" in ASSIGNED_COUNTRY_CODES  # International Freephone
+        assert "979" in ASSIGNED_COUNTRY_CODES  # International Premium Rate Service
 
     def test_unassigned_codes_absent(self) -> None:
         """Codes known to be unassigned are not in the table."""
         assert "999" not in ASSIGNED_COUNTRY_CODES
         assert "0" not in ASSIGNED_COUNTRY_CODES
         assert "15" not in ASSIGNED_COUNTRY_CODES
+        # 684 is American Samoa's NANP area code (+1-684), not a standalone
+        # E.164 country code (standalone +684 was withdrawn in 2004).
+        assert "684" not in ASSIGNED_COUNTRY_CODES
+        # 997 was reserved for Kazakhstan but abandoned in November 2023.
+        assert "997" not in ASSIGNED_COUNTRY_CODES
 
 
 class TestNanpTables:

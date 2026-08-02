@@ -2,7 +2,10 @@
 """ITU-T E.164 assigned country code lookup table and longest-prefix splitter.
 
 All codes derived from ITU-T E.164 (11/2010), Annex A — Table of assigned
-country codes.
+country codes, reconciled against the ITU list (2026-08):
+- "979" (International Premium Rate Service) added.
+- "684" removed: American Samoa's standalone +684 was withdrawn in 2004;
+  American Samoa is reached via NANP +1-684.
 Source: https://www.itu.int/rec/T-REC-E.164/
 
 The table is a data artifact; ``split_country_code`` is the single helper
@@ -175,7 +178,6 @@ ASSIGNED_COUNTRY_CODES: dict[str, str] = {
     "681": "Wallis and Futuna",
     "682": "Cook Islands",
     "683": "Niue",
-    "684": "American Samoa",
     "685": "Samoa",
     "686": "Kiribati",
     "687": "New Caledonia",
@@ -230,6 +232,7 @@ ASSIGNED_COUNTRY_CODES: dict[str, str] = {
     "975": "Bhutan",
     "976": "Mongolia",
     "977": "Nepal",
+    "979": "International Premium Rate Service",
     "98": "Iran",
     "991": "International Telecommunications Public Correspondence Service",
     "992": "Tajikistan",
