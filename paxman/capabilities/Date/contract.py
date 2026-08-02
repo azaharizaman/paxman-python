@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import ClassVar
 
 from paxman.core.contract import CapabilityContract
 
@@ -32,5 +32,5 @@ class DateContract(CapabilityContract):
             "european_recognition",
         ]
 
-    def _extra_dict_fields(self) -> dict[str, Any]:
+    def _extra_dict_fields(self) -> dict[str, object]:
         return {"two_digit_base_year": self.two_digit_base_year}

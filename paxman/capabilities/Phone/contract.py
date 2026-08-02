@@ -67,7 +67,6 @@ class PhoneContract(CapabilityContract):
 
     # Capability-specific fields
     default_country: str | None = None
-    output_format: str | None = None
 
     def __post_init__(self) -> None:
         """Validate contract configuration.
