@@ -110,9 +110,7 @@ def _filter_rules(capability: Capability[Any], contract: Contract) -> list[Rule[
         known_names = {r.name for r in all_rules}
         unknown = pinned_set - known_names
         if unknown:
-            raise ContractError(
-                f"Unknown pinned rule(s): {sorted(unknown)}"
-            )
+            raise ContractError(f"Unknown pinned rule(s): {sorted(unknown)}")
         active_rules = [r for r in all_rules if r.name in pinned_set]
     else:
         excluded = set(contract.excluded_rules)

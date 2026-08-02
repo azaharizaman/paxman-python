@@ -331,7 +331,7 @@ wheels = [
 [[package]]
 name = "paxman"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 
 [package.optional-dependencies]
 dev = [
@@ -351,7 +351,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
-    { name = "import-linter", marker = "extra == 'dev'", specifier = ">=2.0" },
+    { name = "import-linter", marker = "extra == 'dev'", specifier = ">=2.10" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },

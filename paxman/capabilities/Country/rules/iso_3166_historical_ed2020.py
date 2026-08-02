@@ -27,6 +27,7 @@ from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
+
 def _normalize_numeric_key(value: str) -> str:
     """Zero-pad numeric value to 3 digits (M49 standard format)."""
     try:

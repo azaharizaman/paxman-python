@@ -45,9 +45,7 @@ def _normalize(text: str) -> str:
     # NFKD decompose: "ô" → "o" + combining circumflex
     decomposed = unicodedata.normalize("NFKD", text)
     # Keep only alphanumeric and whitespace (strips combining marks + punctuation)
-    cleaned = "".join(
-        c for c in decomposed if c.isalnum() or c.isspace()
-    )
+    cleaned = "".join(c for c in decomposed if c.isalnum() or c.isspace())
     # Collapse whitespace
     cleaned = _WHITESPACE_RE.sub(" ", cleaned)
     # Uppercase

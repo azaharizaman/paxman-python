@@ -40,6 +40,18 @@ class FakeContract:
         return {"capability_name": "email"}
 
 
+class TestGrammarRule:
+    @pytest.mark.unit
+    def test_requires_lowercase_capability_name(self) -> None:
+        with pytest.raises(ValueError, match="capability_name must be lowercase"):
+            GrammarRule(capability_name="Email", grammar_name="standard")
+
+    @pytest.mark.unit
+    def test_requires_lowercase_grammar_name(self) -> None:
+        with pytest.raises(ValueError, match="grammar_name must be lowercase"):
+            GrammarRule(capability_name="email", grammar_name="Standard")
+
+
 class TestRecognizedRep:
     @pytest.mark.unit
     def test_immutable(self) -> None:
@@ -94,6 +106,16 @@ class TestRecognizedRep:
         contract = FakeContract()
         rr = RecognizedRep(
             notation=["user", "example.com"], contract=contract, grammar=gr
+        )
+        assert hash(rr) is not None
+        assert hash(rr) == hash(rr)
+
+    @pytest.mark.unit
+    def test_hashable_with_hashable_notation(self) -> None:
+        gr = GrammarRule(capability_name="email", grammar_name="standard")
+        contract = FakeContract()
+        rr = RecognizedRep(
+            notation=("user", "example.com"), contract=contract, grammar=gr
         )
         assert hash(rr) is not None
         assert hash(rr) == hash(rr)

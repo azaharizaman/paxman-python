@@ -19,7 +19,8 @@ _IPV6_FULL = re.compile(
 # Compressed form: handles :: with groups on either side
 _IPV6_COMPRESSED = re.compile(
     _IPV6_BOUNDARY
-    + r"((?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{0,4}::(?:[0-9a-fA-F]{0,4}:){0,6}[0-9a-fA-F]{1,4})"
+    + r"((?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{0,4}::"
+    + r"(?:[0-9a-fA-F]{0,4}:){0,6}[0-9a-fA-F]{1,4})"
     + _IPV6_END
     + "|"
     + _IPV6_BOUNDARY

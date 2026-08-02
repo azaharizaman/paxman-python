@@ -74,7 +74,8 @@ class PhoneContract:
             ContractError: If output_format is unsupported or default_country
                 is present but not an uppercase alpha-2 code.
         """
-        if self.output_format not in _VALID_OUTPUT_FORMATS:
+        candidate = cast(object, self.output_format)
+        if not isinstance(candidate, str) or candidate not in _VALID_OUTPUT_FORMATS:
             raise ContractError(
                 f"output_format must be one of {sorted(_VALID_OUTPUT_FORMATS)}, "
                 f"got {self.output_format!r}"

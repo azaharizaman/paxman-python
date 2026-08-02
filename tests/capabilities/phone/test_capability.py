@@ -231,6 +231,11 @@ class TestPhoneContractValidation:
         with pytest.raises(ContractError):
             PhoneContract(default_country="us")
 
+    def test_rejects_non_string_output_format(self) -> None:
+        """Non-string output_format raises ContractError, not TypeError."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format=["e164"])  # type: ignore[arg-type]
+
     def test_rejects_non_string_default_country(self) -> None:
         """Non-string default_country raises ContractError, not TypeError."""
         with pytest.raises(ContractError):

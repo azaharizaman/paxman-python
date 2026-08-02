@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar, cast
 
 from paxman.core.contract import Contract
 
@@ -81,11 +81,11 @@ class RecognizedRep(Generic[NotationT]):
 
     def __hash__(self) -> int:
         """Hash is safe for unhashable notation types like list."""
-        notation_key: Any
-        if isinstance(self.notation, list):
-            notation_key = tuple(self.notation)
+        notation = self.notation
+        if isinstance(notation, list):
+            notation_key = tuple(cast(list[str], notation))
         else:
-            notation_key = self.notation
+            notation_key = notation
         return hash((notation_key, self.grammar))
 
 

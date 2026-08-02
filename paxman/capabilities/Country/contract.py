@@ -7,8 +7,9 @@ from typing import Any
 
 from paxman.core.errors import ContractError
 
-
-VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"alpha2", "alpha3", "numeric", "name"})
+VALID_OUTPUT_FORMATS: frozenset[str] = frozenset(
+    {"alpha2", "alpha3", "numeric", "name"}
+)
 
 
 @dataclass(frozen=True, slots=True)

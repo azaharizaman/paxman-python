@@ -1,8 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "paxman"
 version = "0.1.0"
 description = "Canonicalization authority resolver"
 requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = []
 
 [project.optional-dependencies]
@@ -12,7 +22,7 @@ dev = [
     "hypothesis>=6.100",
     "ruff>=0.5",
     "pyright>=1.1",
-    "import-linter>=2.0",
+    "import-linter>=2.10",
 ]
 
 [tool.pytest.ini_options]
@@ -22,6 +32,7 @@ markers = [
     "integration: integration tests",
     "e2e: end-to-end tests",
     "property: property-based tests (Hypothesis)",
+    "country: country capability tests",
 ]
 testpaths = ["tests"]
 
@@ -38,6 +49,9 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.",
+    # Bare `...` bodies in abstract methods and Protocol declarations are
+    # non-executable by design; they are unreachable by any test.
+    "^\\s*\\.\\.\\.$",
 ]
 
 [tool.ruff]
@@ -83,6 +97,9 @@ layers = [
     "paxman.capabilities",
     "paxman.core",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["paxman"]
 
 [dependency-groups]
 dev = [

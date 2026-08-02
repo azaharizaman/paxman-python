@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import cast
 
+from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
@@ -34,7 +36,7 @@ class Section4DateFormat(Rule[DateNotation]):
     def _interpret_two_digit_year(self, year_str: str, contract: Contract) -> int:
         """Interpret two-digit year using contract's base year."""
         if len(year_str) == 2:
-            base_year = contract.two_digit_base_year or 2000
+            base_year = cast(DateContract, contract).two_digit_base_year or 2000
             return base_year + int(year_str)
         return int(year_str)
 

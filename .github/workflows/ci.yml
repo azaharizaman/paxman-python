@@ -18,6 +18,11 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -27,10 +32,10 @@ jobs:
         uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
 
       - name: Set up Python
-        run: uv python install 3.11
+        run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-extras --python ${{ matrix.python-version }}
 
       - name: Ruff lint
         run: uv run ruff check paxman/ tests/
@@ -42,7 +47,7 @@ jobs:
         run: uv run pyright
 
       - name: Import lint
-        run: uv run importlinter
+        run: uv run import-linter lint
 
       - name: Tests with coverage
         run: uv run pytest --cov=paxman --cov-report=term-missing --cov-report=html --tb=short -q
