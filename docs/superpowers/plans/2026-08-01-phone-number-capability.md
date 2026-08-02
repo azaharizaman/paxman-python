@@ -3341,7 +3341,6 @@ contract = Phone.create_contract(output_format="rfc3966")
 result = paxman.canonicalize("+15551234567", contract)
 # → "tel:+15551234567"
 ```
-```
 
 - [ ] **Step 3: Commit**
 
