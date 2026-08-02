@@ -139,13 +139,15 @@ class Section1_1NANPStructure(Rule[PhoneNotation]):
             "+1" + 10-digit NANP number, or the formatted variant per
             contract.output_format.
 
-        Raises:
-            ValueError: If the value fails the NANP structure check
-                (matches() runs first, so this only fires on direct misuse).
+        Note:
+            Never raises. Falls back to the input value when the NANP
+            structure check fails — unreachable after matches() (which
+            requires the structure to pass); this is a defensive
+            best-effort for direct misuse.
         """
         digits = _nanp_digits(notation.value)
         if digits is None:
-            raise ValueError(f"{self.name}: invalid NANP value {notation.value!r}")
+            return notation.value  # unreachable post-matches(); defensive best-effort
         return _canonical(digits, contract)
 
 
@@ -193,11 +195,13 @@ class Section1_2ServiceNPA(Rule[PhoneNotation]):
             "+1" + 10-digit NANP number, or the formatted variant per
             contract.output_format.
 
-        Raises:
-            ValueError: If the value fails the NANP structure check
-                (matches() runs first, so this only fires on direct misuse).
+        Note:
+            Never raises. Falls back to the input value when the NANP
+            structure check fails — unreachable after matches() (which
+            requires the structure to pass); this is a defensive
+            best-effort for direct misuse.
         """
         digits = _nanp_digits(notation.value)
         if digits is None:
-            raise ValueError(f"{self.name}: invalid NANP value {notation.value!r}")
+            return notation.value  # unreachable post-matches(); defensive best-effort
         return _canonical(digits, contract)

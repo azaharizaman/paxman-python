@@ -222,9 +222,16 @@ class TestPhoneContractValidation:
 
     def test_accepts_all_valid_output_formats(self) -> None:
         """All documented output formats construct successfully."""
-        for fmt in ("e164", "rfc3966", "national"):
-            contract = PhoneContract(output_format=fmt)
-            assert contract.output_format == fmt
+        assert PhoneContract(output_format="e164").output_format == "e164"
+        assert PhoneContract(output_format="rfc3966").output_format == "rfc3966"
+        # "national" has no embedded country code — needs default_country.
+        contract = PhoneContract(default_country="US", output_format="national")
+        assert contract.output_format == "national"
+
+    def test_rejects_national_without_default_country(self) -> None:
+        """output_format='national' requires default_country."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format="national")
 
     def test_accepts_default_output_format(self) -> None:
         """'default' reverts to the default e164 output."""

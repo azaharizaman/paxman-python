@@ -68,31 +68,34 @@ class PhoneCapability(Capability[PhoneNotation]):
     @staticmethod
     def create_contract(
         *,
-        default_country: str | None = None,
-        output_format: str = "e164",
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
+        output_format: str | None = None,
+        default_country: str | None = None,
     ) -> PhoneContract:
         """Factory method for creating contracts with proper defaults.
 
         Args:
-            default_country: ISO 3166-1 alpha-2 country code used to resolve
-                national numbers (e.g., "US").
-            output_format: Output format for canonical values ("e164",
-                "rfc3966", "national"). Default "e164".
             excluded_rules: Rule names to exclude.
             pinned_rules: Pin to specific rules (takes precedence over
                 excluded_rules).
             year: Year for temporal filtering.
+            output_format: Output format for canonical values. Optional;
+                None/"default"/"e164" resolve to "e164", or one of the
+                offered alternatives "rfc3966"/"national". "national"
+                requires default_country.
+            default_country: ISO 3166-1 alpha-2 country code used to resolve
+                national numbers (e.g., "US"). Required when output_format
+                is "national".
 
         Returns:
             Configured PhoneContract instance.
         """
         return PhoneContract(
-            default_country=default_country,
-            output_format=output_format,
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
+            output_format=output_format,
+            default_country=default_country,
         )

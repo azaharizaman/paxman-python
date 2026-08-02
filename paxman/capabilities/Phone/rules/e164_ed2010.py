@@ -65,17 +65,18 @@ def _canonical(value: str, contract: Contract) -> str:
         Canonical string: "+CCNSN" (e164), "tel:+CCNSN" (rfc3966), or the
         national significant number (national).
 
-    Raises:
-        ValueError: If the national format is requested and the value has
-            no assigned country code prefix (matches() runs first, so this
-            only fires on direct misuse).
+    Note:
+        Never raises. The national branch falls back to the input value
+        when no assigned country-code prefix can be split — unreachable
+        after matches() (valid_e164_value requires an assigned prefix);
+        this is a defensive best-effort for direct misuse.
     """
     if contract.output_format == "rfc3966":
         return f"tel:+{value}"
     if contract.output_format == "national":
         country_code = split_country_code(value)
         if country_code is None:
-            raise ValueError(f"cannot normalize {value!r}: no assigned country code")
+            return value  # unreachable post-matches(); defensive best-effort
         return value[len(country_code) :]
     return f"+{value}"
 

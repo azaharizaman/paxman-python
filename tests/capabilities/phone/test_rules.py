@@ -1,7 +1,5 @@
 """Tests for Phone validation rules."""
 
-import pytest
-
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.e164_ed2010 import (
@@ -46,7 +44,7 @@ class TestSection6_1InternationalNumber:
         the national output one digit longer.
         """
         notation = PhoneNotation(shape="e164", value="886212345678")
-        contract = PhoneContract(output_format="national")
+        contract = PhoneContract(default_country="US", output_format="national")
         assert self.rule.normalize(notation, contract) == "212345678"
 
     def test_matches_max_length(self) -> None:
@@ -103,15 +101,14 @@ class TestSection6_1InternationalNumber:
     def test_normalize_national_format(self) -> None:
         """Verify national (NSN) output format."""
         notation = PhoneNotation(shape="e164", value="15551234567")
-        contract = PhoneContract(output_format="national")
+        contract = PhoneContract(default_country="US", output_format="national")
         assert self.rule.normalize(notation, contract) == "5551234567"
 
-    def test_normalize_national_rejects_unassigned_cc(self) -> None:
-        """National normalization raises when no country code can be split."""
+    def test_normalize_national_defensive_no_assigned_cc(self) -> None:
+        """National normalization is defensive when no country code splits."""
         notation = PhoneNotation(shape="e164", value="999123456789")
-        contract = PhoneContract(output_format="national")
-        with pytest.raises(ValueError):
-            self.rule.normalize(notation, contract)
+        contract = PhoneContract(default_country="US", output_format="national")
+        assert self.rule.normalize(notation, contract) == "999123456789"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -261,15 +258,14 @@ class TestSection3TelUri:
     def test_normalize_national_format(self) -> None:
         """Verify national (NSN) output format strips the country code."""
         notation = PhoneNotation(shape="rfc3966", value="15551234567")
-        contract = PhoneContract(output_format="national")
+        contract = PhoneContract(default_country="US", output_format="national")
         assert self.rule.normalize(notation, contract) == "5551234567"
 
-    def test_normalize_national_rejects_unassigned_cc(self) -> None:
-        """National normalization raises when no country code can be split."""
+    def test_normalize_national_defensive_no_assigned_cc(self) -> None:
+        """National normalization is defensive when no country code splits."""
         notation = PhoneNotation(shape="rfc3966", value="999123456789")
-        contract = PhoneContract(output_format="national")
-        with pytest.raises(ValueError):
-            self.rule.normalize(notation, contract)
+        contract = PhoneContract(default_country="US", output_format="national")
+        assert self.rule.normalize(notation, contract) == "999123456789"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -385,11 +381,10 @@ class TestSection1_1NANPStructure:
         notation = PhoneNotation(shape="national", value="15552345678")
         assert self.rule.normalize(notation, self.contract) == "+15552345678"
 
-    def test_normalize_rejects_invalid_structure(self) -> None:
-        """Normalize raises ValueError when the structure check fails."""
+    def test_normalize_defensive_invalid_structure(self) -> None:
+        """Normalize is defensive when the structure check fails."""
         notation = PhoneNotation(shape="national", value="800555123")
-        with pytest.raises(ValueError):
-            self.rule.normalize(notation, self.contract)
+        assert self.rule.normalize(notation, self.contract) == "800555123"
 
     def test_normalize_national_format(self) -> None:
         """Verify national output format (NSN)."""
@@ -481,11 +476,10 @@ class TestSection1_2ServiceNPA:
         notation = PhoneNotation(shape="national", value="800555123")
         assert self.rule.matches(notation, self.contract) is False
 
-    def test_normalize_rejects_invalid_structure(self) -> None:
-        """Normalize raises ValueError when the structure check fails."""
+    def test_normalize_defensive_invalid_structure(self) -> None:
+        """Normalize is defensive when the structure check fails."""
         notation = PhoneNotation(shape="national", value="800555123")
-        with pytest.raises(ValueError):
-            self.rule.normalize(notation, self.contract)
+        assert self.rule.normalize(notation, self.contract) == "800555123"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""

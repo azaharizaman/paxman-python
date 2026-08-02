@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import ClassVar, cast
 
-from paxman.core.contract import resolve_output_format
+from paxman.core.contract import CapabilityContract
 from paxman.core.errors import ContractError
-
-_VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"rfc3966", "national"})
 
 
 def _validate_alpha2(value: str | None) -> None:
@@ -41,54 +39,57 @@ def _validate_alpha2(value: str | None) -> None:
         )
 
 
-@dataclass(frozen=True, slots=True)
-class PhoneContract:
+@dataclass(frozen=True)
+class PhoneContract(CapabilityContract):
     """User-facing configuration for Phone capability.
 
     Attributes:
         capability_name: Fixed to "phone" (not user-settable).
         default_country: ISO 3166-1 alpha-2 country code used to resolve
             national numbers (e.g., "US"). When None, national-shaped input
-            is recognized but never validated (status INVALID).
+            is recognized but never validated (status INVALID). Required
+            when output_format is "national" (a national number has no
+            country code embedded, so it cannot be rendered without one).
         output_format: Canonical output format ("e164" default, "rfc3966",
-            or "national" for the national significant number).
+            or "national" for the national significant number). Optional —
+            None/"default"/"e164" all resolve to "e164".
         excluded_rules: Tuple of rule names to exclude.
         pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
         year: Year for temporal filtering.
     """
 
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "e164"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset(
+        {"rfc3966", "national"}
+    )
+
     capability_name: str = field(default="phone", init=False)
 
     # Capability-specific fields
     default_country: str | None = None
-    output_format: str = "e164"
-
-    # Standard contract fields
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    pinned_rules: tuple[str, ...] | None = None
-    year: int | None = None
+    output_format: str | None = None
 
     def __post_init__(self) -> None:
         """Validate contract configuration.
 
+        Calls the base resolution first, then enforces Phone-specific rules:
+        default_country must be an uppercase alpha-2 code when present, and
+        the "national" output format requires a default_country (a national
+        number has no country code embedded, so it cannot be rendered
+        without one).
+
         Raises:
-            ContractError: If output_format is unsupported (Phone's default
-                canonical output is ``"e164"``; accepted values are ``None``,
-                ``"default"``, ``"e164"``, and the offered alternatives
-                ``rfc3966``, ``national``) or default_country is present but
-                not an uppercase alpha-2 code.
+            ContractError: If output_format is unsupported, default_country is
+                not an uppercase alpha-2 code, or output_format is "national"
+                with no default_country.
         """
-        object.__setattr__(
-            self,
-            "output_format",
-            resolve_output_format(
-                self.output_format,
-                capability_name="phone",
-                offered_formats=_VALID_OUTPUT_FORMATS,
-                default_format="e164",
-            ),
-        )
+        super().__post_init__()
         _validate_alpha2(self.default_country)
+        if self.output_format == "national" and self.default_country is None:
+            raise ContractError(
+                "output_format='national' requires default_country "
+                "(a national number has no embedded country code)"
+            )
 
     @property
     def active_grammars(self) -> list[str]:
@@ -107,17 +108,5 @@ class PhoneContract:
             "national_recognition",
         ]
 
-    def as_dict(self) -> dict[str, Any]:
-        """Serialize for replay hash computation.
-
-        Returns:
-            Dictionary representation of all fields.
-        """
-        return {
-            "capability_name": self.capability_name,
-            "default_country": self.default_country,
-            "output_format": self.output_format,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-        }
+    def _extra_dict_fields(self) -> dict[str, object]:
+        return {"default_country": self.default_country}
