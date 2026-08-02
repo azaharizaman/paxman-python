@@ -8,6 +8,7 @@ from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.capability import Capability
+from paxman.core.errors import ContractError
 
 # --- DateNotation tests ---
 
@@ -80,7 +81,7 @@ class TestDateContract:
         contract = DateContract()
         assert contract.capability_name == "date"
         assert contract.pinned_rules is None
-        assert contract.output_format is None
+        assert contract.output_format == "ISO"
         assert contract.two_digit_base_year is None
 
     def test_with_parameters(self) -> None:
@@ -99,3 +100,14 @@ class TestDateContract:
         assert d["capability_name"] == "date"
         assert d["output_format"] == "US"
         assert d["two_digit_base_year"] == 1900
+
+    def test_output_format_default_resolves_to_iso(self) -> None:
+        """'default' reverts to the default ISO rendering."""
+        contract = DateContract(output_format="default")
+        assert contract.output_format == "ISO"
+
+    @pytest.mark.parametrize("fmt", ["none", "", "e164", "alpha2"])
+    def test_invalid_output_format_raises_contract_error(self, fmt: str) -> None:
+        """Unoffered output_format values raise ContractError."""
+        with pytest.raises(ContractError):
+            DateContract(output_format=fmt)

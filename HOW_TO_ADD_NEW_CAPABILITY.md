@@ -249,7 +249,7 @@ def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
 - Return the canonical string representation
 - Only called after `matches` returns `True` (you can assume the notation is valid)
 - Apply normalization rules from the specification (e.g., lowercase, remove whitespace, pad with zeros)
-- Use contract parameters to control output format (e.g., `contract.output_format`)
+- Use contract parameters to control output format (e.g., `contract.output_format`). Note: after construction, `contract.output_format` always holds a concrete format string (the capability's default when unset), so compare it directly against your offered format names — never guard on `None`.
 
 ### Accessing Capability-Specific Contract Fields
 
@@ -370,20 +370,73 @@ def active_grammars(self) -> list[str]:
 
 Choose conditional when grammars are expensive or mutually exclusive. Choose always-all when grammars are cheap and rules need to see all representations.
 
-### Implementing `output_format`
+### Implementing `output_format` (always optional, homogeneous across capabilities)
 
-`output_format` can be implemented as:
+`output_format` is **always optional** and is handled identically by every capability. No capability may make it mandatory, and no capability may give it a meaning that diverges from the others — this is what keeps the contract surface predictable for future contributors.
 
-- A **data field** (most capabilities): `output_format: str | None = None`
-- A **property** (if your capability never supports output format variation):
+The field is a plain optional data field:
 
 ```python
-@property
-def output_format(self) -> str | None:
-    return None
+output_format: str | None = None
 ```
 
-Rules read `contract.output_format` in their `normalize()` method to control canonical output.
+It is validated and normalized in `__post_init__` using the shared `resolve_output_format` helper. After construction, `contract.output_format` **always holds a concrete format string** (never `None`).
+
+Every capability MUST declare two things:
+
+1. `DEFAULT_OUTPUT_FORMAT` — a concrete string naming the format the canonical value is returned in by default (e.g. `"ISO"` for Date, `"alpha2"` for Country, `"email"` for Email). This is the canonical output.
+2. `OFFERED_OUTPUT_FORMATS` — a `frozenset[str]` of the *alternative* formats the capability supports **beyond** the default. The default format is **not** included here.
+
+The acceptance rules (enforced by `resolve_output_format`) are:
+
+| Input | Resolves to | Notes |
+|-------|-------------|-------|
+| `None` (omitted) | `DEFAULT_OUTPUT_FORMAT` | The field is optional; `None` is always allowed |
+| `"default"` | `DEFAULT_OUTPUT_FORMAT` | Explicit revert to the canonical output |
+| the default format string | `DEFAULT_OUTPUT_FORMAT` | e.g. `output_format="ISO"` when `DEFAULT_OUTPUT_FORMAT="ISO"` |
+| any value in `OFFERED_OUTPUT_FORMATS` | that value | An explicit alternative format |
+| anything else (e.g. `""`, `"None"`, `"none"`, a typo) | — | raises `ContractError` |
+
+The key invariant: `None`, `"default"`, and the default format string are **treated identically by rules** — they leave the canonical value untouched. Only an explicit offered alternative triggers reformatting. This means a caller who omits `output_format`, passes `output_format="default"`, or passes the default format string gets exactly the same result, with no behavioral or replay-hash difference.
+
+Example wiring:
+
+```python
+from paxman.core.contract import resolve_output_format
+
+DEFAULT_OUTPUT_FORMAT: str = "alpha2"
+OFFERED_OUTPUT_FORMATS: frozenset[str] = frozenset({"alpha3", "numeric", "name"})
+
+@dataclass(frozen=True)
+class YourDomainContract:
+    output_format: str | None = None
+    # ... other fields ...
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "output_format",
+            resolve_output_format(
+                self.output_format,
+                capability_name="yourdomain",
+                offered_formats=OFFERED_OUTPUT_FORMATS,
+                default_format=DEFAULT_OUTPUT_FORMAT,
+            ),
+        )
+```
+
+For a capability with a single canonical form, `OFFERED_OUTPUT_FORMATS` is empty and `DEFAULT_OUTPUT_FORMAT` is simply the name of that form (e.g. `"email"`, `"ip"`). `output_format="email"` is then accepted and equivalent to omitting the field.
+
+Rules read the now-concrete `contract.output_format` in `normalize()` and compare it against concrete format strings. Because `None` is never seen at runtime, rule code stays simple:
+
+```python
+def normalize(self, notation, contract):
+    fmt = contract.output_format
+    if fmt == "us":
+        return us_format(notation)
+    return iso_format(notation)  # default — also covers "default" and None
+```
+
 
 ### Implementing `as_dict()`
 
@@ -415,7 +468,7 @@ def as_dict(self) -> dict[str, Any]:
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
 - `pinned_rules: Sequence[str] | None` — pin to specific rules (takes precedence over `excluded_rules` when set)
 - `year: int | None` — year for temporal filtering
-- `output_format: str | None` — output format for canonical values
+- `output_format: str | None` — output format for canonical values. Always optional; after construction it resolves to a concrete format string (the capability's default when unset).
 - `as_dict() -> dict[str, Any]` — serialization for replay hash
 
 ---
@@ -841,7 +894,8 @@ Use this checklist to verify your capability is complete:
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
 - [ ] Contract is a frozen dataclass satisfying the `Contract` protocol
 - [ ] Contract includes `pinned_rules: tuple[str, ...] | None = None` field
-- [ ] Contract includes `output_format: str | None = None` field or property
+- [ ] Contract includes `output_format: str | None = None` field (validated in `__post_init__` via `resolve_output_format`)
+- [ ] Capability declares a `DEFAULT_OUTPUT_FORMAT` (concrete string) and `OFFERED_OUTPUT_FORMATS` (alternatives only, excluding the default)
 - [ ] Contract implements `as_dict()` with all fields that affect behavior
 - [ ] If using lookup tables: `rules/data/` directory contains data files
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`

@@ -5,6 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from paxman.core.contract import resolve_output_format
+
+VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"US"})
+
 
 @dataclass(frozen=True)
 class DateContract:
@@ -16,6 +20,28 @@ class DateContract:
     year: int | None = None
     output_format: str | None = None
     two_digit_base_year: int | None = None
+
+    def __post_init__(self) -> None:
+        """Validate output_format against Date's offered formats.
+
+        Date's default canonical output is ``"ISO"``. Accepted values are
+        ``None`` (unset), ``"default"``, ``"ISO"`` (the default), and the
+        offered alternative ``"US"``. Anything else raises
+        :class:`ContractError`.
+
+        Raises:
+            ContractError: If ``output_format`` is not acceptable.
+        """
+        object.__setattr__(
+            self,
+            "output_format",
+            resolve_output_format(
+                self.output_format,
+                capability_name="date",
+                offered_formats=VALID_OUTPUT_FORMATS,
+                default_format="ISO",
+            ),
+        )
 
     @property
     def active_grammars(self) -> list[str]:

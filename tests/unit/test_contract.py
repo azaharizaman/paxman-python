@@ -7,6 +7,7 @@ import pytest
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Email.contract import EmailContract
 from paxman.core.contract import Contract
+from paxman.core.errors import ContractError
 
 
 class _FullyCompliantContract:
@@ -182,19 +183,44 @@ class TestEmailContractNewParameters:
     """Tests for EmailContract output_format."""
 
     @pytest.mark.unit
-    def test_email_contract_output_format_defaults_to_none(self) -> None:
-        """EmailContract.output_format defaults to None."""
+    def test_email_contract_output_format_defaults_to_email(self) -> None:
+        """EmailContract.output_format resolves to the concrete default 'email'."""
         contract = EmailContract()
-        assert contract.output_format is None
+        assert contract.output_format == "email"
 
     @pytest.mark.unit
-    def test_email_contract_with_output_format(self) -> None:
-        """EmailContract accepts output_format parameter."""
-        contract = EmailContract(output_format="ISO")
-        assert contract.output_format == "ISO"
+    def test_email_contract_output_format_default(self) -> None:
+        """'default' resolves to 'email' — Email's single canonical form."""
+        contract = EmailContract(output_format="default")
+        assert contract.output_format == "email"
 
     @pytest.mark.unit
-    def test_email_capability_create_contract_with_output_format(self) -> None:
-        """EmailCapability.create_contract passes output_format to contract."""
-        contract = EmailCapability.create_contract(output_format="ISO")
-        assert contract.output_format == "ISO"
+    @pytest.mark.parametrize(
+        "fmt", ["ISO", "US", "e164", "rfc3966", "alpha2", "none", ""]
+    )
+    def test_email_contract_invalid_output_format_raises(self, fmt: str) -> None:
+        """Unoffered output_format values raise ContractError."""
+        with pytest.raises(ContractError):
+            EmailContract(output_format=fmt)
+
+    @pytest.mark.unit
+    def test_email_contract_accepts_default_format_string(self) -> None:
+        """The default format string 'email' is accepted and equivalent to default."""
+        contract = EmailContract(output_format="email")
+        assert contract.output_format == "email"
+
+    @pytest.mark.unit
+    def test_email_capability_create_contract_with_output_format_default(
+        self,
+    ) -> None:
+        """EmailCapability.create_contract('default') resolves to 'email'."""
+        contract = EmailCapability.create_contract(output_format="default")
+        assert contract.output_format == "email"
+
+    @pytest.mark.unit
+    def test_email_capability_create_contract_invalid_output_format_raises(
+        self,
+    ) -> None:
+        """EmailCapability.create_contract rejects unoffered output_format."""
+        with pytest.raises(ContractError):
+            EmailCapability.create_contract(output_format="ISO")

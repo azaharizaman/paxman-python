@@ -226,6 +226,17 @@ class TestPhoneContractValidation:
             contract = PhoneContract(output_format=fmt)
             assert contract.output_format == fmt
 
+    def test_accepts_default_output_format(self) -> None:
+        """'default' reverts to the default e164 output."""
+        contract = PhoneContract(output_format="default")
+        assert contract.output_format == "e164"
+
+    @pytest.mark.parametrize("fmt", ["none", ""])
+    def test_rejects_none_and_empty_string(self, fmt: str) -> None:
+        """'none' and '' are contract violations, not silent no-ops."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format=fmt)
+
     def test_rejects_non_alpha2_default_country(self) -> None:
         """default_country must be an uppercase ISO 3166-1 alpha-2 code."""
         with pytest.raises(ContractError):

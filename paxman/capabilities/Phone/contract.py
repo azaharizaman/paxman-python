@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, cast
 
+from paxman.core.contract import resolve_output_format
 from paxman.core.errors import ContractError
 
-_VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"e164", "rfc3966", "national"})
+_VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"rfc3966", "national"})
 
 
 def _validate_alpha2(value: str | None) -> None:
@@ -71,15 +72,22 @@ class PhoneContract:
         """Validate contract configuration.
 
         Raises:
-            ContractError: If output_format is unsupported or default_country
-                is present but not an uppercase alpha-2 code.
+            ContractError: If output_format is unsupported (Phone's default
+                canonical output is ``"e164"``; accepted values are ``None``,
+                ``"default"``, ``"e164"``, and the offered alternatives
+                ``rfc3966``, ``national``) or default_country is present but
+                not an uppercase alpha-2 code.
         """
-        candidate = cast(object, self.output_format)
-        if not isinstance(candidate, str) or candidate not in _VALID_OUTPUT_FORMATS:
-            raise ContractError(
-                f"output_format must be one of {sorted(_VALID_OUTPUT_FORMATS)}, "
-                f"got {self.output_format!r}"
-            )
+        object.__setattr__(
+            self,
+            "output_format",
+            resolve_output_format(
+                self.output_format,
+                capability_name="phone",
+                offered_formats=_VALID_OUTPUT_FORMATS,
+                default_format="e164",
+            ),
+        )
         _validate_alpha2(self.default_country)
 
     @property

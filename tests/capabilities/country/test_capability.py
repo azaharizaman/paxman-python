@@ -157,6 +157,19 @@ class TestCountryContract:
         with pytest.raises(ContractError):
             CountryContract(output_format="invalid")
 
+    def test_output_format_default_resolves_to_alpha2(self) -> None:
+        """'default' reverts to the default alpha2 output."""
+        contract = CountryContract(output_format="default")
+        assert contract.output_format == "alpha2"
+
+    @pytest.mark.parametrize("fmt", ["none", "", "ISO"])
+    def test_invalid_output_format_variants_raise_contract_error(
+        self, fmt: str
+    ) -> None:
+        """'none', '', and other unoffered values are contract violations."""
+        with pytest.raises(ContractError):
+            CountryContract(output_format=fmt)
+
     def test_as_dict_contains_output_format(self) -> None:
         """Verify as_dict includes output_format."""
         contract = CountryContract(output_format="numeric")

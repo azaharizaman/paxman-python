@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from paxman.core.contract import resolve_output_format
+
 
 @dataclass(frozen=True)
 class EmailContract:
@@ -16,6 +18,28 @@ class EmailContract:
     pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate output_format against Email's single canonical form.
+
+        Email has exactly one canonical output form. Accepted values are
+        ``None`` (unset), ``"default"``, and ``"email"`` (the single
+        canonical form); any other value raises :class:`ContractError`.
+
+        Raises:
+            ContractError: If ``output_format`` is not ``None``, ``"default"``,
+                or ``"email"``.
+        """
+        object.__setattr__(
+            self,
+            "output_format",
+            resolve_output_format(
+                self.output_format,
+                capability_name="email",
+                offered_formats=frozenset(),
+                default_format="email",
+            ),
+        )
 
     @property
     def active_grammars(self) -> list[str]:

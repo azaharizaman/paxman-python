@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from paxman.core.contract import resolve_output_format
+
 
 @dataclass(frozen=True)
 class IPContract:
@@ -16,6 +18,28 @@ class IPContract:
     pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = None
+
+    def __post_init__(self) -> None:
+        """Validate output_format against IP's single canonical form.
+
+        IP has exactly one canonical output form. Accepted values are
+        ``None`` (unset), ``"default"``, and ``"ip"`` (the single canonical
+        form); any other value raises :class:`ContractError`.
+
+        Raises:
+            ContractError: If ``output_format`` is not ``None``, ``"default"``,
+                or ``"ip"``.
+        """
+        object.__setattr__(
+            self,
+            "output_format",
+            resolve_output_format(
+                self.output_format,
+                capability_name="ip",
+                offered_formats=frozenset(),
+                default_format="ip",
+            ),
+        )
 
     @property
     def active_grammars(self) -> list[str]:

@@ -5,11 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from paxman.core.errors import ContractError
+from paxman.core.contract import resolve_output_format
 
-VALID_OUTPUT_FORMATS: frozenset[str] = frozenset(
-    {"alpha2", "alpha3", "numeric", "name"}
-)
+VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"alpha3", "numeric", "name"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,13 +52,23 @@ class CountryContract:
         ]
 
     def __post_init__(self) -> None:
-        """Validate output_format value."""
-        if self.output_format not in VALID_OUTPUT_FORMATS:
-            msg = (
-                f"Invalid output_format: {self.output_format!r}. "
-                f"Must be one of {sorted(VALID_OUTPUT_FORMATS)}"
-            )
-            raise ContractError(msg)
+        """Validate output_format value.
+
+        Country's default canonical output is ``"alpha2"``. Accepted values
+        are ``None`` (unset), ``"default"``, ``"alpha2"`` (the default), and
+        the offered alternatives ``alpha3``, ``numeric``, ``name``. Anything
+        else raises ContractError.
+        """
+        object.__setattr__(
+            self,
+            "output_format",
+            resolve_output_format(
+                self.output_format,
+                capability_name="country",
+                offered_formats=VALID_OUTPUT_FORMATS,
+                default_format="alpha2",
+            ),
+        )
 
     def as_dict(self) -> dict[str, Any]:
         """Serialize for replay hash computation.
