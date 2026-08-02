@@ -45,12 +45,12 @@ class EmailCapability(Capability[EmailNotation]):
     @staticmethod
     def create_contract(
         *,
-        include_obfuscated: bool = False,
-        include_localhost: bool = True,
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        include_obfuscated: bool = False,
+        include_localhost: bool = True,
     ) -> EmailContract:
         """Create an EmailContract with the given configuration."""
         return EmailContract(

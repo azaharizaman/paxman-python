@@ -3,43 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import ClassVar
 
-from paxman.core.contract import resolve_output_format
+from paxman.core.contract import CapabilityContract
 
 
 @dataclass(frozen=True)
-class EmailContract:
+class EmailContract(CapabilityContract):
     """User-facing contract for Email capability."""
+
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "email"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset()
 
     capability_name: str = field(default="email", init=False)
     include_obfuscated: bool = False
     include_localhost: bool = True
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    pinned_rules: tuple[str, ...] | None = None
-    year: int | None = None
-    output_format: str | None = None
-
-    def __post_init__(self) -> None:
-        """Validate output_format against Email's single canonical form.
-
-        Email has exactly one canonical output form. Accepted values are
-        ``None`` (unset), ``"default"``, and ``"email"`` (the single
-        canonical form); any other value raises :class:`ContractError`.
-
-        Raises:
-            ContractError: If ``output_format`` is not ``None``, ``"default"``,
-                or ``"email"``.
-        """
-        object.__setattr__(
-            self,
-            "output_format",
-            resolve_output_format(
-                self.output_format,
-                capability_name="email",
-                offered_formats=frozenset(),
-                default_format="email",
-            ),
-        )
 
     @property
     def active_grammars(self) -> list[str]:
@@ -50,13 +28,8 @@ class EmailContract:
         }
         return [name for name, active in grammar_rules.items() if active]
 
-    def as_dict(self) -> dict[str, object]:
+    def _extra_dict_fields(self) -> dict[str, object]:
         return {
-            "capability_name": self.capability_name,
             "include_obfuscated": self.include_obfuscated,
             "include_localhost": self.include_localhost,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-            "output_format": self.output_format,
         }
