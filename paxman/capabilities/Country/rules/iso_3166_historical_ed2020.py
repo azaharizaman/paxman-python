@@ -112,6 +112,5 @@ class SectionHistoricalNames(Rule[CountryNotation]):
         if notation.shape == "numeric":
             return FORMER_NUMERIC_TO_ALPHA2[_normalize_numeric_key(notation.value)]
 
-        # Should not reach here if matches() properly validated
-        msg = f"Unsupported notation shape for historical rule: {notation.shape}"
-        raise ValueError(msg)
+        # Should not reach here if matches() properly validated; be defensive.
+        return notation.value.upper()

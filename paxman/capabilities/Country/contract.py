@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import ClassVar
 
-from paxman.core.contract import resolve_output_format
-
-VALID_OUTPUT_FORMATS: frozenset[str] = frozenset({"alpha3", "numeric", "name"})
+from paxman.core.capability_contract import CapabilityContract
 
 
-@dataclass(frozen=True, slots=True)
-class CountryContract:
+@dataclass(frozen=True)
+class CountryContract(CapabilityContract):
     """User-facing configuration for Country capability.
 
     Attributes:
@@ -25,6 +23,11 @@ class CountryContract:
         include_historical: Enable deprecated country names.
     """
 
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "alpha2"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset(
+        {"alpha3", "numeric", "name"}
+    )
+
     capability_name: str = field(default="country", init=False)
 
     # Standard contract fields
@@ -35,7 +38,7 @@ class CountryContract:
     # Capability-specific fields
     include_localized: bool = False
     include_historical: bool = False
-    output_format: str = "alpha2"
+    output_format: str | None = None
 
     @property
     def active_grammars(self) -> list[str]:
@@ -51,37 +54,13 @@ class CountryContract:
             "name_recognition",
         ]
 
-    def __post_init__(self) -> None:
-        """Validate output_format value.
-
-        Country's default canonical output is ``"alpha2"``. Accepted values
-        are ``None`` (unset), ``"default"``, ``"alpha2"`` (the default), and
-        the offered alternatives ``alpha3``, ``numeric``, ``name``. Anything
-        else raises ContractError.
-        """
-        object.__setattr__(
-            self,
-            "output_format",
-            resolve_output_format(
-                self.output_format,
-                capability_name="country",
-                offered_formats=VALID_OUTPUT_FORMATS,
-                default_format="alpha2",
-            ),
-        )
-
-    def as_dict(self) -> dict[str, Any]:
-        """Serialize for replay hash computation.
+    def _extra_dict_fields(self) -> dict[str, object]:
+        """Serialize capability-specific fields for replay hash.
 
         Returns:
-            Dictionary representation of all fields.
+            Dictionary of include_localized and include_historical flags.
         """
         return {
-            "capability_name": self.capability_name,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-            "output_format": self.output_format,
             "include_localized": self.include_localized,
             "include_historical": self.include_historical,
         }
