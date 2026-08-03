@@ -45,9 +45,14 @@ def _concrete_rule_classes() -> list[type[Rule[Any]]]:
 class TestRuleMetadataEnforcement:
     @pytest.mark.unit
     def test_all_concrete_rule_classes_define_metadata(self) -> None:
-        """Every concrete Rule subclass in paxman.capabilities defines metadata."""
+        """Every concrete Rule subclass in paxman.capabilities defines metadata.
+
+        The lower bound guards against accidental rule regressions; the
+        precise count is intentionally not pinned so that adding a new rule
+        (the documented contributor workflow) does not break this guard.
+        """
         rule_classes = _concrete_rule_classes()
-        assert len(rule_classes) == 18
+        assert len(rule_classes) >= 18
         for rule_cls in rule_classes:
             for attr in _RULE_METADATA_ATTRS:
                 assert hasattr(rule_cls, attr), f"{rule_cls.__name__} missing {attr}"

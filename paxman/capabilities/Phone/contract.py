@@ -48,9 +48,10 @@ class PhoneContract(CapabilityContract):
         default_country: ISO 3166-1 alpha-2 country code used to interpret
             national-shaped input (e.g., "US" for "(555) 234-5678"). When None,
             national-shaped input is recognized but never validated (status
-            INVALID). Required when output_format is "national" — national
-            numbers carry no country code in their digits, so they can only
-            be interpreted relative to a default country.
+            INVALID) — national-shaped numbers carry no country code in their
+            digits and so cannot be resolved without a default country. For
+            E.164, tel-URI, and NANP inputs the country code is embedded in the
+            value itself, so "national" output works without default_country.
         output_format: Canonical output format ("e164" default, "rfc3966",
             or "national" for the national significant number). Optional —
             None/"default"/"e164" all resolve to "e164".
@@ -73,23 +74,22 @@ class PhoneContract(CapabilityContract):
         """Validate contract configuration.
 
         Calls the base resolution first, then enforces Phone-specific rules:
-        default_country must be an uppercase alpha-2 code when present, and
-        the "national" output format requires a default_country
-        (national-shaped input carries no country code, so it can only be
-        interpreted relative to a default country).
+        default_country must be an uppercase alpha-2 code when present.
+
+        ``output_format="national"`` is permitted with or without
+        ``default_country``. It is required only for *national-shaped* input,
+        which carries no country code in its digits — that requirement is
+        enforced by the NANP rules' ``matches()`` (they return False when
+        ``default_country`` is not a NANP country). For E.164, tel-URI, and
+        NANP inputs the country code is embedded in the value and is split out
+        by the rules, so ``"national"`` output works without default_country.
 
         Raises:
-            ContractError: If output_format is unsupported, default_country is
-                not an uppercase alpha-2 code, or output_format is "national"
-                with no default_country.
+            ContractError: If output_format is unsupported or default_country is
+                present but not an uppercase alpha-2 code.
         """
         super().__post_init__()
         _validate_alpha2(self.default_country)
-        if self.output_format == "national" and self.default_country is None:
-            raise ContractError(
-                "output_format='national' requires default_country "
-                "(national numbers carry no country code and need a default country)"
-            )
 
     @property
     def active_grammars(self) -> list[str]:

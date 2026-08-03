@@ -2,10 +2,14 @@
 
 import pytest
 
+from paxman.api import canonicalize
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.capabilities.Phone.rules.rfc_3966_ed2004 import Section3TelUri
 from paxman.core.capability import Capability
+from paxman.core.discovery import register_capability, reset_registry
+from paxman.core.domain import Resolution
 from paxman.core.errors import ContractError
 
 
@@ -224,14 +228,14 @@ class TestPhoneContractValidation:
         """All documented output formats construct successfully."""
         assert PhoneContract(output_format="e164").output_format == "e164"
         assert PhoneContract(output_format="rfc3966").output_format == "rfc3966"
-        # "national" has no embedded country code — needs default_country.
-        contract = PhoneContract(default_country="US", output_format="national")
+        # "national" works without default_country: for E.164/tel-URI/NANP
+        # inputs the country code is embedded in the value and split by the
+        # rules, so it needs no default_country to render the NSN.
+        contract = PhoneContract(output_format="national")
         assert contract.output_format == "national"
-
-    def test_rejects_national_without_default_country(self) -> None:
-        """output_format='national' requires default_country."""
-        with pytest.raises(ContractError):
-            PhoneContract(output_format="national")
+        # And it still works with a default_country present.
+        with_country = PhoneContract(default_country="US", output_format="national")
+        assert with_country.output_format == "national"
 
     def test_accepts_default_output_format(self) -> None:
         """'default' reverts to the default e164 output."""
@@ -263,3 +267,43 @@ class TestPhoneContractValidation:
         """default_country must be exactly 2 letters."""
         with pytest.raises(ContractError):
             PhoneContract(default_country="USA")
+
+
+class TestPhoneNationalOutput:
+    """E2E behavior for output_format='national' without default_country.
+
+    For E.164 / tel-URI / NANP inputs the country code is embedded in the
+    value and split out by the rules, so 'national' output must NOT require
+    a default_country (regression guard for the contract-level restriction
+    that previously blocked this working path).
+    """
+
+    def setup_method(self) -> None:
+        """Register the Phone capability for each test."""
+        reset_registry()
+        register_capability(PhoneCapability())
+
+    def teardown_method(self) -> None:
+        """Reset the registry so other tests start clean."""
+        reset_registry()
+
+    def test_national_from_e164_without_default_country(self) -> None:
+        """'+1 555 123 4567' → '5551234567' with no default_country."""
+        contract = PhoneContract(output_format="national")
+        result = canonicalize("+1 555 123 4567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "5551234567"
+
+    def test_national_from_tel_uri_without_default_country(self) -> None:
+        """'tel:+15551234567' → '5551234567' with no default_country."""
+        contract = PhoneContract(output_format="national")
+        result = canonicalize("tel:+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "5551234567"
+
+    def test_national_from_rfc3966_rule_without_default_country(self) -> None:
+        """The RFC 3966 rule's national branch works sans default_country."""
+        rule = Section3TelUri()
+        notation = PhoneNotation(shape="rfc3966", value="15551234567")
+        contract = PhoneContract(output_format="national")
+        assert rule.normalize(notation, contract) == "5551234567"

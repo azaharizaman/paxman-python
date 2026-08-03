@@ -83,11 +83,13 @@ class PhoneCapability(Capability[PhoneNotation]):
             year: Year for temporal filtering.
             output_format: Output format for canonical values. Optional;
                 None/"default"/"e164" resolve to "e164", or one of the
-                offered alternatives "rfc3966"/"national". "national"
-                requires default_country.
+                offered alternatives "rfc3966"/"national". For E.164, tel-URI,
+                and NANP inputs "national" works without default_country
+                (the country code is embedded in the value); for national-shaped
+                input it needs default_country to resolve the value.
             default_country: ISO 3166-1 alpha-2 country code used to resolve
-                national numbers (e.g., "US"). Required when output_format
-                is "national".
+                national-shaped numbers (e.g., "US"). Required for "national"
+                output from national-shaped input; optional otherwise.
 
         Returns:
             Configured PhoneContract instance.

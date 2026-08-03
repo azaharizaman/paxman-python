@@ -44,7 +44,7 @@ class TestSection6_1InternationalNumber:
         the national output one digit longer.
         """
         notation = PhoneNotation(shape="e164", value="886212345678")
-        contract = PhoneContract(default_country="US", output_format="national")
+        contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "212345678"
 
     def test_matches_max_length(self) -> None:
@@ -101,13 +101,13 @@ class TestSection6_1InternationalNumber:
     def test_normalize_national_format(self) -> None:
         """Verify national (NSN) output format."""
         notation = PhoneNotation(shape="e164", value="15551234567")
-        contract = PhoneContract(default_country="US", output_format="national")
+        contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "5551234567"
 
     def test_normalize_national_defensive_no_assigned_cc(self) -> None:
         """National normalization is defensive when no country code splits."""
         notation = PhoneNotation(shape="e164", value="999123456789")
-        contract = PhoneContract(default_country="US", output_format="national")
+        contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "999123456789"
 
     def test_provenance_attributes(self) -> None:
@@ -258,13 +258,13 @@ class TestSection3TelUri:
     def test_normalize_national_format(self) -> None:
         """Verify national (NSN) output format strips the country code."""
         notation = PhoneNotation(shape="rfc3966", value="15551234567")
-        contract = PhoneContract(default_country="US", output_format="national")
+        contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "5551234567"
 
     def test_normalize_national_defensive_no_assigned_cc(self) -> None:
         """National normalization is defensive when no country code splits."""
         notation = PhoneNotation(shape="rfc3966", value="999123456789")
-        contract = PhoneContract(default_country="US", output_format="national")
+        contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "999123456789"
 
     def test_provenance_attributes(self) -> None:
@@ -389,7 +389,7 @@ class TestSection1_1NANPStructure:
     def test_normalize_national_format(self) -> None:
         """Verify national output format (NSN)."""
         notation = PhoneNotation(shape="national", value="5552345678")
-        contract = PhoneContract(default_country="US", output_format="national")
+        contract = PhoneContract(output_format="national")
         assert self.rule.normalize(notation, contract) == "5552345678"
 
     def test_normalize_rfc3966_format(self) -> None:
