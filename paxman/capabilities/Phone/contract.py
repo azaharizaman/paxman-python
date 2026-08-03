@@ -45,11 +45,12 @@ class PhoneContract(CapabilityContract):
 
     Attributes:
         capability_name: Fixed to "phone" (not user-settable).
-        default_country: ISO 3166-1 alpha-2 country code used to resolve
-            national numbers (e.g., "US"). When None, national-shaped input
-            is recognized but never validated (status INVALID). Required
-            when output_format is "national" (a national number has no
-            country code embedded, so it cannot be rendered without one).
+        default_country: ISO 3166-1 alpha-2 country code used to interpret
+            national-shaped input (e.g., "US" for "(555) 234-5678"). When None,
+            national-shaped input is recognized but never validated (status
+            INVALID). Required when output_format is "national" — national
+            numbers carry no country code in their digits, so they can only
+            be interpreted relative to a default country.
         output_format: Canonical output format ("e164" default, "rfc3966",
             or "national" for the national significant number). Optional —
             None/"default"/"e164" all resolve to "e164".
@@ -73,9 +74,9 @@ class PhoneContract(CapabilityContract):
 
         Calls the base resolution first, then enforces Phone-specific rules:
         default_country must be an uppercase alpha-2 code when present, and
-        the "national" output format requires a default_country (a national
-        number has no country code embedded, so it cannot be rendered
-        without one).
+        the "national" output format requires a default_country
+        (national-shaped input carries no country code, so it can only be
+        interpreted relative to a default country).
 
         Raises:
             ContractError: If output_format is unsupported, default_country is
@@ -87,7 +88,7 @@ class PhoneContract(CapabilityContract):
         if self.output_format == "national" and self.default_country is None:
             raise ContractError(
                 "output_format='national' requires default_country "
-                "(a national number has no embedded country code)"
+                "(national numbers carry no country code and need a default country)"
             )
 
     @property
