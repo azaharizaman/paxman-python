@@ -33,6 +33,8 @@ class Section63localhost(Rule[EmailNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 6.3 (localhost)"
+    target_grammars = frozenset({"localhost_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         return notation.domain_part == "localhost"
