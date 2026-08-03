@@ -216,6 +216,10 @@ Create a class that extends `Rule`:
    - `PARSER` — for rules that parse and validate structured input
 3. Set `provenance` to the `PUBLICATION` constant defined above
 4. Set `citation` to a human-readable citation (e.g., "Section 3.4.1 (addr-spec)")
+5. Set `target_grammars` to the `frozenset[str]` of grammar names whose notations this rule validates (e.g., `frozenset({"standard_recognition"})`)
+6. Set `requires_features` to the `frozenset[str]` of contract fields that must be truthy for the rule to run (`frozenset()` when it always runs)
+
+All six attributes are enforced by `Rule.__init_subclass__` at class-definition time; see the Rule metadata section in Step 7.
 
 ### 5c: Implement the `matches` method
 
@@ -250,10 +254,11 @@ def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
 - Only called after `matches` returns `True` (you can assume the notation is valid)
 - Apply normalization rules from the specification (e.g., lowercase, remove whitespace, pad with zeros)
 - Use contract parameters to control output format (e.g., `contract.output_format`). Note: after construction, `contract.output_format` always holds a concrete format string (the capability's default when unset), so compare it directly against your offered format names — never guard on `None`.
+- **Use `output_format` only to *format* the canonical value — never to decide whether a notation is valid, and never to select among competing candidates.** `normalize()` applies `output_format` while producing the candidate value, and the engine computes the `Resolution` status from those candidate values; a rule must never use `output_format` to accept/reject a notation or to prefer one candidate over another. See the presentational-only invariant below.
 
 ### Accessing Capability-Specific Contract Fields
 
-Your rules receive the base `Contract` protocol type. To access capability-specific fields (like `two_digit_base_year` or `include_historical`), use `typing.cast`:
+Your rules receive the base `Contract` protocol type. To access capability-specific fields that carry parameters, like `two_digit_base_year` or `default_country`, use `typing.cast`:
 
 ```python
 from typing import cast
@@ -268,7 +273,9 @@ class SectionYourRule(Rule[YourDomainNotation]):
 
 **Why cast?** The engine passes `Contract` (the protocol type) to rules. Your rules know they'll only be called with your capability's contract, so the cast is safe. The alternative — checking `isinstance` — adds unnecessary runtime overhead.
 
-**When to use:** Only when your rule needs capability-specific fields. Standard fields (`year`, `output_format`, `pinned_rules`) are available on the base protocol.
+**When to use:** When your rule needs a capability-specific parameter, such as `two_digit_base_year` (Date) or `default_country` (Phone). Parameters that affect validity may be read in `matches()`; rendering-only `output_format` is read in `normalize()`. Standard fields (`year`, `output_format`, `pinned_rules`) are available on the base protocol.
+
+**When not to use:** Never cast to read feature-toggle flags (`include_*`) for gating. Feature routing is the engine's job: declare the dependency in `Rule.requires_features`, and the engine drops the rule when the flag is false. `matches()` must never consult `include_*` flags or `output_format`; validity comes from the notation, the specification, and legitimate validity-affecting parameters.
 
 ---
 
@@ -361,7 +368,7 @@ Capability-specific parameters come after the common block. Every capability sat
 
 **3. Rule metadata**
 
-Every `Rule` subclass must define `name`, `strategy`, `provenance`, and `citation` as class attributes. `Rule.__init_subclass__` enforces this at class-definition time — a subclass missing any of them fails to import with a `TypeError`:
+Every `Rule` subclass must declare six class attributes: `name`, `strategy`, `provenance`, `citation`, `target_grammars`, and `requires_features`. `Rule.__init_subclass__` enforces this at class-definition time, and a subclass missing any of them fails to import with a `TypeError`:
 
 ```python
 class SectionYourRule(Rule[YourDomainNotation]):
@@ -369,7 +376,19 @@ class SectionYourRule(Rule[YourDomainNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 1 (your-rule)"
+    target_grammars = frozenset({"your_recognition"})
+    requires_features = frozenset()
 ```
+
+- **`target_grammars: ClassVar[frozenset[str]]`** is the non-empty set of grammar names whose notations this rule validates. The engine uses it for affinity routing: each recognition is validated only by rules whose `target_grammars` includes the producing grammar's name, and a rule declaring a grammar the capability does not have fails fast with a `ContractError` before any candidate is produced. `Rule.__init_subclass__` also rejects an empty set at import time, since such a rule could never match a recognition.
+- **`requires_features: ClassVar[frozenset[str]]`** is the set of Contract field names that must be truthy for the rule to run. An empty set is valid and is the common case: it means the rule always runs once selected. The engine validates that every named feature exists on the contract (a missing name raises `ContractError`) and applies the final feature filter *after* pinning, exclusion, and year selection: a rule whose required feature is present but `False` is dropped.
+
+**Feature gating has two loci, and they produce different `Resolution` statuses:**
+
+- **Input-shape features toggle grammars via `active_grammars`.** A flag like `include_obfuscated` decides whether the `obfuscated_recognition` grammar runs at all. A disabled grammar recognizes nothing, so input readable only by that grammar yields `MISSING`.
+- **Authority features use `requires_features`.** A flag like `include_localized` gates the CLDR rule that validates localized names, not the grammar. Recognition still runs and produces a notation, but the engine drops the gated rule, so the recognized-but-unvalidated input yields `INVALID`.
+
+**Hard rule: never gate inside `matches()`.** Do not read `include_*` feature-toggle flags, and do not `cast(Contract, ...)` to reach them, inside `matches()`. `matches()` must never consult `output_format` either; validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). The engine owns feature routing: declare the dependency in `requires_features` and let the filter decide whether the rule runs.
 
 **4. `normalize()` never raises**
 
@@ -477,6 +496,18 @@ The acceptance rules (enforced by `resolve_output_format`) are:
 | anything else (e.g. `""`, `"None"`, `"none"`, a typo) | — | raises `ContractError` |
 
 The key invariant: `None`, `"default"`, and the default format string are **treated identically by rules** — they leave the canonical value untouched. Only an explicit offered alternative triggers reformatting. This means a caller who omits `output_format`, passes `output_format="default"`, or passes the default format string gets exactly the same result, with no behavioral or replay-hash difference.
+
+#### Presentational-only invariant (hard rule)
+
+`output_format` is a *representation* transform, never a *recognition* or *validation* signal. `normalize()` applies `output_format` while producing each candidate value, and the engine computes the `Resolution` status from those candidate values. The format choice cannot change which candidates exist — `matches()` never consults it, and `normalize()` never uses it to accept/reject or to route — so it only changes how each candidate is rendered. This is the contract mandate: the pipeline reports what authoritative specifications say, regardless of how the caller wants the answer displayed. Concretely:
+
+- **`normalize()` renders; the engine counts.** Each rule's `normalize()` applies `output_format` to its validated notation and returns the formatted string; the engine stores that string as the candidate value and computes status from the set of distinct candidate values. No grammar is re-run, no input is re-parsed, and no rule is re-invoked.
+- **`output_format` never filters candidates.** `normalize()` may read `output_format` to choose how to *render* the value, but must never use it to accept/reject a notation or to prefer one candidate over another, and `matches()` must never read `output_format` at all. Validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). Using `output_format` to disambiguate (e.g. "drop the EU interpretation because `output_format='US'`") is forbidden — it would silently change the candidates the engine sees and break the always-report-ambiguity guarantee.
+- **Offered formats must be injective.** Each offered `output_format` must map distinct canonical values to distinct formatted strings (a per-format bijection). Because the engine computes status from the formatted candidate values, a lossy format — one that drops information, such as "year only" — is a defect: it could collapse two genuinely different canonical values into one candidate value and hide an `AMBIGUOUS` result.
+
+Example — Date input `"01/02/2026"` is recognized by both the US and European grammars and validated by both rules, yielding two distinct canonical values (`2026-01-02` and `2026-02-01`). The result is `AMBIGUOUS` regardless of `output_format`. `output_format="US"` merely renders those two values as `01/02/2026` and `02/01/2026`; it cannot and must not decide which interpretation is "correct".
+
+> Note: the grammar→rule routing decision (which rule validates which recognized notation) is an entirely separate concern from `output_format`. Routing is declared on the rule (e.g. `Rule.target_grammars`); it operates in the recognition→validation stage and never touches formatting. Keep the two orthogonal.
 
 Example wiring — inherited from `CapabilityContract`, you only set the class variables:
 
@@ -847,6 +878,10 @@ Compile regex patterns at module level, not inside the `recognize` method. Recom
 
 The `matches` method must return `False` for any invalid input, never raise. The `normalize` method is only called after `matches` returns `True`, but it must also never raise — not `ValidationError`, `RecognitionError`, `ContractError`, or `ValueError`. Handle edge cases defensively: best-effort returns, and unreachable branches return the input unchanged. Contract misconfigurations are caught in the contract's `__post_init__`, not in rule methods.
 
+### Pitfall: Using `output_format` as a Routing or Filtering Signal
+
+`output_format` is a presentation transform, not a recognition or validation signal. A rule must never read `output_format` to accept/reject a notation in `matches()`, to prefer one candidate over another, or to disambiguate between competing interpretations. Doing so would let an output preference silently change the `Resolution` status (e.g. collapsing `AMBIGUOUS` into `SUCCESS`), violating the mandate to always report ambiguity. `normalize()` applies `output_format` while producing the candidate value, and the engine computes status from those candidate values, so each offered format must be injective: distinct canonical values must never render to the same string. See the presentational-only invariant above.
+
 ### Pitfall: Contract Fields Must Have Defaults
 
 Users should be able to construct a contract with zero arguments: `YourDomainContract()`. All fields except `capability_name` must have sensible defaults.
@@ -937,7 +972,7 @@ Your capability must be registered in `paxman/capabilities/__init__.py`. Without
 
 ### Pitfall: Not Using `typing.cast` for Contract-Specific Fields
 
-If your rule needs to access capability-specific contract fields (like `two_digit_base_year` or `include_historical`), you must use `typing.cast` to narrow the type. Accessing undefined attributes on the base `Contract` protocol will fail at runtime.
+If your rule needs to read a capability-specific parameter (like `two_digit_base_year` or `default_country`), you must use `typing.cast` to narrow the type. Accessing undefined attributes on the base `Contract` protocol will fail at runtime. Feature-toggle flags (`include_*`) are not cast-for parameters: declare them in `Rule.requires_features` and let the engine gate the rule.
 
 ---
 
@@ -948,12 +983,14 @@ Use this checklist to verify your capability is complete:
 - [ ] Notation is a frozen dataclass with `as_list()` method
 - [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[YourDomainNotation]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
+- [ ] Each rule declares `target_grammars` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
 - [ ] Each rule file has a `PUBLICATION` provenance constant
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
 - [ ] Contract inherits `CapabilityContract` (frozen dataclass, no `slots=True`) and satisfies the `Contract` protocol
 - [ ] Contract inherits `pinned_rules: tuple[str, ...] | None = None` from `CapabilityContract`
 - [ ] Contract inherits `output_format` from `CapabilityContract` (always optional; base `__post_init__` validates via `resolve_output_format`)
 - [ ] Contract declares a `DEFAULT_OUTPUT_FORMAT` (concrete string) and `OFFERED_OUTPUT_FORMATS` (alternatives only, excluding the default)
+- [ ] `output_format` is used only for presentation: rules never use it to filter `matches()`, to select candidates, or to collapse ambiguity; all offered formats are injective w.r.t. the canonical value (see presentational-only invariant)
 - [ ] Contract overrides `_extra_dict_fields()` with all capability-specific fields that affect behavior (never hand-writes `as_dict()`)
 - [ ] If using lookup tables: `rules/data/` directory contains data files
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`
