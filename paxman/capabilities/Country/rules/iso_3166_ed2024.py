@@ -48,6 +48,8 @@ class SectionAlpha2Codes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 alpha-2 codes"
+    target_grammars = frozenset({"alpha2_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid alpha-2 code.
@@ -97,6 +99,8 @@ class SectionAlpha3Codes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 alpha-3 codes"
+    target_grammars = frozenset({"alpha3_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid alpha-3 code.
@@ -147,6 +151,8 @@ class SectionNumericCodes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 numeric (M49) codes"
+    target_grammars = frozenset({"numeric_recognition"})
+    requires_features = frozenset()
 
     def _normalize_key(self, value: str) -> str:
         """Zero-pad numeric value to 3 digits (M49 standard format)."""
@@ -204,6 +210,8 @@ class SectionNames(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 official English short names"
+    target_grammars = frozenset({"name_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid country name or synonym.

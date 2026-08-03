@@ -15,9 +15,6 @@ support:
 
 from __future__ import annotations
 
-from typing import cast
-
-from paxman.capabilities.Country.contract import CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
     FORMER_ALPHA2_CODES,
@@ -54,16 +51,24 @@ class SectionHistoricalNames(Rule[CountryNotation]):
     per ISO 3166-3. Returns the historical entity's own former alpha-2
     code as the canonical value.
 
-    Only active when contract.include_historical is True.
+    Activation is engine-owned: the engine runs this rule only when the
+    contract enables ``include_historical``, via ``Rule.requires_features``.
     """
 
     name = "Section-historical-names"
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-3:2020 (formerly used names)"
+    target_grammars = frozenset(
+        {"name_recognition", "alpha2_recognition", "numeric_recognition"}
+    )
+    requires_features = frozenset({"include_historical"})
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid formerly used country reference.
+
+        Validates notation/table membership only. Whether the rule runs at
+        all is decided by the engine from ``requires_features``.
 
         Accepts multiple shapes:
         - name:    checks FORMER_NAME_TO_ALPHA2
@@ -75,13 +80,8 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if include_historical AND notation is a valid
-            formerly used country.
+            True if notation is a valid formerly used country.
         """
-        country_contract = cast(CountryContract, contract)
-        if not country_contract.include_historical:
-            return False
-
         if notation.shape == "name":
             return notation.value.upper() in FORMER_NAME_TO_ALPHA2
 

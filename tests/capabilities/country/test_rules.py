@@ -349,11 +349,16 @@ class TestSectionHistoricalNames:
         notation = CountryNotation(shape="name", value="SOVIET UNION")
         assert self.rule.matches(notation, contract) is True
 
-    def test_rejects_when_disabled(self) -> None:
-        """Notation rejected when historical disabled (default)."""
+    def test_matches_validates_notation_ignoring_feature_flag(self) -> None:
+        """matches() validates notation/table membership, not the feature flag.
+
+        Activation when ``include_historical`` is False (the default) is
+        engine-owned via ``requires_features``; matches() itself must still
+        accept the notation.
+        """
         contract = CountryContract()
         notation = CountryNotation(shape="name", value="BURMA")
-        assert self.rule.matches(notation, contract) is False
+        assert self.rule.matches(notation, contract) is True
 
     def test_accepts_historical_alpha2(self) -> None:
         """Now accepts alpha2 shape for historical codes (round-trip)."""
@@ -416,11 +421,16 @@ class TestSectionHistoricalNames:
         notation = CountryNotation(shape="numeric", value="200")
         assert self.rule.matches(notation, contract) is True
 
-    def test_rejects_historical_numeric_when_disabled(self) -> None:
-        """Historical numeric code rejected when historical disabled."""
+    def test_matches_validates_numeric_notation_ignoring_feature_flag(self) -> None:
+        """matches() validates numeric table membership, not the feature flag.
+
+        Activation when ``include_historical`` is False (the default) is
+        engine-owned via ``requires_features``; matches() itself must still
+        accept the notation.
+        """
         contract = CountryContract()
         notation = CountryNotation(shape="numeric", value="200")
-        assert self.rule.matches(notation, contract) is False
+        assert self.rule.matches(notation, contract) is True
 
     def test_normalize_historical_numeric(self) -> None:
         """Historical numeric code normalizes to former alpha-2 (always alpha2)."""
