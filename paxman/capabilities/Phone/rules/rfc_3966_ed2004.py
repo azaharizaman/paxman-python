@@ -34,6 +34,8 @@ class Section3TelUri(Rule[PhoneNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 3 (tel URI) / Section 3.1 (global numbers)"
+    target_grammars = frozenset({"tel_uri_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
         """Check if the notation is a valid tel-URI global number.
