@@ -12,7 +12,14 @@ import paxman.capabilities
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
-_RULE_METADATA_ATTRS = ("name", "strategy", "provenance", "citation")
+_RULE_METADATA_ATTRS = (
+    "name",
+    "strategy",
+    "provenance",
+    "citation",
+    "target_grammars",
+    "requires_features",
+)
 
 _TEST_PROVENANCE = Provenance(
     authority="test",
@@ -86,6 +93,30 @@ class TestRuleMetadataEnforcement:
                     provenance = _TEST_PROVENANCE
                 if missing != "citation":
                     citation = "test citation"
+                if missing != "target_grammars":
+                    target_grammars = frozenset({"test_grammar"})
+                if missing != "requires_features":
+                    requires_features = frozenset()
+
+                def matches(self, notation: str, contract: Contract) -> bool:
+                    return True
+
+                def normalize(self, notation: str, contract: Contract) -> str:
+                    return ""
+
+    @pytest.mark.unit
+    def test_empty_target_grammars_raises(self) -> None:
+        """An empty target_grammars frozenset is valid type-wise but a bug:
+        the rule would match nothing. The runtime guard must reject it."""
+        with pytest.raises(TypeError, match="non-empty"):
+
+            class _EmptyTargetGrammars(Rule[str]):
+                name = "test_rule"
+                strategy = RuleStrategy.REGEX
+                provenance = _TEST_PROVENANCE
+                citation = "test citation"
+                target_grammars = frozenset()
+                requires_features = frozenset()
 
                 def matches(self, notation: str, contract: Contract) -> bool:
                     return True

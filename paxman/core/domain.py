@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Generic, TypeVar, cast
+from typing import ClassVar, Generic, TypeVar, cast
 
 from paxman.core.contract import Contract
 
@@ -135,19 +135,31 @@ class Rule(ABC, Generic[NotationT]):
     strategy: RuleStrategy
     provenance: Provenance
     citation: str
+    target_grammars: ClassVar[frozenset[str]]
+    requires_features: ClassVar[frozenset[str]]
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Enforce Rule metadata at class-definition time."""
         super().__init_subclass__(**kwargs)
-        missing = [
-            attr
-            for attr in ("name", "strategy", "provenance", "citation")
-            if not hasattr(cls, attr)
-        ]
+        required = (
+            "name",
+            "strategy",
+            "provenance",
+            "citation",
+            "target_grammars",
+            "requires_features",
+        )
+        missing = [attr for attr in required if not hasattr(cls, attr)]
         if missing:
             raise TypeError(
                 f"{cls.__name__} must define Rule metadata: {', '.join(missing)}"
             )
+        # Type and element-type are enforced statically by the
+        # ``ClassVar[frozenset[str]]`` annotation; only the non-empty constraint
+        # needs a runtime guard (an empty frozenset is valid type-wise but would
+        # make the rule match nothing).
+        if not cls.target_grammars:
+            raise TypeError(f"{cls.__name__}.target_grammars must be non-empty")
 
     @abstractmethod
     def matches(self, notation: NotationT, contract: Contract) -> bool: ...
