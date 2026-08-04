@@ -462,3 +462,53 @@ class TestCountryPipeline:
 
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "SU"
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        ("output_format", "expected"),
+        [("alpha3", "DEU"), ("numeric", "276"), ("name", "GERMANY")],
+    )
+    def test_localized_name_uses_current_format_mapping(
+        self, output_format: str, expected: str
+    ) -> None:
+        """Localized names format through the current alpha-2 mapping.
+
+        A CLDR/Unicode-resolved name produces an alpha-2 canonical value that
+        the capability formatter converts to the requested alternative format
+        while retaining Unicode provenance.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_localized=True, output_format=output_format
+        )
+        result = run_capability("Alemania", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == expected
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("output_format", ["alpha3", "numeric", "name"])
+    def test_historical_name_passes_through_for_all_formats(
+        self, output_format: str
+    ) -> None:
+        """Former codes pass through unchanged for every requested format.
+
+        ``SU`` has no entry in the current ISO 3166-1 conversion tables, so
+        alpha-3/numeric/name requests must return the former code unchanged
+        while retaining ISO 3166-3 provenance — distinct from the localized
+        current-mapping behavior above.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_historical=True, output_format=output_format
+        )
+        result = run_capability("USSR", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "SU"
+        assert {
+            p.specification_name for c in result.candidates for p in c.provenance
+        } == {"ISO 3166-3"}
