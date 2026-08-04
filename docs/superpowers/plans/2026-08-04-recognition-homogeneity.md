@@ -57,7 +57,7 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
 - The candidate set is unchanged: the five default replay hashes in Task 1 are a snapshot gate that must stay green through Task 9.
 - Grammars do syntax only (extraction + separator/case normalization). No grammar imports from `rules`; no rule imports from `grammar` (purity gate, Task 8). Semantic decisions stay in rules with provenance.
 - `_dedup_candidates` (value, recognition_rule, validation_rule) is untouched — it is the candidate-level safety net that makes grammar-level value dedup removable.
-- Candidate ORDER within `ExecutionResult.candidates` may change (it follows recognition order). The replay hash sorts candidates, so hashes are unaffected; no test pins multi-candidate order (verified 2026-08-04).
+- Candidate ORDER within `ExecutionResult.candidates` follows recognition order; the replay hash sorts candidates, so hashes are unaffected. One test pins multi-candidate order on purpose: `test_recognition_seam.py::test_engine_orders_by_document_order_with_grammar_index_tiebreak` asserts `["L:AA", "S:AA", "L:AAAA"]` to prove the total order is observable end to end.
 - NOT in scope (deferred, recorded in `capability_homogeneity_audit.md` Task 8): a shared stdnum-style `clean()` syntax seam, moving Country `.upper()` into it, and adopting Lark. The `.upper()` stays in the alpha-2/alpha-3 grammars — it is syntax normalization and must remain to preserve notation values and hashes.
 
 ## Files And Responsibilities
@@ -135,9 +135,10 @@ CASES = [
 
 @pytest.fixture(autouse=True)
 def _fresh_registry():
-    """Reset the registry before each case (mirrors test_format_value_seam)."""
+    """Reset the registry before and after each case (mirrors test_format_value_seam)."""
     reset_registry()
     yield
+    reset_registry()
 
 
 @pytest.mark.integration
@@ -628,14 +629,20 @@ def test_span_fields_participate_in_equality(self) -> None:
 
 
 def test_recognized_rep_hash_stable_with_span_fields(self) -> None:
-    """RecognitionMatch and RecognizedRep with identical fields hash the same."""
-    # RecognitionMatch is used transiently; RecognizedRep is stored.
-    # Both must be hashable for use in sets/dicts if needed.
+    """Adding span fields keeps both types hashable and reps stable."""
+    # The two classes intentionally hash over different field subsets, so
+    # hashability is asserted per type (hash(match) is not None) and hash
+    # stability on RecognizedRep (identical reps hash identically).
     match = RecognitionMatch(notation=..., start=0, end=4, raw_text="AAAA")
     rep = RecognizedRep(
         notation=..., contract=..., grammar=..., start=0, end=4, raw_text="AAAA"
     )
-    assert hash(match) == hash(rep)
+    assert hash(match) is not None
+    assert hash(rep) == hash(rep)
+    rebuilt = RecognizedRep(
+        notation=..., contract=..., grammar=..., start=0, end=4, raw_text="AAAA"
+    )
+    assert hash(rebuilt) == hash(rep)
 ```
 
 (Replace the ellipses with the existing fixtures from that file.)
@@ -1137,6 +1144,8 @@ Rewrite `test_e164_dedups_same_value_different_formats` (dedup moved to the engi
 
 (`test_e164_merges_space_separated_following_number` keeps its assertion semantics — `len == 1` and the concatenated value — only the accessor becomes `results[0].notation.value`. Add a docstring line noting the regex, not the dedup, produces the single match.)
 
+> **Post-hoc correction (2026-08-05, CodeRabbit review):** that locked behavior was a real bug. The trailing character class of `_E164_PATTERN` consumed separators AND following digit runs, merging "+15551234567 5551234567" into one 20-digit match. `recognize()` now trims the raw match at the last digit-run group within the 15-digit E.164 limit (`_trim_to_e164_boundary`), so the match stops at "+15551234567" and leaves the national-format run to other grammars. The test was renamed to `test_e164_does_not_swallow_following_number` (one match, value "15551234567", span `(0, 12)`) and a new `test_e164_oversized_run_not_truncated` locks the no-silent-truncation guard (a run longer than 15 digits is left whole so validation rejects it). Phone replay hash unchanged: the baseline input "+1 555 123 4567" has no trailing run.
+
 Add one span test per grammar class:
 
 ```python
@@ -1300,15 +1309,47 @@ GRAMMAR_FILES = sorted((PAXMAN / "capabilities").glob("*/grammar/*.py"))
 RULE_FILES = sorted((PAXMAN / "capabilities").glob("*/rules/*.py"))
 
 
+def _package_of(path: Path) -> list[str]:
+    """Dotted components of the package containing a module file."""
+    rel = path.relative_to(PAXMAN)
+    return ["paxman", *rel.parts[:-1]]
+
+
 def _forbidden_imports(path: Path, forbidden: str) -> list[str]:
-    """Return import-from statements referencing the forbidden package."""
+    """Return import statements referencing the forbidden package.
+
+    Handles absolute imports (``import paxman.capabilities.rules.X`` and
+    ``from paxman.capabilities import rules``), dotted import-from
+    (``from paxman.capabilities.rules import X``), and relative imports
+    resolved against the importing module's package
+    (``from .rules import X``, ``from . import rules``).
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"))
+    package = _package_of(path)
     violations: list[str] = []
+
+    def record(components: list[str], display: str) -> None:
+        if forbidden in components and "paxman" in components:
+            violations.append(f"{path.name}: {display}")
+
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            parts = node.module.split(".")
-            if forbidden in parts and "paxman" in parts:
-                violations.append(f"{path.name}: {ast.unparse(node)}")
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                record(alias.name.split("."), ast.unparse(node))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                parts = node.module.split(".")
+                record(parts, ast.unparse(node))
+                # "from paxman.capabilities import rules" imports the subpackage.
+                for alias in node.names:
+                    record([*parts, alias.name], ast.unparse(node))
+            if node.level:
+                base = package[: len(package) - node.level + 1]
+                for alias in node.names:
+                    if alias.name != "*":
+                        record([*base, alias.name], ast.unparse(node))
+                if node.module:
+                    record([*base, node.module], ast.unparse(node))
     return violations
 
 
@@ -1445,7 +1486,7 @@ uv run pytest tests/integration/test_default_replay_hashes.py -q   # 5/5 — has
 
 If `test_default_replay_hashes.py` FAILS at this point, STOP: the migration changed the candidate set. Do not update the literals — find and fix the regression (compare `result.candidates` against pre-migration output). If any rule/grammar file needed a stray `# type: ignore` or `# noqa`, fix the underlying issue instead — none are permitted in `paxman/` source.
 
-Versioning: NO version bump is required — the replay hashes are byte-identical, which is the migration's correctness contract (semantic versioning reflects observable behavior, and there is none). If the release process requires a bump, bump patch only.
+Versioning: this migration changed PUBLIC interfaces — `Grammar.recognize()` now returns `list[RecognitionMatch[NotationT]]` instead of bare notations, and `RecognizedRep` gained required span fields (`start`/`end`/`raw_text`) — so it is a breaking API change for capability authors. The version was bumped 0.1.1 → 0.2.0 (pre-1.0, breaking change bumps minor). The replay hashes are unaffected: the hash covers input/contract/status/candidates only, not the library version, so they remain the migration's behavioral contract. Ship a migration note describing the span-bearing `RecognitionMatch` return type and the new `RecognizedRep` span fields for downstream consumers.
 
 ### Acceptance checklist (from the Behavioral Contract)
 
