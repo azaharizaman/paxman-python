@@ -318,3 +318,15 @@ class TestCountryCapabilityFormatValue:
         """
         cap = CountryCapability()
         assert cap.format_value("SU", fmt, self.NOTATION) == "SU"
+
+    def test_former_name_with_name_shape_preserves_historical_code(self) -> None:
+        """A former name (name shape) preserves its historical alpha-2 code.
+
+        A name-shaped notation for a former name resolves to the historical
+        entity's own code (``USSR`` → ``SU``); requesting an alternative
+        format must return that code unchanged rather than fabricating a
+        current-code conversion.
+        """
+        cap = CountryCapability()
+        notation = CountryNotation(shape="name", value="USSR")
+        assert cap.format_value("SU", "alpha3", notation) == "SU"
