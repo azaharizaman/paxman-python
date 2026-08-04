@@ -35,7 +35,10 @@ FORMER_NAME_TO_ALPHA2: dict[str, str] = {
     # --- Mergers (territory merged into another country) ---
     "GERMAN DEMOCRATIC REPUBLIC": "DD",  # → Germany (DE)
     "EAST GERMANY": "DD",  # Common alternate name
+    "EAST GERMAN": "DD",  # Common alternate name
+    "GDR": "DD",  # Common alternate name
     "FRANCE, METROPOLITAN": "FX",  # → France (FR)
+    "METROPOLITAN FRANCE": "FX",  # Common alternate name
     # --- Divisions (territory divided into multiple countries) ---
     "CANTON AND ENDERBURY ISLANDS": "CT",  # → Kiribati (KI)
     "CZECHOSLOVAKIA": "CS",  # → Czechia (CZ) + Slovakia (SK)
@@ -46,10 +49,14 @@ FORMER_NAME_TO_ALPHA2: dict[str, str] = {
     "SERBIA AND MONTENEGRO": "CS",  # → Montenegro (ME) + Serbia (RS)
     "USSR": "SU",  # → 15 successor states
     "SOVIET UNION": "SU",  # ISO 3166-3 official alternate name
+    "UNION OF SOVIET SOCIALIST REPUBLICS": "SU",  # Full official name
+    "USSR SOVIET SOCIALIST REPUBLICS": "SU",  # Common alternate name
     "VIET-NAM, DEMOCRATIC REPUBLIC OF": "VD",  # → Viet Nam (VN)
     "NORTH VIETNAM": "VD",  # Common alternate name
+    "VIET CONG": "VD",  # Common alternate name
     "YEMEN, DEMOCRATIC": "YD",  # → Yemen (YE)
     "SOUTH YEMEN": "YD",  # Common alternate name
+    "PEOPLES DEMOCRATIC REPUBLIC OF YEMEN": "YD",  # Common alternate name
     # --- Merged into existing countries ---
     "SIKKIM": "SK",  # → India (IN)
 }
