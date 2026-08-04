@@ -18,38 +18,38 @@ class TestE164Grammar:
         """Happy path: grammar finds e164 pattern."""
         results = self.grammar.recognize("+15551234567")
         assert len(results) == 1
-        assert results[0].shape == "e164"
-        assert results[0].value == "15551234567"
+        assert results[0].notation.shape == "e164"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_with_spaces(self) -> None:
         """Edge case: spaces between digit groups."""
         results = self.grammar.recognize("+1 555 123 4567")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_with_dashes(self) -> None:
         """Edge case: dashes between digit groups."""
         results = self.grammar.recognize("+44-20-7946-0958")
         assert len(results) == 1
-        assert results[0].value == "442079460958"
+        assert results[0].notation.value == "442079460958"
 
     def test_recognizes_with_dots(self) -> None:
         """Edge case: dots between digit groups."""
         results = self.grammar.recognize("+1.555.123.4567")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_with_parens(self) -> None:
         """Edge case: parentheses around area code."""
         results = self.grammar.recognize("+1 (555) 123-4567")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_in_text(self) -> None:
         """Input contains e164 number within surrounding text."""
         results = self.grammar.recognize("Call me at +15551234567 today")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_multiple(self) -> None:
         """Input contains multiple e164 matches."""
@@ -81,6 +81,13 @@ class TestE164Grammar:
         results = self.grammar.recognize("")
         assert results == []
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("Call +1 555 123 4567 now")
+        assert len(results) == 1
+        assert results[0].start == 5
+        assert results[0].end == 20
+        assert results[0].raw_text == "+1 555 123 4567"
+
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "e164_recognition"
@@ -96,33 +103,33 @@ class TestTelUriGrammar:
         """Happy path: tel: URI with global number."""
         results = self.grammar.recognize("tel:+15551234567")
         assert len(results) == 1
-        assert results[0].shape == "rfc3966"
-        assert results[0].value == "15551234567"
+        assert results[0].notation.shape == "rfc3966"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_with_dashes(self) -> None:
         """Edge case: dashes in URI number."""
         results = self.grammar.recognize("tel:+1-201-555-0123")
         assert len(results) == 1
-        assert results[0].value == "12015550123"
+        assert results[0].notation.value == "12015550123"
 
     def test_recognizes_with_extension(self) -> None:
         """Edge case: ;ext= parameter."""
         results = self.grammar.recognize("tel:+15551234567;ext=890")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
-        assert results[0].extension == "890"
+        assert results[0].notation.value == "15551234567"
+        assert results[0].notation.extension == "890"
 
     def test_recognizes_in_text(self) -> None:
         """Input contains tel: URI within surrounding text."""
         results = self.grammar.recognize("Reach me at tel:+15551234567 now")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_uppercase_scheme(self) -> None:
         """Edge case: uppercase TEL: scheme."""
         results = self.grammar.recognize("TEL:+15551234567")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_ignores_plain_number(self) -> None:
         """Grammar does not match numbers without tel: scheme."""
@@ -151,6 +158,14 @@ class TestTelUriGrammar:
         results = self.grammar.recognize("")
         assert results == []
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("tel:+15551234567")
+        assert len(results) == 1
+        assert results[0].start == 0
+        assert results[0].end == 16
+        assert results[0].raw_text == "tel:+15551234567"
+        assert results[0].notation.extension == ""
+
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "tel_uri_recognition"
@@ -166,20 +181,20 @@ class TestInternational00Grammar:
         """Happy path: 00-prefixed international number."""
         results = self.grammar.recognize("00 44 20 7946 0958")
         assert len(results) == 1
-        assert results[0].shape == "e164"
-        assert results[0].value == "442079460958"
+        assert results[0].notation.shape == "e164"
+        assert results[0].notation.value == "442079460958"
 
     def test_recognizes_compact(self) -> None:
         """Edge case: compact digits."""
         results = self.grammar.recognize("00442079460958")
         assert len(results) == 1
-        assert results[0].value == "442079460958"
+        assert results[0].notation.value == "442079460958"
 
     def test_recognizes_in_text(self) -> None:
         """Input contains 00 number within surrounding text."""
         results = self.grammar.recognize("Dial 00 44 20 7946 0958 from abroad")
         assert len(results) == 1
-        assert results[0].value == "442079460958"
+        assert results[0].notation.value == "442079460958"
 
     def test_ignores_number_with_plus(self) -> None:
         """Grammar does not match +-prefixed numbers."""
@@ -196,6 +211,13 @@ class TestInternational00Grammar:
         results = self.grammar.recognize("")
         assert results == []
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("00 44 20 7946 0958")
+        assert len(results) == 1
+        assert results[0].start == 0
+        assert results[0].end == 18
+        assert results[0].raw_text == "00 44 20 7946 0958"
+
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "international_00_recognition"
@@ -211,44 +233,44 @@ class TestNationalGrammar:
         """Happy path: (NPA) NXX-XXXX format."""
         results = self.grammar.recognize("(555) 123-4567")
         assert len(results) == 1
-        assert results[0].shape == "national"
-        assert results[0].value == "5551234567"
+        assert results[0].notation.shape == "national"
+        assert results[0].notation.value == "5551234567"
 
     def test_recognizes_dashes(self) -> None:
         """Edge case: NPA-NXX-XXXX format."""
         results = self.grammar.recognize("555-123-4567")
         assert len(results) == 1
-        assert results[0].value == "5551234567"
+        assert results[0].notation.value == "5551234567"
 
     def test_recognizes_dots(self) -> None:
         """Edge case: NPA.NXX.XXXX format."""
         results = self.grammar.recognize("555.123.4567")
         assert len(results) == 1
-        assert results[0].value == "5551234567"
+        assert results[0].notation.value == "5551234567"
 
     def test_recognizes_spaces(self) -> None:
         """Edge case: space-separated format."""
         results = self.grammar.recognize("555 123 4567")
         assert len(results) == 1
-        assert results[0].value == "5551234567"
+        assert results[0].notation.value == "5551234567"
 
     def test_recognizes_with_trunk(self) -> None:
         """Edge case: leading trunk 1 preserved."""
         results = self.grammar.recognize("1-555-123-4567")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_trunk_with_parens(self) -> None:
         """Edge case: trunk with parenthesized NPA."""
         results = self.grammar.recognize("1 (555) 123-4567")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
     def test_recognizes_in_text(self) -> None:
         """Input contains national number within surrounding text."""
         results = self.grammar.recognize("Call (555) 123-4567 today")
         assert len(results) == 1
-        assert results[0].value == "5551234567"
+        assert results[0].notation.value == "5551234567"
 
     def test_ignores_international(self) -> None:
         """Grammar does not match +-prefixed numbers."""
@@ -291,13 +313,20 @@ class TestNationalGrammar:
         results = self.grammar.recognize("")
         assert results == []
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("(555) 123-4567")
+        assert len(results) == 1
+        assert results[0].start == 0
+        assert results[0].end == 14
+        assert results[0].raw_text == "(555) 123-4567"
+
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "national_recognition"
 
 
 class TestGrammarDedup:
-    """Dedup behavior across grammars (same value via different formats)."""
+    """Span-bearing behavior across grammars (same value via different formats)."""
 
     def setup_method(self) -> None:
         self.e164 = E164Grammar()
@@ -305,23 +334,32 @@ class TestGrammarDedup:
         self.i00 = International00Grammar()
         self.national = NationalGrammar()
 
-    def test_e164_dedups_same_value_different_formats(self) -> None:
-        """The same number in two formats yields one notation (seen-set)."""
+    def test_e164_returns_same_value_at_distinct_spans(self) -> None:
+        """The same number in two formats yields two span-bearing matches.
+
+        Grammar-level value dedup is removed; the engine collapses identical
+        candidates at the candidate stage.
+        """
         results = self.e164.recognize("Call +1 555 123 4567 or +15551234567")
-        assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert len(results) == 2
+        assert [r.notation.value for r in results] == [
+            "15551234567",
+            "15551234567",
+        ]
+        assert [(r.start, r.end) for r in results] == [(5, 20), (24, 36)]
 
     def test_e164_merges_space_separated_following_number(self) -> None:
         """A space-separated number after an E.164 match is merged into it.
 
         Regression: the trailing character class of _E164_PATTERN consumes
         separators and following digit runs, so "+15551234567 5551234567"
-        yields ONE notation with the concatenated value. Changes to
-        _E164_PATTERN must not alter this behavior silently.
+        yields ONE match (the regex produces the single span, not dedup)
+        with the concatenated value. Changes to _E164_PATTERN must not
+        alter this behavior silently.
         """
         results = self.e164.recognize("+15551234567 5551234567")
         assert len(results) == 1
-        assert results[0].value == "155512345675551234567"
+        assert results[0].notation.value == "155512345675551234567"
 
     def test_tel_uri_multiple_matches(self) -> None:
         """Multiple distinct tel: URIs are all returned."""
@@ -342,7 +380,7 @@ class TestGrammarDedup:
         """A trailing sentence period is stripped, value stays digit-only."""
         results = self.e164.recognize("End of +15551234567.")
         assert len(results) == 1
-        assert results[0].value == "15551234567"
+        assert results[0].notation.value == "15551234567"
 
 
 class TestInternational00Boundary:

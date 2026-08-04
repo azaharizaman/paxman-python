@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
+from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # A "+" followed by digits with optional separators (space, dash, dot, parens).
 # The grammar is intentionally loose — validation happens in rules. The
@@ -28,19 +28,21 @@ class E164Grammar(Grammar[PhoneNotation]):
 
     name = "e164_recognition"
 
-    def recognize(self, text: str) -> list[PhoneNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract e164 patterns from text.
 
-        Args:
-            text: Raw input text.
-
         Returns:
-            List of PhoneNotations with shape="e164" and value set to the
-            digit-only number (leading "+" and separators removed).
+            List of RecognitionMatches; notation.value is the digit-only
+            number (leading "+" and separators removed).
         """
-        return dedup(
-            PhoneNotation(
-                shape="e164", value=strip_separators(match.group(0), plus=True)
+        return [
+            RecognitionMatch(
+                notation=PhoneNotation(
+                    shape="e164", value=strip_separators(match.group(0), plus=True)
+                ),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
             )
             for match in _E164_PATTERN.finditer(text)
-        )
+        ]

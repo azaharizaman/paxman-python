@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
+from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # Optional trunk 1, optional (NPA), NXX, XXXX. NPA first digit 2-9 is a
 # recognition heuristic — strict validation (including NXX first digit 2-9)
@@ -48,17 +48,21 @@ class NationalGrammar(Grammar[PhoneNotation]):
 
     name = "national_recognition"
 
-    def recognize(self, text: str) -> list[PhoneNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract national patterns from text.
 
-        Args:
-            text: Raw input text.
-
         Returns:
-            List of PhoneNotations with shape="national". value is the
-            digit-only number; a leading trunk "1" is preserved when present.
+            List of RecognitionMatches; notation.value is the digit-only
+            number; a leading trunk "1" is preserved when present.
         """
-        return dedup(
-            PhoneNotation(shape="national", value=strip_separators(match.group(0)))
+        return [
+            RecognitionMatch(
+                notation=PhoneNotation(
+                    shape="national", value=strip_separators(match.group(0))
+                ),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
+            )
             for match in _NATIONAL_PATTERN.finditer(text)
-        )
+        ]

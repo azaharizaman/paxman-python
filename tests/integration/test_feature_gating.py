@@ -25,7 +25,14 @@ from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.IP.capability import IPCapability
 from paxman.core.capability import Capability
 from paxman.core.discovery import register_capability, reset_registry
-from paxman.core.domain import Grammar, Provenance, Resolution, Rule, RuleStrategy
+from paxman.core.domain import (
+    Grammar,
+    Provenance,
+    RecognitionMatch,
+    Resolution,
+    Rule,
+    RuleStrategy,
+)
 from paxman.core.errors import ContractError
 from paxman.engine.orchestrator import run_capability
 
@@ -54,8 +61,15 @@ class _NameRecognitionGrammar(Grammar[CountryNotation]):
 
     name = "name_recognition"
 
-    def recognize(self, text: str) -> list[CountryNotation]:
-        return [CountryNotation(shape="name", value="Estados Unidos")]
+    def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
+        return [
+            RecognitionMatch(
+                notation=CountryNotation(shape="name", value="Estados Unidos"),
+                start=0,
+                end=14,
+                raw_text="Estados Unidos",
+            )
+        ]
 
 
 class _LocalizedFixtureContract:

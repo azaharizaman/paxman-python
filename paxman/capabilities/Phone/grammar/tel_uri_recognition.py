@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
+from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # tel: URI with a GLOBAL number (optional separators) and optional ";ext="
 # parameter. Per RFC 3966 §3.1 global numbers REQUIRE a leading "+" —
@@ -27,22 +27,24 @@ class TelUriGrammar(Grammar[PhoneNotation]):
 
     name = "tel_uri_recognition"
 
-    def recognize(self, text: str) -> list[PhoneNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract tel: URI patterns from text.
 
-        Args:
-            text: Raw input text.
-
         Returns:
-            List of PhoneNotations with shape="rfc3966". value is the
-            digit-only number (leading "+" and separators removed);
-            extension is the ";ext=" parameter value if present.
+            List of RecognitionMatches; notation.value is the digit-only
+            number (leading "+" and separators removed); notation.extension
+            is the ";ext=" parameter value if present.
         """
-        return dedup(
-            PhoneNotation(
-                shape="rfc3966",
-                value=strip_separators(match.group(1), plus=True),
-                extension=match.group(2) or "",
+        return [
+            RecognitionMatch(
+                notation=PhoneNotation(
+                    shape="rfc3966",
+                    value=strip_separators(match.group(1), plus=True),
+                    extension=match.group(2) or "",
+                ),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
             )
             for match in _TEL_URI_PATTERN.finditer(text)
-        )
+        ]
