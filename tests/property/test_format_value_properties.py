@@ -16,6 +16,8 @@ values:
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
@@ -44,6 +46,8 @@ from paxman.capabilities.IP.notation import IPNotation
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.core.capability import Capability
+from paxman.core.domain import NotationT
 
 # Former codes that are currently assigned (AI, GE, SK) are not passthrough
 # cases: they map through the current tables. Only codes absent from the
@@ -52,40 +56,70 @@ _FORMER_PASSTHROUGH_NAMES = sorted(
     name for name, code in FORMER_NAME_TO_ALPHA2.items() if code not in ALPHA2_CODES
 )
 
+
+def _identity_formatter(
+    capability: Capability[NotationT],
+    notation: NotationT,
+    default_format: str,
+) -> Callable[[str], str]:
+    """Return a typed formatter rendering in the capability's default format.
+
+    ``Capability.format_value`` is generic in the notation type, so each
+    closure binds a concrete capability and notation at construction time.
+    The identity property asserts that rendering in the default format
+    returns the canonical value unchanged.
+    """
+
+    def format_default(value: str) -> str:
+        return capability.format_value(value, default_format, notation)
+
+    return format_default
+
+
 _IDENTITY_SAMPLES = [
     pytest.param(
-        EmailCapability,
-        EmailContract,
+        _identity_formatter(
+            EmailCapability(),
+            EmailNotation(local_part="user", domain_part="example.com"),
+            EmailContract.DEFAULT_OUTPUT_FORMAT,
+        ),
         "user@example.com",
-        EmailNotation(local_part="user", domain_part="example.com"),
         id="email",
     ),
     pytest.param(
-        DateCapability,
-        DateContract,
+        _identity_formatter(
+            DateCapability(),
+            DateNotation(N1="2026", N2="01", N3="15"),
+            DateContract.DEFAULT_OUTPUT_FORMAT,
+        ),
         "2026-01-15",
-        DateNotation(N1="2026", N2="01", N3="15"),
         id="date",
     ),
     pytest.param(
-        CountryCapability,
-        CountryContract,
+        _identity_formatter(
+            CountryCapability(),
+            CountryNotation(shape="alpha2", value="DE"),
+            CountryContract.DEFAULT_OUTPUT_FORMAT,
+        ),
         "DE",
-        CountryNotation(shape="alpha2", value="DE"),
         id="country",
     ),
     pytest.param(
-        IPCapability,
-        IPContract,
+        _identity_formatter(
+            IPCapability(),
+            IPNotation(address="192.0.2.1"),
+            IPContract.DEFAULT_OUTPUT_FORMAT,
+        ),
         "192.0.2.1",
-        IPNotation(address="192.0.2.1"),
         id="ip",
     ),
     pytest.param(
-        PhoneCapability,
-        PhoneContract,
+        _identity_formatter(
+            PhoneCapability(),
+            PhoneNotation(shape="e164", value="15551234567"),
+            PhoneContract.DEFAULT_OUTPUT_FORMAT,
+        ),
         "+15551234567",
-        PhoneNotation(shape="e164", value="15551234567"),
         id="phone",
     ),
 ]
@@ -114,21 +148,15 @@ _HISTORICAL_SAMPLES = (
 
 @pytest.mark.property
 @pytest.mark.parametrize(
-    "capability_cls,contract_cls,canonical,notation",
+    "format_default,canonical",
     _IDENTITY_SAMPLES,
 )
 def test_format_value_default_is_identity(
-    capability_cls: type[object],
-    contract_cls: type[object],
+    format_default: Callable[[str], str],
     canonical: str,
-    notation: object,
 ) -> None:
     """format_value(value, default_format, notation) == value."""
-    capability = capability_cls()
-    assert (
-        capability.format_value(canonical, contract_cls.DEFAULT_OUTPUT_FORMAT, notation)
-        == canonical
-    )
+    assert format_default(canonical) == canonical
 
 
 @pytest.mark.property
