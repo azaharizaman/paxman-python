@@ -252,18 +252,17 @@ def matches(self, notation: YourDomainNotation, contract: Contract) -> bool:
 
 ### 5d: Implement the `normalize` method
 
-The `normalize` method converts a valid notation into its canonical string form:
+The `normalize` method converts a valid notation into its capability's default canonical string form:
 
 ```python
 def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
 ```
 
 - Accept a typed notation and the contract
-- Return the canonical string representation
+- Return the default canonical string representation
 - Only called after `matches` returns `True` (you can assume the notation is valid)
 - Apply normalization rules from the specification (e.g., lowercase, remove whitespace, pad with zeros)
-- Use contract parameters to control output format (e.g., `contract.output_format`). Note: after construction, `contract.output_format` always holds a concrete format string (the capability's default when unset), so compare it directly against your offered format names — never guard on `None`.
-- **Use `output_format` only to *format* the canonical value — never to decide whether a notation is valid, and never to select among competing candidates.** `normalize()` applies `output_format` while producing the candidate value, and the engine computes the `Resolution` status from those candidate values; a rule must never use `output_format` to accept/reject a notation or to prefer one candidate over another. See the presentational-only invariant below.
+- **Never read `contract.output_format`.** Presentation is the capability's job, not the rule's. `normalize()` always returns the default canonical form, and the engine applies `Capability.format_value()` afterward. A CI source scan rejects any `output_format` token in rule modules (see the presentational-only invariant below).
 
 ### Accessing Capability-Specific Contract Fields
 
@@ -282,7 +281,7 @@ class SectionYourRule(Rule[YourDomainNotation]):
 
 **Why cast?** The engine passes `Contract` (the protocol type) to rules. Your rules know they'll only be called with your capability's contract, so the cast is safe. The alternative — checking `isinstance` — adds unnecessary runtime overhead.
 
-**When to use:** When your rule needs a capability-specific parameter, such as `two_digit_base_year` (Date) or `default_country` (Phone). Parameters that affect validity may be read in `matches()`; rendering-only `output_format` is read in `normalize()`. Standard fields (`year`, `output_format`, `pinned_rules`) are available on the base protocol.
+**When to use:** When your rule needs a capability-specific parameter, such as `two_digit_base_year` (Date) or `default_country` (Phone). Parameters that affect validity may be read in `matches()` or `normalize()`. Standard fields (`year`, `pinned_rules`) are available on the base protocol; `output_format` is a presentation parameter consumed by `Capability.format_value()`, never by rules.
 
 **When not to use:** Never cast to read feature-toggle flags (`include_*`) for gating. Feature routing is the engine's job: declare the dependency in `Rule.requires_features`, and the engine drops the rule when the flag is false. `matches()` must never consult `include_*` flags or `output_format`; validity comes from the notation, the specification, and legitimate validity-affecting parameters.
 
@@ -302,6 +301,7 @@ Create `paxman/capabilities/YourDomain/capability.py`:
 6. Implement `get_grammars()` — return a list of grammar instances
 7. Implement `get_rules()` — return a list of rule instances
 8. Define a `create_contract()` static method that returns a default contract
+9. Implement `format_value(value, output_format, notation)` — the single presentation seam. The engine calls it immediately after `Rule.normalize()` and before candidate deduplication, status determination, and replay hashing. Return the value unchanged for the default format; only an explicitly offered alternative triggers conversion (e.g., Date `"US"` rendering, Country `alpha3`/`numeric`/`name` conversion, Phone RFC 3966/national rendering). A capability with no alternative formats (e.g., Email, IP) inherits the identity implementation from `Capability` and does not override it. Rules never implement presentation — see Step 5d and the presentational-only invariant in Step 7.
 
 ---
 
@@ -504,15 +504,16 @@ The acceptance rules (enforced by `resolve_output_format`) are:
 | any value in `OFFERED_OUTPUT_FORMATS` | that value | An explicit alternative format |
 | anything else (e.g. `""`, `"None"`, `"none"`, a typo) | — | raises `ContractError` |
 
-The key invariant: `None`, `"default"`, and the default format string are **treated identically by rules** — they leave the canonical value untouched. Only an explicit offered alternative triggers reformatting. This means a caller who omits `output_format`, passes `output_format="default"`, or passes the default format string gets exactly the same result, with no behavioral or replay-hash difference.
+The key invariant: `None`, `"default"`, and the default format string are **treated identically by the capability formatter** — they leave the canonical value untouched. Only an explicit offered alternative triggers reformatting. This means a caller who omits `output_format`, passes `output_format="default"`, or passes the default format string gets exactly the same result, with no behavioral or replay-hash difference.
 
 #### Presentational-only invariant (hard rule)
 
-`output_format` is a *representation* transform, never a *recognition* or *validation* signal. `normalize()` applies `output_format` while producing each candidate value, and the engine computes the `Resolution` status from those candidate values. The format choice cannot change which candidates exist — `matches()` never consults it, and `normalize()` never uses it to accept/reject or to route — so it only changes how each candidate is rendered. This is the contract mandate: the pipeline reports what authoritative specifications say, regardless of how the caller wants the answer displayed. Concretely:
+`output_format` is a *representation* transform, never a *recognition* or *validation* signal. Rules own validation and default normalization only: `matches()` never consults `output_format`, and `normalize()` always returns the default canonical form. Presentation lives in one place — the capability's `format_value(value, output_format, notation)` method — which the engine calls immediately after `normalize()` and before candidate deduplication, status determination, and replay hashing. The format choice cannot change which candidates exist or which canonical values they carry; it only changes how each candidate is rendered. This is the contract mandate: the pipeline reports what authoritative specifications say, regardless of how the caller wants the answer displayed. Concretely:
 
-- **`normalize()` renders; the engine counts.** Each rule's `normalize()` applies `output_format` to its validated notation and returns the formatted string; the engine stores that string as the candidate value and computes status from the set of distinct candidate values. No grammar is re-run, no input is re-parsed, and no rule is re-invoked.
-- **`output_format` never filters candidates.** `normalize()` may read `output_format` to choose how to *render* the value, but must never use it to accept/reject a notation or to prefer one candidate over another, and `matches()` must never read `output_format` at all. Validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). Using `output_format` to disambiguate (e.g. "drop the EU interpretation because `output_format='US'`") is forbidden — it would silently change the candidates the engine sees and break the always-report-ambiguity guarantee.
+- **Rules validate and normalize; the capability formats; the engine counts.** Each rule's `normalize()` returns the default canonical value; `Capability.format_value()` renders it in the requested format; the engine stores the formatted string as the candidate value and computes status from the set of distinct candidate values. No grammar is re-run, no input is re-parsed, and no rule is re-invoked.
+- **Rules never read `output_format`.** Not to render, not to accept/reject a notation, and not to prefer one candidate over another. A CI source scan (`tests/unit/test_rule_output_format_purity.py`) fails any validation-rule module under `paxman/capabilities/*/rules/` that contains the token `output_format` — in code, comments, or docstrings — so a rule module must have no reference to the presentation field at all. Validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). Using `output_format` to disambiguate (e.g. "drop the EU interpretation because `output_format='US'`") is forbidden — it would silently change the candidates the engine sees and break the always-report-ambiguity guarantee.
 - **Offered formats must be injective.** Each offered `output_format` must map distinct canonical values to distinct formatted strings (a per-format bijection). Because the engine computes status from the formatted candidate values, a lossy format — one that drops information, such as "year only" — is a defect: it could collapse two genuinely different canonical values into one candidate value and hide an `AMBIGUOUS` result.
+- **Formatting adds no provenance.** `Candidate.provenance`, `recognition_rule`, and `validation_rule` are set from the rule that validated the notation; the formatter only transforms the value.
 
 Example — Date input `"01/02/2026"` is recognized by both the US and European grammars and validated by both rules, yielding two distinct canonical values (`2026-01-02` and `2026-02-01`). The result is `AMBIGUOUS` regardless of `output_format`. `output_format="US"` merely renders those two values as `01/02/2026` and `02/01/2026`; it cannot and must not decide which interpretation is "correct".
 
@@ -530,14 +531,15 @@ class YourDomainContract(CapabilityContract):
 
 For a capability with a single canonical form, `OFFERED_OUTPUT_FORMATS` is empty and `DEFAULT_OUTPUT_FORMAT` is simply the name of that form (e.g. `"email"`, `"ip"`). `output_format="email"` is then accepted and equivalent to omitting the field.
 
-Rules read the now-concrete `contract.output_format` in `normalize()` and compare it against concrete format strings. Because `None` is never seen at runtime, rule code stays simple:
+Rules never read `output_format`: `normalize()` always returns the default canonical form. Presentation lives in the capability's `format_value()` method, which the engine calls with the rule-produced default value, the contract's resolved format string (never `None` at runtime), and the original notation:
 
 ```python
-def normalize(self, notation, contract):
-    fmt = contract.output_format
-    if fmt == "us":
-        return us_format(notation)
-    return iso_format(notation)  # default — also covers "default" and None
+def format_value(
+    self, value: str, output_format: str | None, notation: YourDomainNotation
+) -> str:
+    if output_format == "us":
+        return us_format(value)
+    return value  # the default format (also covers "default" and None-resolved) is identity
 ```
 
 
@@ -566,7 +568,7 @@ def _extra_dict_fields(self) -> dict[str, object]:
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
 - `pinned_rules: Sequence[str] | None` — pin to specific rules (takes precedence over `excluded_rules` when set)
 - `year: int | None` — year for temporal filtering
-- `output_format: str | None` — output format for canonical values. Always optional; after construction it resolves to a concrete format string (the capability's default when unset).
+- `output_format: str | None` — output format for canonical values. Always optional; after construction it resolves to a concrete format string (the capability's default when unset). Consumed by `Capability.format_value()`; rules never read it.
 - `as_dict() -> dict[str, Any]` — serialization for replay hash
 
 ---
@@ -889,7 +891,7 @@ The `matches` method must return `False` for any invalid input, never raise. The
 
 ### Pitfall: Using `output_format` as a Routing or Filtering Signal
 
-`output_format` is a presentation transform, not a recognition or validation signal. A rule must never read `output_format` to accept/reject a notation in `matches()`, to prefer one candidate over another, or to disambiguate between competing interpretations. Doing so would let an output preference silently change the `Resolution` status (e.g. collapsing `AMBIGUOUS` into `SUCCESS`), violating the mandate to always report ambiguity. `normalize()` applies `output_format` while producing the candidate value, and the engine computes status from those candidate values, so each offered format must be injective: distinct canonical values must never render to the same string. See the presentational-only invariant above.
+`output_format` is a presentation transform, not a recognition or validation signal. Rules never read `output_format` at all — not in `matches()` to accept/reject a notation, and not in `normalize()` to render, prefer one candidate over another, or disambiguate between competing interpretations. Doing so would let an output preference silently change the `Resolution` status (e.g. collapsing `AMBIGUOUS` into `SUCCESS`), violating the mandate to always report ambiguity. Presentation is owned by `Capability.format_value()`, which the engine calls after `normalize()`; because the engine computes status from those formatted values, each offered format must be injective: distinct canonical values must never render to the same string. A CI source scan enforces that rule modules contain no `output_format` reference at all. See the presentational-only invariant above.
 
 ### Pitfall: Contract Fields Must Have Defaults
 
@@ -999,7 +1001,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Contract inherits `pinned_rules: tuple[str, ...] | None = None` from `CapabilityContract`
 - [ ] Contract inherits `output_format` from `CapabilityContract` (always optional; base `__post_init__` validates via `resolve_output_format`)
 - [ ] Contract declares a `DEFAULT_OUTPUT_FORMAT` (concrete string) and `OFFERED_OUTPUT_FORMATS` (alternatives only, excluding the default)
-- [ ] `output_format` is used only for presentation: rules never use it to filter `matches()`, to select candidates, or to collapse ambiguity; all offered formats are injective w.r.t. the canonical value (see presentational-only invariant)
+- [ ] Rules never reference `output_format`: `normalize()` returns only the default canonical form, and presentation lives in `Capability.format_value()`; all offered formats are injective w.r.t. the canonical value (see presentational-only invariant)
 - [ ] Contract overrides `_extra_dict_fields()` with all capability-specific fields that affect behavior (never hand-writes `as_dict()`)
 - [ ] If using lookup tables: `rules/data/` directory contains data files
 - [ ] Grammar data is key-only (no token-to-canonical mappings); rule data owns all authority-backed mappings (see The Grammar/Rule Boundary)
