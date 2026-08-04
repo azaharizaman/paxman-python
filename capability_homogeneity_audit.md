@@ -16,16 +16,21 @@ design verdict (FACT 1–6 below).
 
 The contract *surface* is now largely unanimous — base `CapabilityContract` plus
 `resolve_output_format` in `paxman/core/contract.py` unify `output_format`
-resolution and `as_dict()` serialization. But the *behavioral* contract diverges
-at four layers where a unanimous implementation must still be built:
+resolution and `as_dict()` serialization. The behavioral-contract audit found
+divergences at four layers; the findings below are preserved as historical
+record, with current status tracked by the addenda:
 
-1. **Orchestrator routing** (F1) — full cartesian product, no grammar→rule affinity.
+1. **Orchestrator routing** (F1) — full cartesian product, no grammar→rule affinity. *(resolved 2026-08-03)*
 2. **Feature gating** (F2) — `include_*` toggles grammars in one cap, rules in another.
-3. **Format application** (F4) — `output_format` honored inconsistently within multi-format caps.
-4. **Recognition/validation boundary** (F3) — Country canonicalizes at recognition, duplicating authority tables.
+3. **Format application** (F4) — `output_format` honored inconsistently within multi-format caps. *(resolved 2026-08-04)*
+4. **Recognition/validation boundary** (F3) — Country canonicalizes at recognition, duplicating authority tables. *(resolved 2026-08-03)*
 
-Oracle's bottom line: **3 genuine architecture-level defects (F1, F2, F4)**, 1
-defect-lite (F3), 1 accepted (F5), plus lower-severity items (F6).
+Oracle's bottom line (original verdict): **3 genuine architecture-level defects
+(F1, F2, F4)**, 1 defect-lite (F3), 1 accepted (F5), plus lower-severity items
+(F6). Current status: F4 — and its Phone `_canonical` triplication — was resolved
+on 2026-08-04 by the centralized output formatting seam (see the addendum below);
+F1 and F3 carry resolution addenda dated 2026-08-03. F2 remains the open
+architecture-level defect.
 
 ---
 
@@ -100,21 +105,22 @@ synonym→canonical tables; grammar recognition-gating derives from rule-table k
 (single source of truth). Minimal compliant alternative: grammar tables reduced to
 recognition keys + automated consistency test.
 
-### F4. `output_format` consumption fragmented — `DEFECT` (within multi-format caps)
+### F4. `output_format` consumption fragmented — `DEFECT` (resolved 2026-08-04)
 
 Contract layer is unanimous (`resolve_output_format` in `__post_init__`). But **no
 rule calls it**; each branches on raw strings, and within multi-format caps the
 format is honored inconsistently. The audit's original Date premise — that
 `iso_8601` *ignores* `output_format`, so `output_format="US"` on ISO input
 silently yields ISO — was withdrawn by Addendum A below (Date routes the format
-into rendering). The durable defect is the duplicated, per-rule presentation
-branches and the Phone `_canonical` triplication (see Tier 3 #5).
+into rendering). The finding's substance was the duplicated, per-rule
+presentation branches and the Phone `_canonical` triplication (see Tier 3 #5).
 
 **Unanimous ideal:** capability-level `format_value(value, output_format,
 notation)` hook invoked by the engine immediately after `Rule.normalize()`;
 rules always emit the default canonical form. Kills the rule-level presentation
-duplication and the Phone `_canonical` triplication. (Resolved 2026-08-04 — see
-the centralize-output-format addendum below.)
+duplication and the Phone `_canonical` triplication. **Resolved 2026-08-04** by
+the centralize-output-format work — see the addendum below; the finding above is
+preserved as historical record.
 
 ### F5. `active_grammars` toggleable (Email/IP) vs static (Date/Country/Phone) — `ACCEPTED`
 
@@ -156,8 +162,8 @@ Ranked defects (from the rule-comparison agent):
 | 1 | `Section63localhost` declares REGEX, runs zero regex | Defect |
 | 2 | E.164 §6.1 (PARSER) & §6.2 (LOOKUP_TABLE) have byte-identical `matches()` | Defect |
 | 3 | NANP §1.2 declares LOOKUP_TABLE but regex-gates; §1.1 declares REGEX but does frozenset lookups | Defect |
-| 4 | Email/IP expose `output_format` but rules never read it | Defect |
-| 5 | `_canonical` triplicated across Phone rules, already drifted (RFC3966 copy adds `;ext=`) | Defect |
+| 4 | Email/IP expose `output_format` but rules never read it | Defect (resolved 2026-08-04) |
+| 5 | `_canonical` triplicated across Phone rules, already drifted (RFC3966 copy adds `;ext=`) | Defect (resolved 2026-08-04) |
 | 6 | Email case self-contradictory (local part never lowercased; `localhost` case-sensitive vs lowercase output) | Defect |
 | 7 | `_normalize_key` vs `_normalize_numeric_key` twins with different failure fallbacks | Defect |
 | 8 | Country rule names drop "Section X.Y" prefix | Justified-ish |
@@ -175,7 +181,7 @@ Ranked defects (from the rule-comparison agent):
 |---|---|---|
 | 1 | F1 cartesian product / no grammar→rule affinity | Defect |
 | 2 | F2 ad-hoc `include_*` gating via subclass cast | Defect |
-| 3 | F4 `output_format` honored inconsistently + Phone `_canonical` triplication | Defect |
+| 3 | F4 `output_format` honored inconsistently + Phone `_canonical` triplication | Defect (resolved 2026-08-04) |
 | 4 | F3 Country recognition-time canonicalization + duplicated authority tables | Defect-lite |
 | 5 | Rule `RuleStrategy` decorative (Section63localhost; E.164 6.1/6.2; NANP 1.2) | Defect |
 | 6 | Email case self-contradiction | Defect |
@@ -196,7 +202,8 @@ Ranked defects (from the rule-comparison agent):
 2. **Move `include_*` feature-gating** to engine-enforced declared metadata, split
    by feature kind (fixes F2).
 3. **Capability-level `format_value` hook**; rules emit default canonical only
-   (fixes F4; kills Phone `_canonical` triplication).
+   (fixes F4; kills Phone `_canonical` triplication). **[DONE 2026-08-04]** — see
+   the centralize-output-format addendum below.
 4. **Make `RuleStrategy` checked** (assert implementation matches declared) or drop
    it — a decorative enum is worse than none (fixes Tier 3 #1–3).
 5. **Single-source authority tables**; grammars emit raw tokens (fixes F3 + #10 + #13).
