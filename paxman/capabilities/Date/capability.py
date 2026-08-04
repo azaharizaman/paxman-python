@@ -95,4 +95,4 @@ class DateCapability(Capability[DateNotation]):
                 f"Invalid ISO date {value!r}: expected fixed-shape YYYY-MM-DD"
             )
         parsed = datetime.strptime(value, "%Y-%m-%d")
-        return parsed.strftime("%m/%d/%Y")
+        return f"{parsed.month:02d}/{parsed.day:02d}/{parsed.year:04d}"

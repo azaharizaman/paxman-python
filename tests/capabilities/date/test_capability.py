@@ -97,6 +97,12 @@ class TestDateCapabilityFormatValue:
         notation = DateNotation(N1="1999", N2="12", N3="31")
         assert cap.format_value("1999-12-31", "US", notation) == "12/31/1999"
 
+    def test_us_format_preserves_four_digit_early_year(self) -> None:
+        """US rendering keeps zero-padding for years before 1000."""
+        cap = DateCapability()
+        notation = DateNotation(N1="0001", N2="01", N3="01")
+        assert cap.format_value("0001-01-01", "US", notation) == "01/01/0001"
+
     def test_us_format_rejects_arbitrary_strings(self) -> None:
         """US rendering must not accept arbitrary strings as valid dates."""
         cap = DateCapability()
