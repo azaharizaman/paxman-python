@@ -208,7 +208,7 @@ class PhoneNumberMatch(UnicodeMixin):
     '+1 425 882-8080'
     >>> (m.start, m.end)
     (11, 26)
-    >>> text[m.start, m.end]
+    >>> text[m.start:m.end]
     '+1 425 882-8080'
     """
     def __init__(self, start, raw_string, numobj):
