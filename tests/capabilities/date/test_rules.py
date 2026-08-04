@@ -78,6 +78,15 @@ class TestSection1DateFormat:
         # Default base year is 2000, so 26 -> 2026
         assert rule.normalize(notation, contract) == "2026-07-26"
 
+    def test_two_digit_year_explicit_zero_base_year(self) -> None:
+        """An explicit zero base year is honored, not collapsed to 2000."""
+        rule = Section1DateFormat()
+        notation = DateNotation(N1="07", N2="26", N3="26")
+        contract = DateContract(two_digit_base_year=0)
+        assert rule.matches(notation, contract) is True
+        # Base year 0 is a configured value: 26 -> 0026, not 2026.
+        assert rule.normalize(notation, contract) == "0026-07-26"
+
     def test_two_digit_year_defensive_with_non_date_contract(self) -> None:
         """Two-digit years default to base 2000 even without a DateContract."""
         rule = Section1DateFormat()
@@ -159,6 +168,15 @@ class TestEN50160Section4DateFormat:
         contract = DateContract(two_digit_base_year=2000)
         assert rule.matches(notation, contract) is True
         assert rule.normalize(notation, contract) == "2026-07-26"
+
+    def test_two_digit_year_explicit_zero_base_year(self) -> None:
+        """An explicit zero base year is honored, not collapsed to 2000."""
+        rule = Section4DateFormat()
+        notation = DateNotation(N1="26", N2="07", N3="26")
+        contract = DateContract(two_digit_base_year=0)
+        assert rule.matches(notation, contract) is True
+        # Base year 0 is a configured value: 26 -> 0026, not 2026.
+        assert rule.normalize(notation, contract) == "0026-07-26"
 
     def test_two_digit_year_defensive_with_non_date_contract(self) -> None:
         """Two-digit years default to base 2000 even without a DateContract."""

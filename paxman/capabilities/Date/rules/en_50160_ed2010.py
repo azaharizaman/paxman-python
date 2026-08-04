@@ -38,8 +38,9 @@ class Section4DateFormat(Rule[DateNotation]):
 
         Defensive: the base year is read from the contract's
         ``two_digit_base_year`` attribute when present, falling back to 2000
-        otherwise. This helper never raises for contracts that lack the
-        Date-specific parameter.
+        otherwise. An explicit zero is a configured value and is honored
+        rather than treated as unset. This helper never raises for contracts
+        that lack the Date-specific parameter.
 
         Args:
             year_str: The year field from the notation.
@@ -49,7 +50,9 @@ class Section4DateFormat(Rule[DateNotation]):
             The full year (base year + two-digit offset, or the year as-is).
         """
         if len(year_str) == 2:
-            base_year = getattr(contract, "two_digit_base_year", None) or 2000
+            base_year = getattr(contract, "two_digit_base_year", None)
+            if base_year is None:
+                base_year = 2000
             return base_year + int(year_str)
         return int(year_str)
 
