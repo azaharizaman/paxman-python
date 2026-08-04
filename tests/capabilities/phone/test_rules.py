@@ -36,16 +36,11 @@ class TestSection6_1InternationalNumber:
         notation = PhoneNotation(shape="e164", value="886212345678")
         assert self.rule.matches(notation, self.contract) is True
 
-    def test_longest_prefix_wins(self) -> None:
-        """886 (Taiwan) resolves as 886, not 86 (China) + 6.
-
-        Longest-prefix matching must select the 3-digit Taiwan code; a
-        shorter-prefix split would strip only "86" from the NSN and leave
-        the national output one digit longer.
-        """
+    def test_longest_prefix_rule_emits_default_e164(self) -> None:
+        """Rules emit the default E.164 form regardless of output_format."""
         notation = PhoneNotation(shape="e164", value="886212345678")
         contract = PhoneContract(output_format="national")
-        assert self.rule.normalize(notation, contract) == "212345678"
+        assert self.rule.normalize(notation, contract) == "+886212345678"
 
     def test_matches_max_length(self) -> None:
         """Edge case: exactly 15 digits."""
@@ -92,23 +87,17 @@ class TestSection6_1InternationalNumber:
         notation = PhoneNotation(shape="e164", value="15551234567")
         assert self.rule.normalize(notation, self.contract) == "+15551234567"
 
-    def test_normalize_rfc3966_format(self) -> None:
-        """Verify rfc3966 output format."""
+    def test_normalize_ignores_rfc3966_contract_format(self) -> None:
+        """Rules emit default E.164 even under an rfc3966 contract."""
         notation = PhoneNotation(shape="e164", value="15551234567")
         contract = PhoneContract(output_format="rfc3966")
-        assert self.rule.normalize(notation, contract) == "tel:+15551234567"
+        assert self.rule.normalize(notation, contract) == "+15551234567"
 
-    def test_normalize_national_format(self) -> None:
-        """Verify national (NSN) output format."""
+    def test_normalize_ignores_national_contract_format(self) -> None:
+        """Rules emit default E.164 even under a national contract."""
         notation = PhoneNotation(shape="e164", value="15551234567")
         contract = PhoneContract(output_format="national")
-        assert self.rule.normalize(notation, contract) == "5551234567"
-
-    def test_normalize_national_defensive_no_assigned_cc(self) -> None:
-        """National normalization is defensive when no country code splits."""
-        notation = PhoneNotation(shape="e164", value="999123456789")
-        contract = PhoneContract(output_format="national")
-        assert self.rule.normalize(notation, contract) == "999123456789"
+        assert self.rule.normalize(notation, contract) == "+15551234567"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -243,29 +232,23 @@ class TestSection3TelUri:
         notation = PhoneNotation(shape="rfc3966", value="15551234567")
         assert self.rule.normalize(notation, self.contract) == "+15551234567"
 
-    def test_normalize_rfc3966_format(self) -> None:
-        """Verify rfc3966 output format."""
+    def test_normalize_ignores_rfc3966_contract_format(self) -> None:
+        """Rules emit default E.164 even under an rfc3966 contract."""
         notation = PhoneNotation(shape="rfc3966", value="15551234567")
         contract = PhoneContract(output_format="rfc3966")
-        assert self.rule.normalize(notation, contract) == "tel:+15551234567"
+        assert self.rule.normalize(notation, contract) == "+15551234567"
 
-    def test_normalize_with_extension_in_rfc3966_format(self) -> None:
-        """Verify extension is preserved in rfc3966 output."""
+    def test_normalize_ignores_extension_for_rfc3966_contract(self) -> None:
+        """Rules do not render extensions; that is the capability seam."""
         notation = PhoneNotation(shape="rfc3966", value="15551234567", extension="890")
         contract = PhoneContract(output_format="rfc3966")
-        assert self.rule.normalize(notation, contract) == "tel:+15551234567;ext=890"
+        assert self.rule.normalize(notation, contract) == "+15551234567"
 
-    def test_normalize_national_format(self) -> None:
-        """Verify national (NSN) output format strips the country code."""
+    def test_normalize_ignores_national_contract_format(self) -> None:
+        """Rules emit default E.164 even under a national contract."""
         notation = PhoneNotation(shape="rfc3966", value="15551234567")
         contract = PhoneContract(output_format="national")
-        assert self.rule.normalize(notation, contract) == "5551234567"
-
-    def test_normalize_national_defensive_no_assigned_cc(self) -> None:
-        """National normalization is defensive when no country code splits."""
-        notation = PhoneNotation(shape="rfc3966", value="999123456789")
-        contract = PhoneContract(output_format="national")
-        assert self.rule.normalize(notation, contract) == "999123456789"
+        assert self.rule.normalize(notation, contract) == "+15551234567"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -386,17 +369,17 @@ class TestSection1_1NANPStructure:
         notation = PhoneNotation(shape="national", value="800555123")
         assert self.rule.normalize(notation, self.contract) == "800555123"
 
-    def test_normalize_national_format(self) -> None:
-        """Verify national output format (NSN)."""
+    def test_normalize_national_format_is_default_e164(self) -> None:
+        """Rules emit default E.164 even under a national contract."""
         notation = PhoneNotation(shape="national", value="5552345678")
         contract = PhoneContract(output_format="national")
-        assert self.rule.normalize(notation, contract) == "5552345678"
+        assert self.rule.normalize(notation, contract) == "+15552345678"
 
-    def test_normalize_rfc3966_format(self) -> None:
-        """Verify rfc3966 output format (coverage: NANP _canonical branch)."""
+    def test_normalize_ignores_rfc3966_contract_format(self) -> None:
+        """Rules emit default E.164 even under an rfc3966 contract."""
         notation = PhoneNotation(shape="national", value="5552345678")
         contract = PhoneContract(default_country="US", output_format="rfc3966")
-        assert self.rule.normalize(notation, contract) == "tel:+15552345678"
+        assert self.rule.normalize(notation, contract) == "+15552345678"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -465,11 +448,11 @@ class TestSection1_2ServiceNPA:
         notation = PhoneNotation(shape="national", value="18005551234")
         assert self.rule.normalize(notation, self.contract) == "+18005551234"
 
-    def test_normalize_rfc3966_format(self) -> None:
-        """Verify rfc3966 output format (coverage: NANP _canonical branch)."""
+    def test_normalize_ignores_rfc3966_contract_format(self) -> None:
+        """Rules emit default E.164 even under an rfc3966 contract."""
         notation = PhoneNotation(shape="national", value="8005551234")
         contract = PhoneContract(default_country="US", output_format="rfc3966")
-        assert self.rule.normalize(notation, contract) == "tel:+18005551234"
+        assert self.rule.normalize(notation, contract) == "+18005551234"
 
     def test_rejects_structural_failure(self) -> None:
         """Non-NANP digits fail the structural check (digits is None branch)."""

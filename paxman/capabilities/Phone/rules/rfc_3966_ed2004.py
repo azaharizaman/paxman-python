@@ -3,9 +3,6 @@
 from __future__ import annotations
 
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.capabilities.Phone.rules.data.e164_country_codes import (
-    split_country_code,
-)
 from paxman.capabilities.Phone.rules.e164_ed2010 import valid_e164_value
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
@@ -54,29 +51,13 @@ class Section3TelUri(Rule[PhoneNotation]):
         return valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
-        """Normalize to canonical form.
+        """Normalize to the default canonical E.164 form.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            "+" + value (default), "tel:+value[;ext=extension]" (rfc3966),
-            or the national significant number (national).
-
-        Note:
-            Never raises. The national branch falls back to the input value
-            when no assigned country-code prefix can be split — unreachable
-            after matches() (which requires an assigned prefix); this is a
-            defensive best-effort for direct misuse.
+            "+" + value.
         """
-        if contract.output_format == "rfc3966":
-            base = f"tel:+{notation.value}"
-            return f"{base};ext={notation.extension}" if notation.extension else base
-        if contract.output_format == "national":
-            country_code = split_country_code(notation.value)
-            if country_code is None:
-                # unreachable post-matches(); defensive best-effort
-                return notation.value
-            return notation.value[len(country_code) :]
         return f"+{notation.value}"
