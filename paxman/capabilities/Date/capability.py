@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.grammar.european_recognition import (
@@ -61,3 +62,37 @@ class DateCapability(Capability[DateNotation]):
             output_format=output_format,
             two_digit_base_year=two_digit_base_year,
         )
+
+    def format_value(
+        self,
+        value: str,
+        output_format: str | None,
+        notation: DateNotation,
+    ) -> str:
+        """Render a default ISO canonical date in the requested format.
+
+        The default ISO path is the identity: the rule-produced ``YYYY-MM-DD``
+        canonical value is returned unchanged. An explicit ``"US"`` request
+        converts a validated fixed-shape ``YYYY-MM-DD`` value to ``MM/DD/YYYY``
+        by strict parsing; values that do not match the fixed-width shape
+        (e.g. ``2026-1-5``) raise rather than being rendered as if they were
+        valid.
+
+        Args:
+            value: The default canonical value produced by ``Rule.normalize()``.
+            output_format: The contract's resolved output format (``"ISO"`` or
+                ``"US"``).
+            notation: The original date notation that produced the canonical
+                value, retained for interface compatibility.
+
+        Returns:
+            The date rendered in the requested format.
+        """
+        if output_format != "US":
+            return value
+        if len(value) != 10 or value[4] != "-" or value[7] != "-":
+            raise ValueError(
+                f"Invalid ISO date {value!r}: expected fixed-shape YYYY-MM-DD"
+            )
+        parsed = datetime.strptime(value, "%Y-%m-%d")
+        return f"{parsed.month:02d}/{parsed.day:02d}/{parsed.year:04d}"

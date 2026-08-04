@@ -78,24 +78,6 @@ def _nanp_digits(value: str) -> str | None:
     return f"{npa}{nxx}{line}"
 
 
-def _canonical(digits: str, contract: Contract) -> str:
-    """Render the canonical form per contract.output_format.
-
-    Args:
-        digits: 10-digit NANP number (trunk already stripped).
-        contract: Contract configuration.
-
-    Returns:
-        "+1" + digits (e164/rfc3966-with-plus), "tel:+1" + digits
-        (rfc3966), or the NSN (national).
-    """
-    if contract.output_format == "rfc3966":
-        return f"tel:+1{digits}"
-    if contract.output_format == "national":
-        return digits
-    return f"+1{digits}"
-
-
 class Section1_1NANPStructure(Rule[PhoneNotation]):
     """NANP — numbering plan structure.
 
@@ -108,6 +90,8 @@ class Section1_1NANPStructure(Rule[PhoneNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "NANP numbering plan structure (NPA NXX-XXXX)"
+    target_grammars = frozenset({"national_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
         """Check if the notation is a structurally valid NANP number.
@@ -129,24 +113,25 @@ class Section1_1NANPStructure(Rule[PhoneNotation]):
         return _nanp_digits(notation.value) is not None
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
-        """Normalize to canonical E.164 form.
+        """Normalize to the default canonical E.164 form.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            "+1" + 10-digit NANP number, or the formatted variant per
-            contract.output_format.
+            "+1" + 10-digit NANP number.
 
-        Raises:
-            ValueError: If the value fails the NANP structure check
-                (matches() runs first, so this only fires on direct misuse).
+        Note:
+            Never raises. Falls back to the input value when the NANP
+            structure check fails — unreachable after matches() (which
+            requires the structure to pass); this is a defensive
+            best-effort for direct misuse.
         """
         digits = _nanp_digits(notation.value)
         if digits is None:
-            raise ValueError(f"{self.name}: invalid NANP value {notation.value!r}")
-        return _canonical(digits, contract)
+            return notation.value  # unreachable post-matches(); defensive best-effort
+        return f"+1{digits}"
 
 
 class Section1_2ServiceNPA(Rule[PhoneNotation]):
@@ -160,6 +145,8 @@ class Section1_2ServiceNPA(Rule[PhoneNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "NANPA service NPA assignment table"
+    target_grammars = frozenset({"national_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
         """Check if the notation carries a service NPA.
@@ -183,21 +170,22 @@ class Section1_2ServiceNPA(Rule[PhoneNotation]):
         return digits[:3] in SERVICE_NPAS
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
-        """Normalize to canonical E.164 form.
+        """Normalize to the default canonical E.164 form.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            "+1" + 10-digit NANP number, or the formatted variant per
-            contract.output_format.
+            "+1" + 10-digit NANP number.
 
-        Raises:
-            ValueError: If the value fails the NANP structure check
-                (matches() runs first, so this only fires on direct misuse).
+        Note:
+            Never raises. Falls back to the input value when the NANP
+            structure check fails — unreachable after matches() (which
+            requires the structure to pass); this is a defensive
+            best-effort for direct misuse.
         """
         digits = _nanp_digits(notation.value)
         if digits is None:
-            raise ValueError(f"{self.name}: invalid NANP value {notation.value!r}")
-        return _canonical(digits, contract)
+            return notation.value  # unreachable post-matches(); defensive best-effort
+        return f"+1{digits}"

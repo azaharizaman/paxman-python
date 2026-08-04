@@ -8,6 +8,7 @@ from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.capability import Capability
+from paxman.core.errors import ContractError
 
 # --- DateNotation tests ---
 
@@ -69,6 +70,52 @@ class TestDateCapability:
         assert len(cap.get_rules()) == 3
 
 
+@pytest.mark.capability
+class TestDateCapabilityFormatValue:
+    """Tests for DateCapability.format_value()."""
+
+    NOTATION = DateNotation(N1="2026", N2="07", N3="26")
+
+    def test_iso_format_is_identity(self) -> None:
+        """The default ISO path returns the canonical value unchanged."""
+        cap = DateCapability()
+        assert cap.format_value("2026-07-26", "ISO", self.NOTATION) == "2026-07-26"
+
+    def test_default_format_is_identity(self) -> None:
+        """An unset output format returns the canonical value unchanged."""
+        cap = DateCapability()
+        assert cap.format_value("2026-07-26", None, self.NOTATION) == "2026-07-26"
+
+    def test_us_format_converts_iso_canonical(self) -> None:
+        """US rendering converts a validated YYYY-MM-DD value to MM/DD/YYYY."""
+        cap = DateCapability()
+        assert cap.format_value("2026-07-26", "US", self.NOTATION) == "07/26/2026"
+
+    def test_us_format_converts_other_dates(self) -> None:
+        """US rendering handles dates outside the notation sample."""
+        cap = DateCapability()
+        notation = DateNotation(N1="1999", N2="12", N3="31")
+        assert cap.format_value("1999-12-31", "US", notation) == "12/31/1999"
+
+    def test_us_format_preserves_four_digit_early_year(self) -> None:
+        """US rendering keeps zero-padding for years before 1000."""
+        cap = DateCapability()
+        notation = DateNotation(N1="0001", N2="01", N3="01")
+        assert cap.format_value("0001-01-01", "US", notation) == "01/01/0001"
+
+    def test_us_format_rejects_arbitrary_strings(self) -> None:
+        """US rendering must not accept arbitrary strings as valid dates."""
+        cap = DateCapability()
+        with pytest.raises(ValueError):
+            cap.format_value("not-a-date", "US", self.NOTATION)
+
+    def test_us_format_rejects_non_fixed_width_values(self) -> None:
+        """US rendering rejects values that are not fixed-shape YYYY-MM-DD."""
+        cap = DateCapability()
+        with pytest.raises(ValueError):
+            cap.format_value("2026-1-5", "US", self.NOTATION)
+
+
 # --- DateContract tests ---
 
 
@@ -80,7 +127,7 @@ class TestDateContract:
         contract = DateContract()
         assert contract.capability_name == "date"
         assert contract.pinned_rules is None
-        assert contract.output_format is None
+        assert contract.output_format == "ISO"
         assert contract.two_digit_base_year is None
 
     def test_with_parameters(self) -> None:
@@ -99,3 +146,14 @@ class TestDateContract:
         assert d["capability_name"] == "date"
         assert d["output_format"] == "US"
         assert d["two_digit_base_year"] == 1900
+
+    def test_output_format_default_resolves_to_iso(self) -> None:
+        """'default' reverts to the default ISO rendering."""
+        contract = DateContract(output_format="default")
+        assert contract.output_format == "ISO"
+
+    @pytest.mark.parametrize("fmt", ["none", "", "e164", "alpha2"])
+    def test_invalid_output_format_raises_contract_error(self, fmt: str) -> None:
+        """Unoffered output_format values raise ContractError."""
+        with pytest.raises(ContractError):
+            DateContract(output_format=fmt)

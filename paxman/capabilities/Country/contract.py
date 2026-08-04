@@ -3,23 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import ClassVar, Final
 
-from paxman.core.errors import ContractError
-
-VALID_OUTPUT_FORMATS: frozenset[str] = frozenset(
-    {"alpha2", "alpha3", "numeric", "name"}
-)
+from paxman.core.contract import CapabilityContract
 
 
-@dataclass(frozen=True, slots=True)
-class CountryContract:
+@dataclass(frozen=True)
+class CountryContract(CapabilityContract):
     """User-facing configuration for Country capability.
 
     Attributes:
         capability_name: Fixed to "country" (not user-settable).
-        output_format: Output format for canonical values. One of "alpha2",
-            "alpha3", "numeric", "name". Defaults to "alpha2".
+        output_format: Canonical output format ("alpha2" default, "alpha3",
+            "numeric", or "name"). Optional — None/"default"/"alpha2" all
+            resolve to "alpha2".
         excluded_rules: Tuple of rule names to exclude.
         pinned_rules: Pin to specific rules (takes precedence over excluded_rules).
         year: Year for temporal filtering.
@@ -27,17 +24,16 @@ class CountryContract:
         include_historical: Enable deprecated country names.
     """
 
-    capability_name: str = field(default="country", init=False)
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "alpha2"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset(
+        {"alpha3", "numeric", "name"}
+    )
 
-    # Standard contract fields
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    pinned_rules: tuple[str, ...] | None = None
-    year: int | None = None
+    capability_name: str = field(default="country", init=False)
 
     # Capability-specific fields
     include_localized: bool = False
     include_historical: bool = False
-    output_format: str = "alpha2"
 
     @property
     def active_grammars(self) -> list[str]:
@@ -53,27 +49,18 @@ class CountryContract:
             "name_recognition",
         ]
 
-    def __post_init__(self) -> None:
-        """Validate output_format value."""
-        if self.output_format not in VALID_OUTPUT_FORMATS:
-            msg = (
-                f"Invalid output_format: {self.output_format!r}. "
-                f"Must be one of {sorted(VALID_OUTPUT_FORMATS)}"
-            )
-            raise ContractError(msg)
-
-    def as_dict(self) -> dict[str, Any]:
-        """Serialize for replay hash computation.
+    def _extra_dict_fields(self) -> dict[str, object]:
+        """Serialize capability-specific fields for replay hash.
 
         Returns:
-            Dictionary representation of all fields.
+            Dictionary of include_localized and include_historical flags.
         """
         return {
-            "capability_name": self.capability_name,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-            "output_format": self.output_format,
             "include_localized": self.include_localized,
             "include_historical": self.include_historical,
         }
+
+
+VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
+    {CountryContract.DEFAULT_OUTPUT_FORMAT, *CountryContract.OFFERED_OUTPUT_FORMATS}
+)

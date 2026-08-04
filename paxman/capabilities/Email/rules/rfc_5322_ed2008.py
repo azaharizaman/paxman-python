@@ -33,6 +33,8 @@ class Section341AddrSpec(Rule[EmailNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"
+    target_grammars = frozenset({"standard_recognition", "obfuscated_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         return bool(

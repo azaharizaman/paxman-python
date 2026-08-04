@@ -31,6 +31,8 @@ class Section4IPv6TextRepresentation(Rule[IPNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 4 (IPv6 text representation)"
+    target_grammars = frozenset({"ipv6_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: IPNotation, contract: Contract) -> bool:
         """Check if the address is a valid IPv6 address."""

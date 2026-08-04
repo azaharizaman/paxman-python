@@ -100,3 +100,17 @@ class TestDateCapabilityIntegration:
         values = {c.value for c in result.candidates}
         assert "2026-07-02" in values  # US interpretation
         assert "2026-02-07" in values  # European interpretation
+
+    def test_pinned_iso_rule_with_us_output_format(self) -> None:
+        """A pinned ISO rule with output_format=US renders MM/DD/YYYY.
+
+        The ISO rule emits its default canonical ISO value; the capability
+        formatter then renders it in the requested US format.
+        """
+        contract = Date.create_contract(
+            pinned_rules=["Section 4.3.1-calendar-date"], output_format="US"
+        )
+        result = paxman.canonicalize("2026-01-15", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "01/15/2026"
+        assert result.candidates[0].value == "01/15/2026"

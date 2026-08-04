@@ -65,10 +65,12 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 1. Freezes the capability registry
 2. Looks up the requested capability by name
 3. Runs the recognition phase — iterating over active grammars to extract notations
-4. Runs the validation phase — testing each notation against active rules
-5. Determines the resolution status based on candidate outcomes
-6. Computes a deterministic replay hash for integrity verification
-7. Assembles the final execution result
+4. Runs the validation phase — testing each notation against active rules, which normalize to each capability's default canonical form and never inspect `output_format`
+5. Formats each validated value through the capability's `format_value()` seam — immediately after normalization and before deduplication, status determination, and replay hashing
+6. Deduplicates identical candidates
+7. Determines the resolution status based on candidate outcomes
+8. Computes a deterministic replay hash for integrity verification
+9. Assembles the final execution result
 
 The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce notations and rules produce candidates.
 
@@ -101,13 +103,23 @@ Each capability defines a typed Notation (a data class with named fields) that p
 Contracts pass configuration parameters to validation rules, enabling rules to adapt their behavior based on user preferences.
 
 **Base Contract Parameters:**
-- **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). Rules check this parameter during normalization to produce the desired output format.
+- **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). `CapabilityContract.__post_init__` resolves `None`, `"default"`, and each capability's default format to a concrete string; the capability's `format_value()` seam applies the format to the rule-produced default canonical value. Validation rules never inspect `output_format` — they always normalize to the default canonical form. See "The Formatting Seam" below.
 - **`pinned_rules`**: Pins to specific validation rules by name. When set, ONLY those rules run — `excluded_rules` is ignored. Takes precedence over `excluded_rules`.
 
 **Date-Specific Parameters:**
 - **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Only available on Date contracts, not part of the base Contract protocol. Used by US and European grammars to resolve ambiguous year values.
 
-These parameters are passed through the contract to rule methods (`matches()` and `normalize()`), allowing rules to be contract-aware without direct coupling to specific capabilities.
+These parameters are passed through the contract to rule methods (`matches()` and `normalize()`), allowing rules to be contract-aware without direct coupling to specific capabilities. `output_format` is the exception: it is a presentation parameter consumed by the capability's formatting seam, never by validation rules.
+
+### The Formatting Seam
+
+Validation and presentation are separated at the pipeline level. Rules own validation and default normalization only: `matches()` never consults `output_format`, and `normalize()` always returns the capability's default canonical form (e.g., `YYYY-MM-DD` for Date, E.164 `+CCNSN` for Phone, alpha-2 for Country). The engine then renders each validated value through the capability's `format_value(value, output_format, notation)` method — called immediately after `normalize()` and before candidate deduplication, status determination, and replay hashing:
+
+**recognition → validation → default normalization → capability formatting → candidate deduplication → status → replay hash**
+
+Formatting adds no provenance: `Candidate.provenance`, `recognition_rule`, and `validation_rule` are set from the rule that validated the notation, and the formatter only transforms the value. Date, Phone, and Country implement conversions; Email and IP inherit the identity implementation because they offer no alternative formats.
+
+A CI source scan (`tests/unit/test_rule_output_format_purity.py`) rejects any `output_format` token in `paxman/capabilities/*/rules/` modules — in code, comments, or docstrings — so presentation cannot migrate back into rules. In the Country capability, localized names (e.g., `Alemania` → `DE`) are formatted through the current alpha-2 conversion tables for `alpha3`, `numeric`, and `name` while retaining Unicode/CLDR provenance; historical former codes (e.g., `SU`) pass through unchanged for those formats when no current mapping exists, retaining ISO 3166-3 provenance.
 
 ### Immutability
 
@@ -119,7 +131,7 @@ Rules carry a publication year from their authoritative specification. When a co
 
 ### Replay Integrity
 
-Every execution produces a VersionStamp containing a deterministic SHA-256 hash computed from the input text, contract configuration, resolution status, and all candidate values. This hash enables replay verification — confirming that the same input and configuration produce the same output, byte-for-byte.
+Every execution produces a VersionStamp containing a deterministic SHA-256 hash computed from the input text, contract configuration, resolution status, and the formatted candidate values (formatting runs before hashing, so an output-format change is reflected in the hash). This hash enables replay verification — confirming that the same input and configuration produce the same output, byte-for-byte.
 
 ---
 
@@ -158,6 +170,7 @@ Paxman enforces architectural invariants through tooling:
 - **Static type checking** in strict mode ensures type safety across all layers
 - **Import boundary enforcement** prevents capability-to-capability dependencies and ensures the core layer remains independent
 - **Linting and formatting** enforce consistent code style
+- **Rule-purity source scan** fails CI when any validation-rule module under `paxman/capabilities/*/rules/` references `output_format`, enforcing that presentation is owned solely by `Capability.format_value()`
 - **Property-based testing** validates domain object contracts (immutability, equality, hashability)
 
 These tools run as part of the development workflow and block merges when invariants are violated.
@@ -190,7 +203,7 @@ Three rules validate date notations against authoritative specifications:
 | US federal | US government standard | `YYYY-MM-DD` |
 | EN 50160 | European EN 50160 | `YYYY-MM-DD` |
 
-All rules normalize to ISO 8601 format (`YYYY-MM-DD`) regardless of input grammar.
+All rules normalize to ISO 8601 format (`YYYY-MM-DD`) regardless of input grammar; the capability's formatting seam applies a requested alternative (e.g., `output_format="US"`) to that default afterward.
 
 ### Ambiguity Detection
 

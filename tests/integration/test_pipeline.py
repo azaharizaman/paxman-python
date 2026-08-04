@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 import pytest
 
+from paxman.capabilities.Country.capability import CountryCapability
+from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Email.notation import EmailNotation
+from paxman.capabilities.IP.capability import IPCapability
+from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.capability import Capability
+from paxman.core.contract import Contract
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Grammar, Provenance, Resolution, Rule, RuleStrategy
-from paxman.core.errors import RecognitionError, ValidationError
+from paxman.core.errors import ContractError, RecognitionError, ValidationError
 from paxman.engine.orchestrator import run_capability
 
 
@@ -131,6 +139,8 @@ class StubRule(Rule[EmailNotation]):
         publication_year=2024,
     )
     citation = "test"
+    target_grammars = frozenset({"crash_grammar"})
+    requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: object) -> bool:
         return True
@@ -154,6 +164,8 @@ class ExplodingRule(Rule[EmailNotation]):
         publication_year=2024,
     )
     citation = "test"
+    target_grammars = frozenset({"simple_grammar"})
+    requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: object) -> bool:
         raise ValueError("rule crashed")
@@ -321,3 +333,237 @@ class TestPinnedRules:
 
         assert result.status == Resolution.INVALID
         assert len(result.candidates) == 0
+
+
+class _PhantomGrammar(Grammar[EmailNotation]):
+    """Grammar referenced by a rule that does not exist in the capability."""
+
+    name = "phantom_grammar"
+
+    def recognize(self, text: str) -> list[EmailNotation]:
+        return [EmailNotation(local_part="user", domain_part="example.com")]
+
+
+class _PhantomRule(Rule[EmailNotation]):
+    """Rule whose target_grammars names a non-existent grammar."""
+
+    name = "phantom_rule"
+    strategy = RuleStrategy.REGEX
+    provenance = Provenance(
+        authority="test",
+        specification_name="test",
+        kind="test",
+        reference_url="https://test",
+        version=None,
+        lifecycle="active",
+        publication_year=2024,
+    )
+    citation = "test"
+    target_grammars = frozenset({"does_not_exist"})
+    requires_features = frozenset()
+
+    def matches(self, notation: EmailNotation, contract: object) -> bool:
+        return True
+
+    def normalize(self, notation: EmailNotation, contract: object) -> str:
+        return "phantom"
+
+
+class _PhantomCapability(Capability[EmailNotation]):
+    """Capability whose rule declares a grammar the capability lacks."""
+
+    name = "phantom"
+    version = "0.1.0"
+
+    def get_grammars(self) -> list[Grammar[EmailNotation]]:
+        return [_PhantomGrammar()]
+
+    def get_rules(self) -> list[Rule[EmailNotation]]:
+        return [_PhantomRule()]
+
+
+class _PhantomContract:
+    """Minimal contract stub for the phantom capability."""
+
+    @property
+    def capability_name(self) -> str:
+        return "phantom"
+
+    @property
+    def active_grammars(self) -> list[str]:
+        return ["phantom_grammar"]
+
+    @property
+    def excluded_rules(self) -> list[str]:
+        return []
+
+    @property
+    def pinned_rules(self) -> list[str] | None:
+        return None
+
+    @property
+    def year(self) -> int | None:
+        return None
+
+    @property
+    def output_format(self) -> str | None:
+        return None
+
+    def as_dict(self) -> dict[str, object]:
+        return {"capability_name": "phantom"}
+
+
+class TestGrammarRuleAffinity:
+    """F1: grammar→rule affinity declared via Rule.target_grammars."""
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("output_format", [None, "ISO", "US"])
+    def test_date_ambiguity_holds_after_formatting_before_status(
+        self, output_format: str | None
+    ) -> None:
+        """01/02/2026 is recognized by both US and EU grammars; both rules
+        validate both notations, yielding two distinct canonical dates.
+
+        The engine formats each canonical value (to the requested format, or
+        ISO by default) before deduplication and status, so the formatted
+        candidate values remain two distinct values and the result is
+        AMBIGUOUS for every requested format.
+        """
+        register_capability(DateCapability())
+        contract = DateCapability.create_contract(output_format=output_format)
+        result = run_capability("01/02/2026", contract)
+
+        # Formatting precedes status: the two distinct canonical dates render
+        # as two distinct formatted values, so the status must be AMBIGUOUS.
+        assert result.status == Resolution.AMBIGUOUS
+        assert len(result.candidates) == 4
+        # Two genuinely distinct formatted values -> AMBIGUOUS (not SUCCESS).
+        assert len({c.value for c in result.candidates}) == 2
+
+    @pytest.mark.integration
+    def test_date_same_interpretation_is_success(self) -> None:
+        """When both slash interpretations agree, F1 must not invent ambiguity."""
+        register_capability(DateCapability())
+        contract = DateCapability.create_contract()
+        result = run_capability("12/12/2026", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "2026-12-12"
+
+    @pytest.mark.integration
+    def test_date_ambiguity_formatted_values_remain_two_distinct(self) -> None:
+        """The two canonical dates stay distinct after formatting.
+
+        Formatting converts each canonical value before deduplication and
+        status: the default ISO and requested US formats each render the two
+        distinct canonical dates as two distinct formatted values, so the
+        result is AMBIGUOUS in both cases.
+        """
+        register_capability(DateCapability())
+        base = run_capability("01/02/2026", DateCapability.create_contract())
+        us = run_capability(
+            "01/02/2026", DateCapability.create_contract(output_format="US")
+        )
+
+        assert base.status == us.status == Resolution.AMBIGUOUS
+        # Each format renders the two distinct canonical dates as two distinct
+        # formatted values; the number of distinct formatted candidate values
+        # (and therefore the ambiguity) is invariant across formats.
+        assert len({c.value for c in base.candidates}) == 2
+        assert len({c.value for c in us.candidates}) == 2
+
+    @pytest.mark.integration
+    def test_affinity_validation_rejects_unknown_grammar(self) -> None:
+        """A rule declaring a grammar the capability lacks must fail fast with
+        ContractError, not silently drop the rule (which would yield INVALID)."""
+        register_capability(_PhantomCapability())
+        with pytest.raises(ContractError):
+            run_capability("test input", _PhantomContract())
+
+
+class TestReplayAndCandidateOrder:
+    """Replay determinism and candidate order across capabilities.
+
+    Each fixed input+contract is run twice; the second run must reproduce the
+    first run's status, canonicalized value, candidate tuple (order included),
+    and replay hash. The literal pre-migration snapshots in
+    ``test_default_replay_hashes.py`` are the separate byte-compatibility
+    guard; these regressions lock within-run determinism for formatted cases.
+    """
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        ("capability_cls", "contract_factory", "input_text"),
+        [
+            pytest.param(
+                DateCapability,
+                lambda: DateCapability.create_contract(output_format="US"),
+                "01/02/2026",
+                id="date-ambiguous-us",
+            ),
+            pytest.param(
+                PhoneCapability,
+                lambda: PhoneCapability.create_contract(output_format="rfc3966"),
+                "tel:+15551234567;ext=890",
+                id="phone-rfc3966-extension",
+            ),
+            pytest.param(
+                CountryCapability,
+                lambda: CountryCapability.create_contract(output_format="alpha3"),
+                "DE",
+                id="country-alpha3",
+            ),
+            pytest.param(
+                EmailCapability,
+                lambda: EmailCapability.create_contract(),
+                "user@example.com",
+                id="email-default",
+            ),
+            pytest.param(
+                IPCapability,
+                lambda: IPCapability.create_contract(),
+                "192.0.2.1",
+                id="ip-default",
+            ),
+        ],
+    )
+    def test_repeated_run_is_byte_identical(
+        self,
+        capability_cls: type[Capability[Any]],
+        contract_factory: Callable[[], Contract],
+        input_text: str,
+    ) -> None:
+        """Running the same case twice yields identical results and hash."""
+        register_capability(capability_cls())
+        contract = contract_factory()
+
+        first = run_capability(input_text, contract)
+        second = run_capability(input_text, contract)
+
+        assert second.status == first.status
+        assert second.canonicalized_value == first.canonicalized_value
+        assert second.candidates == first.candidates
+        assert second.version_stamp.replay_hash == first.version_stamp.replay_hash
+
+    @pytest.mark.integration
+    def test_phone_formatting_precedes_dedup_two_extensions(self) -> None:
+        """Two tel URIs differing only in ;ext= stay AMBIGUOUS in rfc3966.
+
+        The pre-format E.164 values are identical, so only formatting-before-
+        deduplication keeps the two extension-bearing candidates distinct. If
+        the extension were dropped or formatting deferred until after dedup,
+        the candidates would collapse into a single value and the status
+        would be SUCCESS instead of AMBIGUOUS.
+        """
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(output_format="rfc3966")
+        result = run_capability(
+            "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
+        )
+
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+        assert {c.value for c in result.candidates} == {
+            "tel:+15551234567;ext=890",
+            "tel:+15551234567;ext=891",
+        }

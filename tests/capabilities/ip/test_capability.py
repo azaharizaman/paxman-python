@@ -10,6 +10,7 @@ from paxman.capabilities.IP.grammar.ipv4_recognition import IPv4Grammar
 from paxman.capabilities.IP.rules.rfc_791_ed1981 import Section3Dot2IPv4Address
 from paxman.core.capability import Capability
 from paxman.core.domain import Grammar, Rule
+from paxman.core.errors import ContractError
 
 # --- IPNotation tests ---
 
@@ -130,7 +131,7 @@ class TestIPContract:
         assert contract.include_ipv6 is True
         assert contract.excluded_rules == ()
         assert contract.year is None
-        assert contract.output_format is None
+        assert contract.output_format == "ip"
 
     def test_active_grammars_default(self) -> None:
         contract = IPContract()
@@ -147,6 +148,17 @@ class TestIPContract:
         assert d["pinned_rules"] is None
         assert d["include_ipv6"] is False
         assert d["year"] == 2010
+
+    def test_output_format_default_resolves_to_ip(self) -> None:
+        """'default' resolves to 'ip' — IP's single canonical form."""
+        contract = IPContract(output_format="default")
+        assert contract.output_format == "ip"
+
+    @pytest.mark.parametrize("fmt", ["none", "", "ISO", "US", "e164"])
+    def test_invalid_output_format_raises_contract_error(self, fmt: str) -> None:
+        """Unoffered output_format values raise ContractError."""
+        with pytest.raises(ContractError):
+            IPContract(output_format=fmt)
 
 
 # --- Package import tests ---

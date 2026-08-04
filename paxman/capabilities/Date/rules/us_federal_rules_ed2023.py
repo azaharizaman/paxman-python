@@ -4,11 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
-from paxman.core.errors import ContractError
 
 PUBLICATION = Provenance(
     authority="US Federal Government",
@@ -32,9 +30,17 @@ class Section1DateFormat(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 1 (date format)"
+    target_grammars = frozenset({"us_recognition", "european_recognition"})
+    requires_features = frozenset()
 
     def _interpret_two_digit_year(self, year_str: str, contract: Contract) -> int:
         """Interpret two-digit year using contract's base year.
+
+        Defensive: the base year is read from the contract's
+        ``two_digit_base_year`` attribute when present, falling back to 2000
+        otherwise. An explicit zero is a configured value and is honored
+        rather than treated as unset. This helper never raises for contracts
+        that lack the Date-specific parameter.
 
         Args:
             year_str: The year field from the notation.
@@ -42,20 +48,11 @@ class Section1DateFormat(Rule[DateNotation]):
 
         Returns:
             The full year (base year + two-digit offset, or the year as-is).
-
-        Raises:
-            ContractError: If the contract is not a DateContract. The
-                two-digit year helper needs the date-specific
-                ``two_digit_base_year`` parameter, so the contract is
-                narrowed with a runtime check (not a bare cast).
         """
         if len(year_str) == 2:
-            if not isinstance(contract, DateContract):
-                raise ContractError(
-                    f"{self.name} requires a DateContract, "
-                    f"got {type(contract).__name__}"
-                )
-            base_year = contract.two_digit_base_year or 2000
+            base_year = getattr(contract, "two_digit_base_year", None)
+            if base_year is None:
+                base_year = 2000
             return base_year + int(year_str)
         return int(year_str)
 
@@ -71,11 +68,9 @@ class Section1DateFormat(Rule[DateNotation]):
             return False
 
     def normalize(self, notation: DateNotation, contract: Contract) -> str:
-        """Normalize based on output_format contract parameter."""
+        """Normalize to the default canonical ISO 8601 format."""
         month = int(notation.N1)
         day = int(notation.N2)
         year = self._interpret_two_digit_year(notation.N3, contract)
 
-        if contract.output_format == "US":
-            return f"{month:02d}/{day:02d}/{year:04d}"
         return f"{year:04d}-{month:02d}-{day:02d}"

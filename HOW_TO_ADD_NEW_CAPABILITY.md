@@ -185,6 +185,15 @@ def recognize(self, text: str) -> list[YourDomainNotation]:
 - **String parsing** — split or scan text for delimiters
 - **Hybrid** — combine regex with string operations for complex patterns
 
+### The Grammar/Rule Boundary (hard rule)
+
+Grammars recognize *representations*; rules assign *meaning*. Keep the two layers apart:
+
+- **Grammars may normalize syntax and use key-only recognition tables.** Case folding, Unicode decomposition, punctuation removal, and whitespace collapsing are not semantic decisions. A grammar lookup table may contain *keys only* — the raw spellings the grammar recognizes — with no token mapped to a canonical value.
+- **Grammars must not map tokens to canonical values or import provenance-backed semantic tables.** A grammar must never return a canonical country, code, or name in place of the recognized input token, and it must not import the rule layer's authority data. If a representation needs a synonym, the rule owns it.
+- **Rules validate notation, assign meaning, normalize the default canonical form, and carry provenance.** Validation rules hold the authority-backed tables (e.g., ISO 3166-1 for official names and synonyms, ISO 3166-3 for former names, CLDR for localized names) and produce the candidate with that provenance.
+- **Recognition and authority data may evolve separately.** Keep grammar recognition keys and rule lookup tables in separate files, and add a consistency test that asserts every shipped recognition key is covered by at least one rule-data mapping. That test is what lets the two catalogs drift independently without breaking shipped behavior.
+
 ---
 
 ## Step 5: Create Validation Rules
@@ -216,6 +225,10 @@ Create a class that extends `Rule`:
    - `PARSER` — for rules that parse and validate structured input
 3. Set `provenance` to the `PUBLICATION` constant defined above
 4. Set `citation` to a human-readable citation (e.g., "Section 3.4.1 (addr-spec)")
+5. Set `target_grammars` to the `frozenset[str]` of grammar names whose notations this rule validates (e.g., `frozenset({"standard_recognition"})`)
+6. Set `requires_features` to the `frozenset[str]` of contract fields that must be truthy for the rule to run (`frozenset()` when it always runs)
+
+All six attributes are enforced by `Rule.__init_subclass__` at class-definition time; see the Rule metadata section in Step 7.
 
 ### 5c: Implement the `matches` method
 
@@ -239,21 +252,21 @@ def matches(self, notation: YourDomainNotation, contract: Contract) -> bool:
 
 ### 5d: Implement the `normalize` method
 
-The `normalize` method converts a valid notation into its canonical string form:
+The `normalize` method converts a valid notation into its capability's default canonical string form:
 
 ```python
 def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
 ```
 
 - Accept a typed notation and the contract
-- Return the canonical string representation
+- Return the default canonical string representation
 - Only called after `matches` returns `True` (you can assume the notation is valid)
 - Apply normalization rules from the specification (e.g., lowercase, remove whitespace, pad with zeros)
-- Use contract parameters to control output format (e.g., `contract.output_format`)
+- **Never read `contract.output_format`.** Presentation is the capability's job, not the rule's. `normalize()` always returns the default canonical form, and the engine applies `Capability.format_value()` afterward. A CI source scan rejects any `output_format` token in rule modules (see the presentational-only invariant below).
 
 ### Accessing Capability-Specific Contract Fields
 
-Your rules receive the base `Contract` protocol type. To access capability-specific fields (like `two_digit_base_year` or `include_historical`), use `typing.cast`:
+Your rules receive the base `Contract` protocol type. To access capability-specific fields that carry parameters, like `two_digit_base_year` or `default_country`, use `typing.cast`:
 
 ```python
 from typing import cast
@@ -268,7 +281,9 @@ class SectionYourRule(Rule[YourDomainNotation]):
 
 **Why cast?** The engine passes `Contract` (the protocol type) to rules. Your rules know they'll only be called with your capability's contract, so the cast is safe. The alternative — checking `isinstance` — adds unnecessary runtime overhead.
 
-**When to use:** Only when your rule needs capability-specific fields. Standard fields (`year`, `output_format`, `pinned_rules`) are available on the base protocol.
+**When to use:** When your rule needs a capability-specific parameter, such as `two_digit_base_year` (Date) or `default_country` (Phone). Parameters that affect validity may be read in `matches()` or `normalize()`. Standard fields (`year`, `pinned_rules`) are available on the base protocol; `output_format` is a presentation parameter consumed by `Capability.format_value()`, never by rules.
+
+**When not to use:** Never cast to read feature-toggle flags (`include_*`) for gating. Feature routing is the engine's job: declare the dependency in `Rule.requires_features`, and the engine drops the rule when the flag is false. `matches()` must never consult `include_*` flags or `output_format`; validity comes from the notation, the specification, and legitimate validity-affecting parameters.
 
 ---
 
@@ -286,6 +301,7 @@ Create `paxman/capabilities/YourDomain/capability.py`:
 6. Implement `get_grammars()` — return a list of grammar instances
 7. Implement `get_rules()` — return a list of rule instances
 8. Define a `create_contract()` static method that returns a default contract
+9. Implement `format_value(value, output_format, notation)` — the single presentation seam. The engine calls it immediately after `Rule.normalize()` and before candidate deduplication, status determination, and replay hashing. Return the value unchanged for the default format; only an explicitly offered alternative triggers conversion (e.g., Date `"US"` rendering, Country `alpha3`/`numeric`/`name` conversion, Phone RFC 3966/national rendering). A capability with no alternative formats (e.g., Email, IP) inherits the identity implementation from `Capability` and does not override it. Rules never implement presentation — see Step 5d and the presentational-only invariant in Step 7.
 
 ---
 
@@ -293,17 +309,113 @@ Create `paxman/capabilities/YourDomain/capability.py`:
 
 The Contract is a user-facing configuration object that controls which grammars and rules are active.
 
+### Unanimous contract & rule surface
+
+Every contract and rule in the codebase follows the same structural rules. The `CapabilityContract` base class makes this unanimous surface structural rather than documentary: the pieces below are implemented once, in the base class, and your capability inherits them. Read this before writing your contract.
+
+**1. Every contract MUST inherit `CapabilityContract`**
+
+Import it from `paxman.core.contract` (defined in `paxman/core/capability_contract.py`). Your contract is a frozen dataclass subclass:
+
+```python
+from dataclasses import dataclass, field
+from typing import ClassVar
+
+from paxman.core.contract import CapabilityContract
+
+
+@dataclass(frozen=True)
+class YourDomainContract(CapabilityContract):
+    """User-facing contract for YourDomain capability."""
+
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "iso"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"us"})
+
+    capability_name: str = field(default="yourdomain", init=False)
+    include_extended: bool = False  # toggles extended_recognition grammar
+
+    @property
+    def active_grammars(self) -> list[str]:
+        grammars = ["standard_recognition"]
+        if self.include_extended:
+            grammars.append("extended_recognition")
+        return grammars
+
+    def _extra_dict_fields(self) -> dict[str, object]:
+        return {"include_extended": self.include_extended}
+```
+
+Concretely, a `CapabilityContract` subclass:
+
+- Overrides `DEFAULT_OUTPUT_FORMAT` (a concrete string) and `OFFERED_OUTPUT_FORMATS` (a `frozenset[str]` of *alternative* formats) as class variables. The default format is **not** included in `OFFERED_OUTPUT_FORMATS`.
+- Sets `capability_name` via `field(default="<name>", init=False)`.
+- Declares `output_format` nowhere — the base field `output_format: str | None = None` is inherited. It is **never** a non-optional `str`. The base `__post_init__` resolves `None`, `"default"`, and the default format string to the concrete default, validates offered alternatives, and raises `ContractError` for anything else.
+- Implements the abstract `active_grammars` property.
+- Overrides `_extra_dict_fields()` (NOT `as_dict()`) to emit capability-specific serialization keys. Never hand-write `as_dict()`; the base implementation emits the standard keys plus your extra fields.
+- Adds its own `__post_init__` validation by calling `super().__post_init__()` first. Use `@dataclass(frozen=True)` exactly like the base — do NOT add `slots=True` (incompatible with the base's `super()` pattern).
+
+`CapabilityContract` satisfies the `Contract` protocol structurally, so your subclass does too.
+
+**2. `create_contract()` signature**
+
+The static `create_contract()` on your capability class must open with the fixed keyword-only common-parameter block, in this order, all optional:
+
+```python
+@staticmethod
+def create_contract(
+    *,
+    excluded_rules: Sequence[str] | None = None,
+    pinned_rules: Sequence[str] | None = None,
+    year: int | None = None,
+    output_format: str | None = None,
+    include_extended: bool = False,  # capability-specific params follow
+) -> YourDomainContract:
+    ...
+```
+
+Capability-specific parameters come after the common block. Every capability satisfies the `ContractFactory` protocol in `paxman/core/capability.py`.
+
+**3. Rule metadata**
+
+Every `Rule` subclass must declare six class attributes: `name`, `strategy`, `provenance`, `citation`, `target_grammars`, and `requires_features`. `Rule.__init_subclass__` enforces this at class-definition time, and a subclass missing any of them fails to import with a `TypeError`:
+
+```python
+class SectionYourRule(Rule[YourDomainNotation]):
+    name = "Section 1-your-rule"
+    strategy = RuleStrategy.REGEX
+    provenance = PUBLICATION
+    citation = "Section 1 (your-rule)"
+    target_grammars = frozenset({"your_recognition"})
+    requires_features = frozenset()
+```
+
+- **`target_grammars: ClassVar[frozenset[str]]`** is the non-empty set of grammar names whose notations this rule validates. The engine uses it for affinity routing: each recognition is validated only by rules whose `target_grammars` includes the producing grammar's name, and a rule declaring a grammar the capability does not have fails fast with a `ContractError` before any candidate is produced. `Rule.__init_subclass__` also rejects an empty set at import time, since such a rule could never match a recognition.
+- **`requires_features: ClassVar[frozenset[str]]`** is the set of Contract field names that must be truthy for the rule to run. An empty set is valid and is the common case: it means the rule always runs once selected. The engine validates that every named feature exists on the contract (a missing name raises `ContractError`) and applies the final feature filter *after* pinning, exclusion, and year selection: a rule whose required feature is present but `False` is dropped.
+
+**Feature gating has two loci, and they produce different `Resolution` statuses:**
+
+- **Input-shape features toggle grammars via `active_grammars`.** A flag like `include_obfuscated` decides whether the `obfuscated_recognition` grammar runs at all. A disabled grammar recognizes nothing, so input readable only by that grammar yields `MISSING`.
+- **Authority features use `requires_features`.** A flag like `include_localized` gates the CLDR rule that validates localized names, not the grammar. Recognition still runs and produces a notation, but the engine drops the gated rule, so the recognized-but-unvalidated input yields `INVALID`.
+
+**Hard rule: never gate inside `matches()`.** Do not read `include_*` feature-toggle flags, and do not `cast(Contract, ...)` to reach them, inside `matches()`. `matches()` must never consult `output_format` either; validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). The engine owns feature routing: declare the dependency in `requires_features` and let the filter decide whether the rule runs.
+
+**4. `normalize()` never raises**
+
+Rule methods must never raise — not `ValidationError`, `RecognitionError`, `ContractError`, or `ValueError`. `normalize()` is only called for a notation that passed `matches()`, and both methods must handle that input defensively: best-effort returns, with any unreachable branch returning the input unchanged rather than raising. Contract misconfigurations are caught in the contract's `__post_init__`, not in rule methods.
+
+### Define the Contract
+
 Define the Contract in `paxman/capabilities/YourDomain/contract.py` (separate file from the Capability class):
 
-1. Import `dataclass` and `frozen` from `dataclasses`
-2. Define a frozen dataclass that will serve as the contract
-3. Add a `capability_name` field with `default="yourdomain"` and `init=False` (users never set this)
-4. Add configuration fields for toggling grammars (e.g., `include_obfuscated: bool = False`)
-5. Add `excluded_rules: tuple[str, ...] = ()` for excluding specific rules
-6. Add `pinned_rules: tuple[str, ...] | None = None` for pinning to specific rules
-7. Add `year: int | None = None` for temporal filtering
-8. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags
-9. Implement `as_dict()` that returns a dictionary representation (used for replay hash computation)
+1. Import `CapabilityContract` from `paxman.core.contract`, `dataclass` and `field` from `dataclasses`, and `ClassVar` from `typing`
+2. Define a frozen dataclass that inherits `CapabilityContract` (`@dataclass(frozen=True)` — do not add `slots=True`)
+3. Override `DEFAULT_OUTPUT_FORMAT` (a concrete string) and `OFFERED_OUTPUT_FORMATS` (a `frozenset[str]` of alternative formats, excluding the default) as class variables
+4. Set `capability_name` via `field(default="yourdomain", init=False)` (users never set this)
+5. Add configuration fields for toggling grammars (e.g., `include_obfuscated: bool = False`)
+6. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags
+7. Override `_extra_dict_fields()` to emit capability-specific serialization keys (the base `as_dict()` produces the replay-hash dictionary)
+
+`excluded_rules`, `pinned_rules`, `year`, and `output_format` are declared once on `CapabilityContract` — you don't redeclare them.
 
 ### Capability-Specific Fields
 
@@ -313,14 +425,13 @@ Beyond the standard protocol fields, your contract can include domain-specific c
 
 ```python
 @dataclass(frozen=True)
-class YourDomainContract:
+class YourDomainContract(CapabilityContract):
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "standard"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"expanded"})
+
     capability_name: str = field(default="yourdomain", init=False)
     include_obfuscated: bool = False    # toggles obfuscated_recognition grammar
     include_ipv6: bool = True           # toggles ipv6_recognition grammar
-    excluded_rules: tuple[str, ...] = ()
-    pinned_rules: tuple[str, ...] | None = None
-    year: int | None = None
-    output_format: str | None = None
 
     @property
     def active_grammars(self) -> list[str]:
@@ -331,6 +442,8 @@ class YourDomainContract:
             grammars.append("ipv6_recognition")
         return grammars
 ```
+
+`excluded_rules`, `pinned_rules`, `year`, and `output_format` are declared once on `CapabilityContract` and inherited — they don't appear in this example.
 
 **Rule parameters** — fields that rules read during normalization:
 
@@ -370,52 +483,92 @@ def active_grammars(self) -> list[str]:
 
 Choose conditional when grammars are expensive or mutually exclusive. Choose always-all when grammars are cheap and rules need to see all representations.
 
-### Implementing `output_format`
+### Implementing `output_format` (always optional, homogeneous across capabilities)
 
-`output_format` can be implemented as:
+`output_format` is **always optional** and is handled identically by every capability. No capability may make it mandatory, and no capability may give it a meaning that diverges from the others — this is what keeps the contract surface predictable for future contributors.
 
-- A **data field** (most capabilities): `output_format: str | None = None`
-- A **property** (if your capability never supports output format variation):
+You never declare the field yourself. `CapabilityContract` declares `output_format: str | None = None` — never a non-optional `str` — and its `__post_init__` validates and normalizes it through the shared `resolve_output_format` helper. After construction, `contract.output_format` **always holds a concrete format string** (never `None`).
+
+Every contract subclass MUST override two class variables:
+
+1. `DEFAULT_OUTPUT_FORMAT` — a concrete string naming the format the canonical value is returned in by default (e.g. `"ISO"` for Date, `"alpha2"` for Country, `"email"` for Email). This is the canonical output.
+2. `OFFERED_OUTPUT_FORMATS` — a `frozenset[str]` of the *alternative* formats the capability supports **beyond** the default. The default format is **not** included here.
+
+The acceptance rules (enforced by `resolve_output_format`) are:
+
+| Input | Resolves to | Notes |
+|-------|-------------|-------|
+| `None` (omitted) | `DEFAULT_OUTPUT_FORMAT` | The field is optional; `None` is always allowed |
+| `"default"` | `DEFAULT_OUTPUT_FORMAT` | Explicit revert to the canonical output |
+| the default format string | `DEFAULT_OUTPUT_FORMAT` | e.g. `output_format="ISO"` when `DEFAULT_OUTPUT_FORMAT="ISO"` |
+| any value in `OFFERED_OUTPUT_FORMATS` | that value | An explicit alternative format |
+| anything else (e.g. `""`, `"None"`, `"none"`, a typo) | — | raises `ContractError` |
+
+The key invariant: `None`, `"default"`, and the default format string are **treated identically by the capability formatter** — they leave the canonical value untouched. Only an explicit offered alternative triggers reformatting. This means a caller who omits `output_format`, passes `output_format="default"`, or passes the default format string gets exactly the same result, with no behavioral or replay-hash difference.
+
+#### Presentational-only invariant (hard rule)
+
+`output_format` is a *representation* transform, never a *recognition* or *validation* signal. Rules own validation and default normalization only: `matches()` never consults `output_format`, and `normalize()` always returns the default canonical form. Presentation lives in one place — the capability's `format_value(value, output_format, notation)` method — which the engine calls immediately after `normalize()` and before candidate deduplication, status determination, and replay hashing. The format choice cannot change which candidates exist or which canonical values they carry; it only changes how each candidate is rendered. This is the contract mandate: the pipeline reports what authoritative specifications say, regardless of how the caller wants the answer displayed. Concretely:
+
+- **Rules validate and normalize; the capability formats; the engine counts.** Each rule's `normalize()` returns the default canonical value; `Capability.format_value()` renders it in the requested format; the engine stores the formatted string as the candidate value and computes status from the set of distinct candidate values. No grammar is re-run, no input is re-parsed, and no rule is re-invoked.
+- **Rules never read `output_format`.** Not to render, not to accept/reject a notation, and not to prefer one candidate over another. A CI source scan (`tests/unit/test_rule_output_format_purity.py`) fails any validation-rule module under `paxman/capabilities/*/rules/` that contains the token `output_format` — in code, comments, or docstrings — so a rule module must have no reference to the presentation field at all. Validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). Using `output_format` to disambiguate (e.g. "drop the EU interpretation because `output_format='US'`") is forbidden — it would silently change the candidates the engine sees and break the always-report-ambiguity guarantee.
+- **Offered formats must preserve the capability's ambiguity contract.** `AMBIGUOUS` means that one input produces multiple candidates with different canonical values. An offered format may be lossy when the capability explicitly defines a single-value input contract: Phone `national`, for example, intentionally omits the country code (and RFC 3966 extensions) from one resolved phone value. Do not use `output_format` to filter, reject, or disambiguate input; document any lossy representation and the input scope in which it is valid.
+- **Formatting adds no provenance.** `Candidate.provenance`, `recognition_rule`, and `validation_rule` are set from the rule that validated the notation; the formatter only transforms the value.
+
+Example — Date input `"01/02/2026"` is recognized by both the US and European grammars and validated by both rules, yielding two distinct canonical values (`2026-01-02` and `2026-02-01`). The result is `AMBIGUOUS` regardless of `output_format`. `output_format="US"` merely renders those two values as `01/02/2026` and `02/01/2026`; it cannot and must not decide which interpretation is "correct".
+
+> Note: the grammar→rule routing decision (which rule validates which recognized notation) is an entirely separate concern from `output_format`. Routing is declared on the rule (e.g. `Rule.target_grammars`); it operates in the recognition→validation stage and never touches formatting. Keep the two orthogonal.
+
+Example wiring — inherited from `CapabilityContract`, you only set the class variables:
 
 ```python
-@property
-def output_format(self) -> str | None:
-    return None
+@dataclass(frozen=True)
+class YourDomainContract(CapabilityContract):
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "alpha2"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"alpha3", "numeric", "name"})
+    # ... your capability-specific fields ...
 ```
 
-Rules read `contract.output_format` in their `normalize()` method to control canonical output.
+For a capability with a single canonical form, `OFFERED_OUTPUT_FORMATS` is empty and `DEFAULT_OUTPUT_FORMAT` is simply the name of that form (e.g. `"email"`, `"ip"`). `output_format="email"` is then accepted and equivalent to omitting the field.
 
-### Implementing `as_dict()`
-
-The `as_dict()` method serializes the contract for deterministic replay hash computation. Return a dictionary of all fields that affect recognition or validation:
+Rules never read `output_format`: `normalize()` always returns the default canonical form. Presentation lives in the capability's `format_value()` method, which the engine calls with the rule-produced default value, the contract's resolved format string (never `None` at runtime), and the original notation:
 
 ```python
-def as_dict(self) -> dict[str, Any]:
+def format_value(
+    self, value: str, output_format: str | None, notation: YourDomainNotation
+) -> str:
+    if output_format == "us":
+        return us_format(value)
+    return value  # the default format (also covers "default" and None-resolved) is identity
+```
+
+
+### Implementing `as_dict()` (via `_extra_dict_fields()`)
+
+You never write `as_dict()` yourself. The base implementation on `CapabilityContract` emits the standard keys (`capability_name`, `excluded_rules`, `pinned_rules`, `year`, `output_format`) and appends whatever `_extra_dict_fields()` returns. Override `_extra_dict_fields()` to serialize your capability-specific fields for the replay hash:
+
+```python
+def _extra_dict_fields(self) -> dict[str, object]:
     return {
-        "capability_name": self.capability_name,
         "include_obfuscated": self.include_obfuscated,
-        "excluded_rules": list(self.excluded_rules),
-        "pinned_rules": list(self.pinned_rules) if self.pinned_rules is not None else None,
-        "year": self.year,
-        "output_format": self.output_format,
+        "include_localhost": self.include_localhost,
     }
 ```
 
-**Rules for `as_dict()`:**
-- Include ALL fields that affect grammar selection or rule behavior
-- Exclude `capability_name` only if it never changes (it's always the same value)
-- Use `list()` to convert tuples for JSON serialization
+**Rules for `_extra_dict_fields()`:**
+- Include ALL capability-specific fields that affect grammar selection or rule behavior
+- The base emits the standard fields, including `capability_name` — don't repeat them
 - Return `None` for optional fields when not set (not empty lists). Use `is not None` to distinguish "no pinning" (`None`) from "pin to nothing" (`()`)
 - The dictionary must be deterministic — same contract state → same dictionary → same replay hash
 
-**The Contract must satisfy the `Contract` protocol:**
+**The Contract must satisfy the `Contract` protocol** (inheriting `CapabilityContract` does this structurally):
 
 - `capability_name: str` — the capability this contract configures
 - `active_grammars: Sequence[str]` — list of grammar names to activate
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
 - `pinned_rules: Sequence[str] | None` — pin to specific rules (takes precedence over `excluded_rules` when set)
 - `year: int | None` — year for temporal filtering
-- `output_format: str | None` — output format for canonical values
+- `output_format: str | None` — output format for canonical values. Always optional; after construction it resolves to a concrete format string (the capability's default when unset). Consumed by `Capability.format_value()`; rules never read it.
 - `as_dict() -> dict[str, Any]` — serialization for replay hash
 
 ---
@@ -428,7 +581,7 @@ Paxman uses two different patterns for its core interfaces: **Protocol** (duck t
 
 The `Contract` is a **user-facing configuration object**. By defining it as a `Protocol`, we prioritize **flexibility** and **convenience** for the user:
 
-1.  **No Inheritance Required:** Users can implement a contract using a simple dataclass (like `EmailContract`) without importing or inheriting from `paxman.core.contract.Contract`.
+1.  **Duck-Typed Protocol:** `Contract` stays a Protocol, not an ABC — anything with the right attributes satisfies it. In practice every built-in contract inherits the `CapabilityContract` base class (see Step 7), which satisfies the protocol structurally, so contributors never write the six protocol members by hand.
 2.  **Data Structure Focus:** Contracts are primarily data holders. A Protocol allows users to use whatever data structure fits their domain (dataclasses, Pydantic models, TypedDicts) as long as they "quack like a duck" (provide the right attributes).
 3.  **Decoupling:** The capability module doesn't need to depend tightly on the core contract class definition.
 
@@ -732,9 +885,13 @@ Rules access notation fields by name (e.g., `notation.field_name`), not by list 
 
 Compile regex patterns at module level, not inside the `recognize` method. Recompiling on every call is wasteful and can cause subtle bugs with cached groups.
 
-### Pitfall: Rules Must Not Raise Exceptions
+### Pitfall: Rule Methods Must Never Raise
 
-The `matches` method must return `False` for any invalid input, never raise. The `normalize` method is only called after `matches` returns `True`, but it should still handle edge cases defensively.
+The `matches` method must return `False` for any invalid input, never raise. The `normalize` method is only called after `matches` returns `True`, but it must also never raise — not `ValidationError`, `RecognitionError`, `ContractError`, or `ValueError`. Handle edge cases defensively: best-effort returns, and unreachable branches return the input unchanged. Contract misconfigurations are caught in the contract's `__post_init__`, not in rule methods.
+
+### Pitfall: Using `output_format` as a Routing or Filtering Signal
+
+`output_format` is a presentation transform, not a recognition or validation signal. Rules never read `output_format` at all — not in `matches()` to accept/reject a notation, and not in `normalize()` to render, prefer one candidate over another, or disambiguate between competing interpretations. `AMBIGUOUS` describes one input that produces multiple candidates with different canonical values; it is not a caller preference. Presentation is owned by `Capability.format_value()`, which the engine calls after `normalize()`. A lossy formatter is permitted only when the capability's input contract makes that representation meaningful — Phone `national` is intentionally lossy for a single resolved phone token. A CI source scan enforces that rule modules contain no `output_format` reference at all. See the presentational-only invariant above.
 
 ### Pitfall: Contract Fields Must Have Defaults
 
@@ -826,7 +983,7 @@ Your capability must be registered in `paxman/capabilities/__init__.py`. Without
 
 ### Pitfall: Not Using `typing.cast` for Contract-Specific Fields
 
-If your rule needs to access capability-specific contract fields (like `two_digit_base_year` or `include_historical`), you must use `typing.cast` to narrow the type. Accessing undefined attributes on the base `Contract` protocol will fail at runtime.
+If your rule needs to read a capability-specific parameter (like `two_digit_base_year` or `default_country`), you must use `typing.cast` to narrow the type. Accessing undefined attributes on the base `Contract` protocol will fail at runtime. Feature-toggle flags (`include_*`) are not cast-for parameters: declare them in `Rule.requires_features` and let the engine gate the rule.
 
 ---
 
@@ -837,13 +994,18 @@ Use this checklist to verify your capability is complete:
 - [ ] Notation is a frozen dataclass with `as_list()` method
 - [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[YourDomainNotation]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
+- [ ] Each rule declares `target_grammars` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
 - [ ] Each rule file has a `PUBLICATION` provenance constant
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
-- [ ] Contract is a frozen dataclass satisfying the `Contract` protocol
-- [ ] Contract includes `pinned_rules: tuple[str, ...] | None = None` field
-- [ ] Contract includes `output_format: str | None = None` field or property
-- [ ] Contract implements `as_dict()` with all fields that affect behavior
+- [ ] Contract inherits `CapabilityContract` (frozen dataclass, no `slots=True`) and satisfies the `Contract` protocol
+- [ ] Contract inherits `pinned_rules: tuple[str, ...] | None = None` from `CapabilityContract`
+- [ ] Contract inherits `output_format` from `CapabilityContract` (always optional; base `__post_init__` validates via `resolve_output_format`)
+- [ ] Contract declares a `DEFAULT_OUTPUT_FORMAT` (concrete string) and `OFFERED_OUTPUT_FORMATS` (alternatives only, excluding the default)
+- [ ] Rules never reference `output_format`: `normalize()` returns only the default canonical form, and presentation lives in `Capability.format_value()`; any lossy offered format is explicitly documented against the capability's input/ambiguity contract (see presentational-only invariant)
+- [ ] Contract overrides `_extra_dict_fields()` with all capability-specific fields that affect behavior (never hand-writes `as_dict()`)
 - [ ] If using lookup tables: `rules/data/` directory contains data files
+- [ ] Grammar data is key-only (no token-to-canonical mappings); rule data owns all authority-backed mappings (see The Grammar/Rule Boundary)
+- [ ] Recognition keys and rule tables live in separate files, with a consistency test covering every shipped recognition key
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`
 - [ ] If grammar handles multiple sub-patterns: implements dedup via `seen` set
 - [ ] Package `__init__.py` files export the public API

@@ -4,21 +4,20 @@ All four sections (alpha-2, alpha-3, numeric, name) share the same
 publication and lookup tables. Rules are co-located in a single file
 to reflect this shared provenance.
 
-All sections support contract.output_format for canonical output in
-alpha-2 (default), alpha-3, numeric (M49), or name format.
+All sections normalize to the default canonical alpha-2 representation;
+presentation in alpha-3, numeric, or name format is owned by
+``CountryCapability.format_value()``.
 """
 
 from __future__ import annotations
 
-from typing import cast
-
-from paxman.capabilities.Country.contract import CountryContract
+from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
+    LOCALIZED_TO_ALPHA2_NORMALIZED,
+)
 from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import (
     ALPHA2_CODES,
-    ALPHA2_TO_ALPHA3,
-    ALPHA2_TO_NAME,
-    ALPHA2_TO_NUMERIC,
     ALPHA3_TO_ALPHA2,
     NAME_TO_ALPHA2,
     NUMERIC_TO_ALPHA2,
@@ -26,6 +25,17 @@ from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import (
 )
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
+
+# Normalized name lookup views: keys are normalized with the shared Country
+# syntax normalizer so grammar tokens and rule lookups agree; values are
+# unchanged. Normalized keys that collide across or within the two tables
+# always map to the same alpha-2 code.
+NAME_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): alpha2 for name, alpha2 in NAME_TO_ALPHA2.items()
+}
+SYNONYM_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): alpha2 for name, alpha2 in SYNONYM_TO_ALPHA2.items()
+}
 
 PUBLICATION = Provenance(
     authority="ISO",
@@ -48,6 +58,8 @@ class SectionAlpha2Codes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 alpha-2 codes"
+    target_grammars = frozenset({"alpha2_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid alpha-2 code.
@@ -64,27 +76,16 @@ class SectionAlpha2Codes(Rule[CountryNotation]):
         return notation.value.upper() in ALPHA2_CODES
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
-        """Normalize to canonical country code in requested output format.
+        """Normalize to the canonical alpha-2 code.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            Country code in the requested output format.
+            Uppercase alpha-2 code.
         """
-        country_contract = cast(CountryContract, contract)
-        alpha2 = notation.value.upper()
-        fmt = country_contract.output_format
-
-        if fmt == "alpha2":
-            return alpha2
-        if fmt == "alpha3":
-            return ALPHA2_TO_ALPHA3[alpha2]
-        if fmt == "numeric":
-            return ALPHA2_TO_NUMERIC[alpha2]
-        # fmt == "name"
-        return ALPHA2_TO_NAME[alpha2]
+        return notation.value.upper()
 
 
 class SectionAlpha3Codes(Rule[CountryNotation]):
@@ -97,6 +98,8 @@ class SectionAlpha3Codes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 alpha-3 codes"
+    target_grammars = frozenset({"alpha3_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid alpha-3 code.
@@ -113,28 +116,16 @@ class SectionAlpha3Codes(Rule[CountryNotation]):
         return notation.value.upper() in ALPHA3_TO_ALPHA2
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
-        """Normalize to canonical country code in requested output format.
+        """Normalize to the canonical alpha-2 code.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            Country code in the requested output format.
+            Alpha-2 code for the validated alpha-3 input.
         """
-        country_contract = cast(CountryContract, contract)
-        alpha3 = notation.value.upper()
-        alpha2 = ALPHA3_TO_ALPHA2[alpha3]
-        fmt = country_contract.output_format
-
-        if fmt == "alpha2":
-            return alpha2
-        if fmt == "alpha3":
-            return ALPHA2_TO_ALPHA3[alpha2]
-        if fmt == "numeric":
-            return ALPHA2_TO_NUMERIC[alpha2]
-        # fmt == "name"
-        return ALPHA2_TO_NAME[alpha2]
+        return ALPHA3_TO_ALPHA2[notation.value.upper()]
 
 
 class SectionNumericCodes(Rule[CountryNotation]):
@@ -147,6 +138,8 @@ class SectionNumericCodes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 numeric (M49) codes"
+    target_grammars = frozenset({"numeric_recognition"})
+    requires_features = frozenset()
 
     def _normalize_key(self, value: str) -> str:
         """Zero-pad numeric value to 3 digits (M49 standard format)."""
@@ -170,27 +163,16 @@ class SectionNumericCodes(Rule[CountryNotation]):
         return self._normalize_key(notation.value) in NUMERIC_TO_ALPHA2
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
-        """Normalize to canonical country code in requested output format.
+        """Normalize to the canonical alpha-2 code.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            Country code in the requested output format.
+            Alpha-2 code for the validated numeric input.
         """
-        country_contract = cast(CountryContract, contract)
-        alpha2 = NUMERIC_TO_ALPHA2[self._normalize_key(notation.value)]
-        fmt = country_contract.output_format
-
-        if fmt == "alpha2":
-            return alpha2
-        if fmt == "alpha3":
-            return ALPHA2_TO_ALPHA3[alpha2]
-        if fmt == "numeric":
-            return ALPHA2_TO_NUMERIC[alpha2]
-        # fmt == "name"
-        return ALPHA2_TO_NAME[alpha2]
+        return NUMERIC_TO_ALPHA2[self._normalize_key(notation.value)]
 
 
 class SectionNames(Rule[CountryNotation]):
@@ -204,49 +186,54 @@ class SectionNames(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 official English short names"
+    target_grammars = frozenset({"name_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid country name or synonym.
+
+        Single-authority precedence (see LOCALIZED_TO_ALPHA2_NORMALIZED in
+        the CLDR rule): when localized matching is enabled, names owned by
+        the CLDR localized table (e.g. "MEXICO" from "México") are validated
+        only by the CLDR rule; this ISO rule defers so a localized name
+        cannot also yield an ISO-provenance candidate.
 
         Args:
             notation: Country notation to validate.
             contract: Contract configuration.
 
         Returns:
-            True if notation.shape == "name" AND value is in NAME_TO_ALPHA2
-            or SYNONYM_TO_ALPHA2.
+            True if notation.shape == "name" AND the normalized value is in
+            the normalized NAME_TO_ALPHA2 or SYNONYM_TO_ALPHA2 views, and the
+            name is not CLDR-owned while localized matching is enabled.
         """
         if notation.shape != "name":
             return False
-        upper = notation.value.upper()
-        return upper in NAME_TO_ALPHA2 or upper in SYNONYM_TO_ALPHA2
+        key = normalize_name(notation.value)
+        if (
+            key not in NAME_TO_ALPHA2_NORMALIZED
+            and key not in SYNONYM_TO_ALPHA2_NORMALIZED
+        ):
+            return False
+        return not (
+            getattr(contract, "include_localized", False)
+            and key in LOCALIZED_TO_ALPHA2_NORMALIZED
+        )
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
-        """Normalize to canonical country code in requested output format.
+        """Normalize to the canonical alpha-2 code.
 
-        Checks NAME_TO_ALPHA2 first, then falls back to SYNONYM_TO_ALPHA2,
-        then converts to requested output format.
+        Checks the normalized NAME view first, then falls back to the
+        normalized SYNONYM view.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            Country code in the requested output format.
+            Alpha-2 code for the validated name input.
         """
-        country_contract = cast(CountryContract, contract)
-        upper = notation.value.upper()
-        if upper in NAME_TO_ALPHA2:
-            alpha2 = NAME_TO_ALPHA2[upper]
-        else:
-            alpha2 = SYNONYM_TO_ALPHA2[upper]
-        fmt = country_contract.output_format
-
-        if fmt == "alpha2":
-            return alpha2
-        if fmt == "alpha3":
-            return ALPHA2_TO_ALPHA3[alpha2]
-        if fmt == "numeric":
-            return ALPHA2_TO_NUMERIC[alpha2]
-        # fmt == "name"
-        return ALPHA2_TO_NAME[alpha2]
+        key = normalize_name(notation.value)
+        if key in NAME_TO_ALPHA2_NORMALIZED:
+            return NAME_TO_ALPHA2_NORMALIZED[key]
+        return SYNONYM_TO_ALPHA2_NORMALIZED[key]

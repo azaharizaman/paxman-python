@@ -93,4 +93,11 @@ class TestPackageInstall:
 
     @pytest.mark.unit
     def test_package_metadata_matches_pyproject(self) -> None:
-        assert metadata.version("paxman") == "0.1.0"
+        """Installed version must match the version declared in pyproject.toml."""
+        pyproject = _REPO_ROOT / "pyproject.toml"
+        declared = next(
+            line.split("=")[1].strip().strip('"')
+            for line in pyproject.read_text().splitlines()
+            if line.strip().startswith("version =")
+        )
+        assert metadata.version("paxman") == declared

@@ -7,7 +7,7 @@ state's code.
 
 SectionHistoricalNames accepts the following input shapes for round-trip
 support:
-- shape="name":   Validates the name against FORMER_NAME_TO_ALPHA2
+- shape="name":   Validates the name against FORMER_NAME_TO_ALPHA2_NORMALIZED
 - shape="alpha2": Validates the code against FORMER_ALPHA2_CODES
                   (enables round-trip: canonicalize("SU") → "SU")
 - shape="numeric": checks FORMER_NUMERIC_TO_ALPHA2 (for round-trip support)
@@ -15,9 +15,7 @@ support:
 
 from __future__ import annotations
 
-from typing import cast
-
-from paxman.capabilities.Country.contract import CountryContract
+from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
     FORMER_ALPHA2_CODES,
@@ -35,6 +33,12 @@ def _normalize_numeric_key(value: str) -> str:
     except ValueError:
         return value.upper()
 
+
+# Normalized former-name lookup view: keys normalized with the shared Country
+# syntax normalizer so grammar tokens and rule lookups agree; values unchanged.
+FORMER_NAME_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): code for name, code in FORMER_NAME_TO_ALPHA2.items()
+}
 
 PUBLICATION = Provenance(
     authority="ISO",
@@ -54,19 +58,27 @@ class SectionHistoricalNames(Rule[CountryNotation]):
     per ISO 3166-3. Returns the historical entity's own former alpha-2
     code as the canonical value.
 
-    Only active when contract.include_historical is True.
+    Activation is engine-owned: the engine runs this rule only when the
+    contract enables ``include_historical``, via ``Rule.requires_features``.
     """
 
     name = "Section-historical-names"
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-3:2020 (formerly used names)"
+    target_grammars = frozenset(
+        {"name_recognition", "alpha2_recognition", "numeric_recognition"}
+    )
+    requires_features = frozenset({"include_historical"})
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid formerly used country reference.
 
+        Validates notation/table membership only. Whether the rule runs at
+        all is decided by the engine from ``requires_features``.
+
         Accepts multiple shapes:
-        - name:    checks FORMER_NAME_TO_ALPHA2
+        - name:    checks FORMER_NAME_TO_ALPHA2_NORMALIZED
         - alpha2:  checks FORMER_ALPHA2_CODES (for round-trip support)
         - numeric: checks FORMER_NUMERIC_TO_ALPHA2 (for round-trip support)
 
@@ -75,15 +87,10 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if include_historical AND notation is a valid
-            formerly used country.
+            True if notation is a valid formerly used country.
         """
-        country_contract = cast(CountryContract, contract)
-        if not country_contract.include_historical:
-            return False
-
         if notation.shape == "name":
-            return notation.value.upper() in FORMER_NAME_TO_ALPHA2
+            return normalize_name(notation.value) in FORMER_NAME_TO_ALPHA2_NORMALIZED
 
         if notation.shape == "alpha2":
             return notation.value.upper() in FORMER_ALPHA2_CODES
@@ -104,7 +111,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             Former alpha-2 code of the historical country.
         """
         if notation.shape == "name":
-            return FORMER_NAME_TO_ALPHA2[notation.value.upper()]
+            return FORMER_NAME_TO_ALPHA2_NORMALIZED[normalize_name(notation.value)]
 
         if notation.shape == "alpha2":
             return notation.value.upper()
@@ -112,6 +119,5 @@ class SectionHistoricalNames(Rule[CountryNotation]):
         if notation.shape == "numeric":
             return FORMER_NUMERIC_TO_ALPHA2[_normalize_numeric_key(notation.value)]
 
-        # Should not reach here if matches() properly validated
-        msg = f"Unsupported notation shape for historical rule: {notation.shape}"
-        raise ValueError(msg)
+        # Should not reach here if matches() properly validated; be defensive.
+        return notation.value.upper()

@@ -3,18 +3,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import ClassVar
+
+from paxman.core.contract import CapabilityContract
 
 
 @dataclass(frozen=True)
-class DateContract:
-    """User-facing contract for Date capability."""
+class DateContract(CapabilityContract):
+    """User-facing contract for Date capability.
+
+    Date's default canonical output is ``"ISO"``. Accepted ``output_format``
+    values are ``None`` (unset), ``"default"``, ``"ISO"`` (the default), and
+    the offered alternative ``"US"``; anything else raises
+    :class:`ContractError` from the base ``__post_init__``.
+    """
+
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "ISO"
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"US"})
 
     capability_name: str = field(default="date", init=False)
-    excluded_rules: tuple[str, ...] = field(default_factory=tuple)
-    pinned_rules: tuple[str, ...] | None = None
-    year: int | None = None
-    output_format: str | None = None
     two_digit_base_year: int | None = None
 
     @property
@@ -25,12 +32,5 @@ class DateContract:
             "european_recognition",
         ]
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "capability_name": self.capability_name,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-            "output_format": self.output_format,
-            "two_digit_base_year": self.two_digit_base_year,
-        }
+    def _extra_dict_fields(self) -> dict[str, object]:
+        return {"two_digit_base_year": self.two_digit_base_year}

@@ -54,32 +54,6 @@ def valid_e164_value(value: str) -> bool:
     return len(value) - len(country_code) >= _MIN_NSN_LENGTH
 
 
-def _canonical(value: str, contract: Contract) -> str:
-    """Render the canonical form per contract.output_format.
-
-    Args:
-        value: Digit-only E.164 number (no leading +).
-        contract: Contract configuration.
-
-    Returns:
-        Canonical string: "+CCNSN" (e164), "tel:+CCNSN" (rfc3966), or the
-        national significant number (national).
-
-    Raises:
-        ValueError: If the national format is requested and the value has
-            no assigned country code prefix (matches() runs first, so this
-            only fires on direct misuse).
-    """
-    if contract.output_format == "rfc3966":
-        return f"tel:+{value}"
-    if contract.output_format == "national":
-        country_code = split_country_code(value)
-        if country_code is None:
-            raise ValueError(f"cannot normalize {value!r}: no assigned country code")
-        return value[len(country_code) :]
-    return f"+{value}"
-
-
 class Section6_1InternationalNumber(Rule[PhoneNotation]):
     """ITU-T E.164 Section 6.1 — Number structure.
 
@@ -92,6 +66,8 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 6.1 (number structure)"
+    target_grammars = frozenset({"e164_recognition", "international_00_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
         """Check if the notation is a structurally valid E.164 number.
@@ -109,16 +85,16 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
         return valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
-        """Normalize to canonical E.164 form.
+        """Normalize to the default canonical E.164 form.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            "+" + value, or the formatted variant per contract.output_format.
+            "+" + value.
         """
-        return _canonical(notation.value, contract)
+        return f"+{notation.value}"
 
 
 class Section6_2CountryCode(Rule[PhoneNotation]):
@@ -132,6 +108,8 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "Annex A (table of assigned country codes)"
+    target_grammars = frozenset({"e164_recognition", "international_00_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
         """Check if the notation carries an assigned country code.
@@ -148,13 +126,13 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
         return valid_e164_value(notation.value)
 
     def normalize(self, notation: PhoneNotation, contract: Contract) -> str:
-        """Normalize to canonical E.164 form.
+        """Normalize to the default canonical E.164 form.
 
         Args:
             notation: Validated notation.
             contract: Contract configuration.
 
         Returns:
-            "+" + value, or the formatted variant per contract.output_format.
+            "+" + value.
         """
-        return _canonical(notation.value, contract)
+        return f"+{notation.value}"

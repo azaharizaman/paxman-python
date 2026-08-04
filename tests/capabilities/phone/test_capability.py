@@ -2,10 +2,13 @@
 
 import pytest
 
+from paxman.api import canonicalize
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.capability import Capability
+from paxman.core.discovery import register_capability, reset_registry
+from paxman.core.domain import Resolution
 from paxman.core.errors import ContractError
 
 
@@ -207,6 +210,60 @@ class TestPhoneCapability:
         assert contract.excluded_rules == ("Section 1.2-service-npa",)
 
 
+class TestPhoneCapabilityFormatValue:
+    """Tests for PhoneCapability.format_value()."""
+
+    NOTATION = PhoneNotation(shape="e164", value="15551234567")
+
+    def test_e164_is_identity(self) -> None:
+        """The default e164 path returns the canonical value unchanged."""
+        cap = PhoneCapability()
+        assert cap.format_value("+15551234567", "e164", self.NOTATION) == "+15551234567"
+
+    def test_default_format_is_identity(self) -> None:
+        """An unset output format returns the canonical value unchanged."""
+        cap = PhoneCapability()
+        assert cap.format_value("+15551234567", None, self.NOTATION) == "+15551234567"
+
+    def test_rfc3966_renders_tel_uri(self) -> None:
+        """RFC 3966 rendering wraps the canonical value in a tel: URI."""
+        cap = PhoneCapability()
+        assert (
+            cap.format_value("+15551234567", "rfc3966", self.NOTATION)
+            == "tel:+15551234567"
+        )
+
+    def test_national_strips_country_code(self) -> None:
+        """National rendering strips the embedded country code."""
+        cap = PhoneCapability()
+        assert (
+            cap.format_value("+15551234567", "national", self.NOTATION) == "5551234567"
+        )
+
+    def test_rfc3966_preserves_extension(self) -> None:
+        """RFC 3966 rendering appends ;ext= when the notation carries one."""
+        cap = PhoneCapability()
+        notation = PhoneNotation(shape="rfc3966", value="15551234567", extension="890")
+        assert (
+            cap.format_value("+15551234567", "rfc3966", notation)
+            == "tel:+15551234567;ext=890"
+        )
+
+    def test_national_uses_longest_country_code_prefix(self) -> None:
+        """Taiwan (886) splits as 886, not 86 (China) plus a stray digit."""
+        cap = PhoneCapability()
+        notation = PhoneNotation(shape="e164", value="886212345678")
+        assert cap.format_value("+886212345678", "national", notation) == "212345678"
+
+    def test_defensive_passthrough_when_no_country_code_splits(self) -> None:
+        """National rendering passes the value through when no prefix splits."""
+        cap = PhoneCapability()
+        notation = PhoneNotation(shape="e164", value="999123456789")
+        assert (
+            cap.format_value("+999123456789", "national", notation) == "+999123456789"
+        )
+
+
 class TestPhoneContractValidation:
     """Tests for PhoneContract __post_init__ validation."""
 
@@ -222,9 +279,27 @@ class TestPhoneContractValidation:
 
     def test_accepts_all_valid_output_formats(self) -> None:
         """All documented output formats construct successfully."""
-        for fmt in ("e164", "rfc3966", "national"):
-            contract = PhoneContract(output_format=fmt)
-            assert contract.output_format == fmt
+        assert PhoneContract(output_format="e164").output_format == "e164"
+        assert PhoneContract(output_format="rfc3966").output_format == "rfc3966"
+        # "national" works without default_country: for E.164/tel-URI/NANP
+        # inputs the country code is embedded in the value and split by the
+        # rules, so it needs no default_country to render the NSN.
+        contract = PhoneContract(output_format="national")
+        assert contract.output_format == "national"
+        # And it still works with a default_country present.
+        with_country = PhoneContract(default_country="US", output_format="national")
+        assert with_country.output_format == "national"
+
+    def test_accepts_default_output_format(self) -> None:
+        """'default' reverts to the default e164 output."""
+        contract = PhoneContract(output_format="default")
+        assert contract.output_format == "e164"
+
+    @pytest.mark.parametrize("fmt", ["none", ""])
+    def test_rejects_none_and_empty_string(self, fmt: str) -> None:
+        """'none' and '' are contract violations, not silent no-ops."""
+        with pytest.raises(ContractError):
+            PhoneContract(output_format=fmt)
 
     def test_rejects_non_alpha2_default_country(self) -> None:
         """default_country must be an uppercase ISO 3166-1 alpha-2 code."""
@@ -245,3 +320,36 @@ class TestPhoneContractValidation:
         """default_country must be exactly 2 letters."""
         with pytest.raises(ContractError):
             PhoneContract(default_country="USA")
+
+
+class TestPhoneNationalOutput:
+    """E2E behavior for output_format='national' without default_country.
+
+    For E.164 / tel-URI / NANP inputs the country code is embedded in the
+    value and split out by the rules, so 'national' output must NOT require
+    a default_country (regression guard for the contract-level restriction
+    that previously blocked this working path).
+    """
+
+    def setup_method(self) -> None:
+        """Register the Phone capability for each test."""
+        reset_registry()
+        register_capability(PhoneCapability())
+
+    def teardown_method(self) -> None:
+        """Reset the registry so other tests start clean."""
+        reset_registry()
+
+    def test_national_from_e164_without_default_country(self) -> None:
+        """'+1 555 123 4567' → '5551234567' with no default_country."""
+        contract = PhoneContract(output_format="national")
+        result = canonicalize("+1 555 123 4567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "5551234567"
+
+    def test_national_from_tel_uri_without_default_country(self) -> None:
+        """'tel:+15551234567' → '5551234567' with no default_country."""
+        contract = PhoneContract(output_format="national")
+        result = canonicalize("tel:+15551234567", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "5551234567"

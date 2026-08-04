@@ -12,6 +12,9 @@ from paxman.capabilities.Phone.grammar.international_00_recognition import (
 from paxman.capabilities.Phone.grammar.national_recognition import NationalGrammar
 from paxman.capabilities.Phone.grammar.tel_uri_recognition import TelUriGrammar
 from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.capabilities.Phone.rules.data.e164_country_codes import (
+    split_country_code,
+)
 from paxman.capabilities.Phone.rules.e164_ed2010 import (
     Section6_1InternationalNumber,
     Section6_2CountryCode,
@@ -68,31 +71,78 @@ class PhoneCapability(Capability[PhoneNotation]):
     @staticmethod
     def create_contract(
         *,
-        default_country: str | None = None,
-        output_format: str = "e164",
         excluded_rules: Sequence[str] | None = None,
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
+        output_format: str | None = None,
+        default_country: str | None = None,
     ) -> PhoneContract:
         """Factory method for creating contracts with proper defaults.
 
         Args:
-            default_country: ISO 3166-1 alpha-2 country code used to resolve
-                national numbers (e.g., "US").
-            output_format: Output format for canonical values ("e164",
-                "rfc3966", "national"). Default "e164".
             excluded_rules: Rule names to exclude.
             pinned_rules: Pin to specific rules (takes precedence over
                 excluded_rules).
             year: Year for temporal filtering.
+            output_format: Output format for canonical values. Optional;
+                None/"default"/"e164" resolve to "e164", or one of the
+                offered alternatives "rfc3966"/"national". For E.164, tel-URI,
+                and NANP inputs "national" works without default_country
+                (the country code is embedded in the value); for national-shaped
+                input it needs default_country to resolve the value.
+            default_country: ISO 3166-1 alpha-2 country code used to resolve
+                national-shaped numbers (e.g., "US"). Required for "national"
+                output from national-shaped input; optional otherwise.
 
         Returns:
             Configured PhoneContract instance.
         """
         return PhoneContract(
-            default_country=default_country,
-            output_format=output_format,
             excluded_rules=tuple(excluded_rules) if excluded_rules else (),
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
+            output_format=output_format,
+            default_country=default_country,
         )
+
+    def format_value(
+        self,
+        value: str,
+        output_format: str | None,
+        notation: PhoneNotation,
+    ) -> str:
+        """Render a default E.164 canonical value in the requested format.
+
+        The default ``"e164"`` path is the identity: the rule-produced
+        ``+CCNSN`` canonical value is returned unchanged. ``"rfc3966"``
+        wraps the value in a ``tel:`` URI, appending ``;ext=<extension>``
+        only when the notation carries an RFC 3966 extension. ``"national"``
+        strips the assigned country-code prefix via ``split_country_code``
+        to yield the national significant number, passing the value through
+        unchanged when no assigned prefix can be split (a defensive
+        best-effort, unreachable after rule validation).
+
+        Args:
+            value: The default canonical value produced by ``Rule.normalize()``
+                (a leading-``+`` E.164 number).
+            output_format: The contract's resolved output format (``"e164"``,
+                ``"rfc3966"``, or ``"national"``).
+            notation: The original phone notation that produced the canonical
+                value; its ``extension`` is retained for RFC 3966 rendering.
+
+        Returns:
+            The number rendered in the requested format.
+        """
+        if output_format != "rfc3966" and output_format != "national":
+            return value
+        if output_format == "rfc3966":
+            rendered = f"tel:{value}"
+            if notation.extension:
+                rendered = f"{rendered};ext={notation.extension}"
+            return rendered
+        digits = value[1:] if value.startswith("+") else value
+        country_code = split_country_code(digits)
+        if country_code is None:
+            # unreachable post-matches(); defensive best-effort
+            return value
+        return digits[len(country_code) :]

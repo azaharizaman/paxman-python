@@ -186,14 +186,19 @@ class TestCountryPipeline:
 
     @pytest.mark.integration
     def test_localized_name_disabled(self) -> None:
-        """Localized name not recognized by default."""
+        """Localized name recognized but not validated by default.
+
+        "Alemania" is a CLDR (Spanish) key in the name grammar's localized
+        recognition catalog, so it IS recognized without include_localized.
+        The CLDR rule is gated off by F2, no other rule owns the token, so
+        the result is INVALID with no candidates — not MISSING.
+        """
         register_capability(CountryCapability())
         contract = CountryCapability.create_contract()
         result = run_capability("Alemania", contract)
 
-        # "Alemania" is only in CLDR (not in grammar tables),
-        # so without include_localized, no grammar recognizes it → MISSING
-        assert result.status == Resolution.MISSING
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
 
     @pytest.mark.integration
     def test_localized_name_enabled(self) -> None:
@@ -204,6 +209,141 @@ class TestCountryPipeline:
 
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "MY"
+
+    @pytest.mark.integration
+    def test_localized_name_spanish_enabled_uses_unicode_provenance(self) -> None:
+        """Spanish localized input with the flag resolves via CLDR/Unicode only."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("Alemania", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "DE"
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    def test_localized_name_disabled_is_invalid_without_iso_provenance(self) -> None:
+        """Localized input without the flag is INVALID with no candidates.
+
+        Recognition of a localized token is not ISO validation: the ISO name
+        rule must not produce a candidate for input that only CLDR can
+        resolve. F2 gates the CLDR rule, so without the flag no rule runs.
+        """
+        register_capability(CountryCapability())
+        result = run_capability("马来西亚", CountryCapability.create_contract())
+
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
+
+    @pytest.mark.integration
+    def test_localized_name_enabled_uses_unicode_provenance(self) -> None:
+        """Localized input with the flag resolves via CLDR/Unicode only."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("马来西亚", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MY"
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    def test_english_name_uses_iso_provenance(self) -> None:
+        """English country names resolve via ISO 3166-1 with ISO provenance."""
+        register_capability(CountryCapability())
+        result = run_capability("Malaysia", CountryCapability.create_contract())
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MY"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "ISO"
+        assert (
+            result.candidates[0].provenance[0].specification_name == "ISO 3166-1:2024"
+        )
+
+    @pytest.mark.integration
+    def test_localized_name_colliding_with_iso_name_single_authority(self) -> None:
+        """Accented Spanish "México" resolves via CLDR/Unicode only.
+
+        "México" normalizes to "MEXICO", which also matches the ISO 3166-1
+        English short name "Mexico". Under the single-authority policy the
+        ISO name rule defers while ``include_localized`` is enabled, so
+        exactly one candidate with Unicode provenance is produced.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("México", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MX"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "Unicode"
+
+    @pytest.mark.integration
+    def test_ascii_normalized_cldr_key_single_authority(self) -> None:
+        """Unaccented MEXICO (a normalized CLDR key) resolves via CLDR only.
+
+        The same normalized key that collides with the ISO English short
+        name resolves through the localized authority alone when
+        ``include_localized`` is enabled.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("MEXICO", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MX"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "Unicode"
+
+    @pytest.mark.integration
+    def test_cldr_colliding_english_name_without_localized_uses_iso(self) -> None:
+        """Without include_localized, MEXICO resolves via ISO English names."""
+        register_capability(CountryCapability())
+        result = run_capability("Mexico", CountryCapability.create_contract())
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MX"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "ISO"
+
+    @pytest.mark.integration
+    def test_chinese_name_disabled_invalid(self) -> None:
+        """Chinese localized input without the flag is INVALID with no candidates."""
+        register_capability(CountryCapability())
+        result = run_capability("中国", CountryCapability.create_contract())
+
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
+
+    @pytest.mark.integration
+    def test_chinese_name_enabled_uses_unicode_provenance(self) -> None:
+        """Chinese localized input with the flag resolves via CLDR/Unicode only."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("中国", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "CN"
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    def test_historical_name_uses_iso3166_3_provenance(self) -> None:
+        """Historical names resolve via ISO 3166-3 with ISO provenance."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_historical=True)
+        result = run_capability("Burma", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "BU"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "ISO"
+        assert result.candidates[0].provenance[0].specification_name == "ISO 3166-3"
 
     @pytest.mark.integration
     def test_version_stamp_present(self) -> None:
@@ -368,3 +508,78 @@ class TestCountryPipeline:
 
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "SU"
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        ("output_format", "expected"),
+        [("alpha3", "DEU"), ("numeric", "276"), ("name", "GERMANY")],
+    )
+    def test_localized_name_uses_current_format_mapping(
+        self, output_format: str, expected: str
+    ) -> None:
+        """Localized names format through the current alpha-2 mapping.
+
+        A CLDR/Unicode-resolved name produces an alpha-2 canonical value that
+        the capability formatter converts to the requested alternative format
+        while retaining Unicode provenance.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_localized=True, output_format=output_format
+        )
+        result = run_capability("Alemania", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == expected
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize("output_format", ["alpha3", "numeric", "name"])
+    def test_historical_name_passes_through_for_all_formats(
+        self, output_format: str
+    ) -> None:
+        """Former codes pass through unchanged for every requested format.
+
+        ``SU`` has no entry in the current ISO 3166-1 conversion tables, so
+        alpha-3/numeric/name requests must return the former code unchanged
+        while retaining ISO 3166-3 provenance — distinct from the localized
+        current-mapping behavior above.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_historical=True, output_format=output_format
+        )
+        result = run_capability("USSR", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "SU"
+        assert {
+            p.specification_name for c in result.candidates for p in c.provenance
+        } == {"ISO 3166-3"}
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        ("historical_name", "former_code"),
+        [
+            ("GILBERT ISLANDS", "GE"),
+            ("SIKKIM", "SK"),
+        ],
+    )
+    @pytest.mark.parametrize("output_format", ["alpha3", "numeric", "name"])
+    def test_historical_name_with_current_code_collision_passes_through(
+        self, historical_name: str, former_code: str, output_format: str
+    ) -> None:
+        """Historical former codes do not become unrelated current values."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_historical=True, output_format=output_format
+        )
+        result = run_capability(historical_name, contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == former_code
+        assert {
+            p.specification_name for c in result.candidates for p in c.provenance
+        } == {"ISO 3166-3"}
