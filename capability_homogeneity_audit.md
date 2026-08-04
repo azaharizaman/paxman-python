@@ -103,14 +103,18 @@ recognition keys + automated consistency test.
 ### F4. `output_format` consumption fragmented — `DEFECT` (within multi-format caps)
 
 Contract layer is unanimous (`resolve_output_format` in `__post_init__`). But **no
-rule calls it**; each branches on raw strings. Within multi-format caps the format
-is honored inconsistently: Date `iso_8601` ignores `output_format`, so
-`output_format="US"` on ISO input silently yields ISO.
+rule calls it**; each branches on raw strings, and within multi-format caps the
+format is honored inconsistently. The audit's original Date premise — that
+`iso_8601` *ignores* `output_format`, so `output_format="US"` on ISO input
+silently yields ISO — was withdrawn by Addendum A below (Date routes the format
+into rendering). The durable defect is the duplicated, per-rule presentation
+branches and the Phone `_canonical` triplication (see Tier 3 #5).
 
-**Unanimous ideal:** capability-level `format_value(value, output_format)` hook
-invoked by the engine after candidate collection; rules always emit the default
-canonical form. Fixes Date's silent-ignore and kills the Phone `_canonical`
-triplication (see Tier 3 #5).
+**Unanimous ideal:** capability-level `format_value(value, output_format,
+notation)` hook invoked by the engine immediately after `Rule.normalize()`;
+rules always emit the default canonical form. Kills the rule-level presentation
+duplication and the Phone `_canonical` triplication. (Resolved 2026-08-04 — see
+the centralize-output-format addendum below.)
 
 ### F5. `active_grammars` toggleable (Email/IP) vs static (Date/Country/Phone) — `ACCEPTED`
 
@@ -228,10 +232,14 @@ Date already routes `output_format` into formatting. The reformat is a per-forma
 bijection, so the count of distinct canonical values (and therefore the `AMBIGUOUS`
 status) is preserved under any `output_format` (see F1 plan, `TestGrammarRuleAffinity`).
 
-**Consequence:** the F4 remediation (capability-level `format_value` hook) is **not
-required for Date**. F4 should be re-scoped to whichever capabilities *genuinely*
-ignore `output_format` (if any remain) — not Date. The audit's F4 severity for Date
-is overstated.
+**Consequence (withdrawn):** the interim conclusion that a capability-level
+`format_value` hook is *not required for Date* was itself superseded by the
+centralize-output-format work (2026-08-04): the hook **is** required for Date and
+was implemented there. F4's premise that Date *ignores* `output_format` remains
+wrong, but the formatter seam still had to be built — Date rules now emit ISO
+defaults only, and `DateCapability.format_value()` renders `output_format="US"`.
+The audit's original F4 severity for Date was overstated; the resolution is the
+uniform formatter seam described in the centralize-output-format addendum below.
 
 ### B. F1 replay-hash is byte-identical — the "watch out" risk did not materialize
 
@@ -311,3 +319,35 @@ For inputs whose candidate provenance or route changed (localized names that
 previously resolved through ISO), replay hashes are intentionally not byte-identical
 to pre-F3 behavior. Same input + same contract remains deterministic; the change is
 intentional and attributable to the corrected authority routing, not to ordering.
+
+## Addendum — F4 completion: output formatting centralized (2026-08-04)
+
+F4 was resolved by the centralize-output-format plan
+(`docs/superpowers/plans/2026-08-04-centralize-output-format.md`). The
+capability-level `format_value(value, output_format, notation)` seam now exists on
+`Capability` (default identity) and is invoked by the engine immediately after
+`Rule.normalize()` — before candidate deduplication, status determination, and
+replay hashing. Formatting adds no provenance; candidate metadata
+(`recognition_rule`, `validation_rule`, `provenance`) is unchanged.
+
+- **The formatter seam now applies uniformly.** Date, Phone, and Country
+  implement `format_value()` and own all presentation; their rule-level
+  presentation branches — Date `Section1DateFormat`/`Section4DateFormat` US
+  rendering, the Phone `_canonical` triplication (Tier 3 #5), and Country
+  alpha-3/numeric/name conversion — were removed. Rules in all three capabilities
+  emit default canonical values only (`YYYY-MM-DD`, E.164 `+CCNSN`, alpha-2).
+  Email and IP inherit the identity implementation because they offer no
+  alternative formats.
+- **CI enforcement.** `tests/unit/test_rule_output_format_purity.py` rejects any
+  `output_format` token in `paxman/capabilities/*/rules/` modules — code,
+  comments, or docstrings — so no rule can reintroduce presentation branches.
+- **Localized Country formatting.** Localized names (e.g., `Alemania` → `DE`)
+  are formatted through the current alpha-2 conversion tables for `alpha3`,
+  `numeric`, and `name` while retaining `Unicode` (CLDR) provenance.
+- **Historical former-code passthrough.** Former codes with no current mapping
+  (e.g., `SU`, `BU`) pass through unchanged for `alpha3`, `numeric`, and `name`
+  because they are absent from the current-code conversion tables, while
+  retaining ISO 3166-3 provenance.
+- **Intended pinned-rule behavior change.** A pinned ISO Date rule with
+  `output_format="US"` now returns `MM/DD/YYYY` instead of silently returning
+  ISO — the F4 silent-ignore path the original finding worried about.
