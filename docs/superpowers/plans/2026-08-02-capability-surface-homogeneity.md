@@ -33,8 +33,8 @@ contract/rule mechanics:
 
 | Area | Single unanimous implementation |
 |------|----------------------------------|
-| `output_format` field | `output_format: str | None = None` on **every** contract; resolved to the concrete default via `resolve_output_format`. Never a non-optional `str`. |
-| `create_contract` signature | A fixed common-parameter block in this order: `excluded_rules`, `pinned_rules`, `year`, `output_format` (all `str | None = None`, with `excluded_rules`/`pinned_rules` as `Sequence[str] | None = None`), **keyword-only** (`*`), followed by capability-specific params. Enforced by a `ContractFactory` interface. |
+| `output_format` field | `output_format: str \| None = None` on **every** contract; resolved to the concrete default via `resolve_output_format`. Never a non-optional `str`. |
+| `create_contract` signature | A fixed common-parameter block in this order: `excluded_rules`, `pinned_rules`, `year`, `output_format` (all `str \| None = None`, with `excluded_rules`/`pinned_rules` as `Sequence[str] \| None = None`), **keyword-only** (`*`), followed by capability-specific params. Enforced by a `ContractFactory` interface. |
 | `as_dict()` | Derived from a shared base: always emits `capability_name`, `excluded_rules`, `pinned_rules`, `year`, `output_format`, plus a per-capability `_extra_dict_fields()` hook. Output must be **byte-identical** to today's per-capability `as_dict` to preserve existing replay hashes. |
 | `normalize()` failure policy | `normalize()` (and `matches()`) **never raise** for a value that passed `matches()`. Rule code must not raise `ValidationError`/`RecognitionError`/`ContractError`. Contract-level misconfigurations are caught in `__post_init__`, not in rule methods. |
 | `Rule` metadata | `name`, `strategy`, `provenance`, `citation` are **enforced** on every `Rule` subclass (fail at class-definition time if missing). |
