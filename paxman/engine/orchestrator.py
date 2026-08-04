@@ -57,7 +57,7 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     had_recognitions = len(recognitions) > 0
 
     rules = _filter_rules(all_rules, contract)
-    candidates = _collect_candidates(recognitions, rules)
+    candidates = _collect_candidates(capability, recognitions, rules)
 
     status = _determine_status(candidates, had_recognitions)
     canonical_value = _extract_canonical_value(candidates, status)
@@ -163,13 +163,17 @@ def _validate_affinity(capability: Capability[Any], rules: list[Rule[Any]]) -> N
 
 
 def _collect_candidates(
-    recognitions: list[RecognizedRep[Any]], rules: list[Rule[Any]]
+    capability: Capability[Any],
+    recognitions: list[RecognizedRep[Any]],
+    rules: list[Rule[Any]],
 ) -> list[Candidate]:
     """Match recognitions against rules and collect candidates.
 
     Routes each recognition only to rules whose ``target_grammars`` includes the
-    producing grammar's name (ARCHITECTURE.md:201), then dedups identical
-    candidate tuples so the replay hash is stable regardless of routing.
+    producing grammar's name (ARCHITECTURE.md:201), formats each validated
+    value through the capability's ``format_value()`` seam, then dedups
+    identical candidate tuples so the replay hash is stable regardless of
+    routing.
     """
     candidates: list[Candidate] = []
     for recognition in recognitions:
@@ -182,9 +186,14 @@ def _collect_candidates(
                     canonical = rule.normalize(
                         recognition.notation, recognition.contract
                     )
+                    value = capability.format_value(
+                        canonical,
+                        recognition.contract.output_format,
+                        recognition.notation,
+                    )
                     candidates.append(
                         Candidate(
-                            value=canonical,
+                            value=value,
                             recognition_rule=grammar_name,
                             validation_rule=rule.name,
                             provenance=(rule.provenance,),

@@ -40,6 +40,33 @@ class Capability(ABC, Generic[NotationT]):
         """Return default validation rules for this capability."""
         ...
 
+    def format_value(
+        self,
+        value: str,
+        output_format: str | None,
+        notation: NotationT,
+    ) -> str:
+        """Render a default canonical value in the requested format.
+
+        Capabilities that offer alternative output formats override this to
+        convert the rule-produced default canonical value. The default
+        implementation is the identity: capabilities without alternative
+        formats (e.g. Email, IP) keep their canonical value unchanged.
+
+        Args:
+            value: The default canonical value produced by ``Rule.normalize()``.
+            output_format: The contract's resolved output format. Built-in
+                contracts resolve omitted/default formats before the engine
+                runs, so this is never ``None`` for registered capabilities.
+            notation: The original notation that produced the canonical value,
+                available for capabilities whose formatting needs notation
+                fields beyond the canonical string.
+
+        Returns:
+            The value rendered in the requested format.
+        """
+        return value
+
 
 @runtime_checkable
 class ContractFactory(Protocol):
