@@ -44,7 +44,7 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
 ## Tech Stack
 
 - Python 3.11, `uv` (run everything through `uv run`)
-- `pytest` (782-test suite), markers: `unit`, `capability`, `integration`, `e2e`, `property`
+- `pytest` (1005-test suite), markers: `unit`, `capability`, `integration`, `e2e`, `property`
 - `pyright` strict, `ruff` (E/W/F/I/N/UP/B/SIM), `import-linter`, `hypothesis`
 - Test-only probe capabilities follow the house pattern in `tests/integration/test_format_value_seam.py` (in-file classes, `_clean_registry` fixture, `run_capability()`).
 
@@ -409,6 +409,13 @@ class TestRecognitionSeam:
           touches another grammar's matches, even inside AAAA's span.
         Sorted: (0,2,0,probe_long) < (0,2,1,probe_short) < (3,5,1,probe_short)
         < (3,7,0,probe_long) < (5,7,1,probe_short).
+
+        The three probe_short recognitions all produce the identical
+        candidate tuple (S:AA, probe_short, short_rule), so the unchanged
+        candidate-level dedup safety net collapses them to the first-seen.
+        The observable candidates still prove the contract: the same-span
+        index tiebreak (L:AA before S:AA), and the longer L:AAAA surviving
+        its contained runs.
         """
         register_capability(_ProbeCapability())
         result = run_capability("AA AAAA", _ProbeContract())
@@ -416,9 +423,7 @@ class TestRecognitionSeam:
         assert [c.value for c in result.candidates] == [
             "L:AA",
             "S:AA",
-            "S:AA",
             "L:AAAA",
-            "S:AA",
         ]
 
     @pytest.mark.integration
@@ -793,7 +798,7 @@ Add one span test to `TestStandardEmailGrammar`, `TestLocalhostEmailGrammar`, an
         results = self.grammar.recognize("Contact us at user@example.com")
         assert len(results) == 1
         assert results[0].start == 14
-        assert results[0].end == 31
+        assert results[0].end == 30
         assert results[0].raw_text == "user@example.com"
 ```
 
@@ -1139,11 +1144,11 @@ Add one span test per grammar class:
         results = self.grammar.recognize("Call +1 555 123 4567 now")
         assert len(results) == 1
         assert results[0].start == 5
-        assert results[0].end == 19
+        assert results[0].end == 20
         assert results[0].raw_text == "+1 555 123 4567"
 ```
 
-(International00: `"00 44 20 7946 0958"` → span `(0, 17)`, raw `"00 44 20 7946 0958"`. National: `"(555) 123-4567"` → span `(0, 14)`. TelUri: `"tel:+15551234567"` → span `(0, 16)`, and also assert `results[0].notation.extension == ""`.)
+(International00: `"00 44 20 7946 0958"` → span `(0, 18)`, raw `"00 44 20 7946 0958"`. National: `"(555) 123-4567"` → span `(0, 14)`. TelUri: `"tel:+15551234567"` → span `(0, 16)`, and also assert `results[0].notation.extension == ""`.)
 
 ### Step 2 (GREEN) — `paxman/capabilities/Phone/grammar/common.py`
 
@@ -1252,6 +1257,21 @@ uv run pytest tests/integration/test_pipeline.py tests/integration/test_ambiguit
 ```
 
 Both green — the full integration suite recovers here because all 16 grammars are now migrated. Commit.
+
+### Step 5 — Migrate integration-test stub grammars (plan gap, post-hoc)
+
+**Plan gap:** the original plan did not anticipate that the pre-existing
+probe/stub grammars in the integration suite returned bare notations and had
+to be migrated to the span-bearing `RecognitionMatch` signature when the
+`Grammar` ABC changed (Task 2). Executed together with the Phone migration,
+this step updated: `_NameRecognitionGrammar`
+(`tests/integration/test_feature_gating.py`), `_TokenGrammar` and
+`_DualTokenGrammar` (`tests/integration/test_format_value_seam.py`), and
+`CrashGrammar`, `SimpleGrammar`, `_PhantomGrammar`
+(`tests/integration/test_pipeline.py`). Each `recognize()` now returns
+`list[RecognitionMatch[...]]` and wraps its notation with `start`/`end`/
+`raw_text`. The Task 2 `test_recognition_seam.py` stubs were already planned
+and are not part of this gap.
 
 ---
 
@@ -1419,7 +1439,7 @@ Green. Commit.
 uv run ruff format . && uv run ruff check .          # no violations
 uv run pyright                                        # strict, no errors
 uv run lint-imports                                   # import boundaries clean
-uv run pytest -q                                      # FULL 782-test suite, 0 failures
+uv run pytest -q                                      # FULL 1005-test suite, 0 failures
 uv run pytest tests/integration/test_default_replay_hashes.py -q   # 5/5 — hashes byte-identical
 ```
 
@@ -1429,14 +1449,14 @@ Versioning: NO version bump is required — the replay hashes are byte-identical
 
 ### Acceptance checklist (from the Behavioral Contract)
 
-- [ ] All 16 grammars return `list[RecognitionMatch]`; zero bare-notation returns
-- [ ] `RecognitionMatch` invariants enforced (`0 <= start <= end`, `len(raw_text) == end - start`)
-- [ ] Engine dedups within a grammar only; `01/02/2026` still AMBIGUOUS (US vs European)
-- [ ] Recognitions in total order `(start, end, active index, grammar name)`
-- [ ] Five baseline replay hashes byte-identical
-- [ ] `_dedup_candidates` untouched
-- [ ] Purity gate green (no grammar↔rule imports)
-- [ ] `HOW_TO_ADD_NEW_CAPABILITY.md` teaches the span contract
-- [ ] `ARCHITECTURE.md` documents the recognition pipeline contract
-- [ ] Audit Tier 2 marked resolved, syntax seam deferred
-- [ ] Full suite green: `pytest`, `pyright`, `ruff`, `lint-imports`
+- [x] All 16 grammars return `list[RecognitionMatch]`; zero bare-notation returns
+- [x] `RecognitionMatch` invariants enforced (`0 <= start <= end`, `len(raw_text) == end - start`)
+- [x] Engine dedups within a grammar only; `01/02/2026` still AMBIGUOUS (US vs European)
+- [x] Recognitions in total order `(start, end, active index, grammar name)`
+- [x] Five baseline replay hashes byte-identical
+- [x] `_dedup_candidates` untouched
+- [x] Purity gate green (no grammar↔rule imports)
+- [x] `HOW_TO_ADD_NEW_CAPABILITY.md` teaches the span contract
+- [x] `ARCHITECTURE.md` documents the recognition pipeline contract
+- [x] Audit Tier 2 marked resolved, syntax seam deferred
+- [x] Full suite green: `pytest`, `pyright`, `ruff`, `lint-imports`
