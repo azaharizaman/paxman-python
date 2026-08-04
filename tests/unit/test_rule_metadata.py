@@ -123,3 +123,31 @@ class TestRuleMetadataEnforcement:
 
                 def normalize(self, notation: str, contract: Contract) -> str:
                     return ""
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        ("attribute", "value"),
+        [
+            ("target_grammars", "test_grammar"),
+            ("target_grammars", ["test_grammar"]),
+            ("requires_features", frozenset({1})),
+        ],
+    )
+    def test_affinity_metadata_requires_frozenset_of_strings(
+        self, attribute: str, value: Any
+    ) -> None:
+        """Malformed affinity metadata fails during Rule subclass creation."""
+        namespace: dict[str, Any] = {
+            "name": "test_rule",
+            "strategy": RuleStrategy.REGEX,
+            "provenance": _TEST_PROVENANCE,
+            "citation": "test citation",
+            "target_grammars": frozenset({"test_grammar"}),
+            "requires_features": frozenset(),
+            "matches": lambda self, notation, contract: True,
+            "normalize": lambda self, notation, contract: "",
+        }
+        namespace[attribute] = value
+
+        with pytest.raises(TypeError, match=rf"{attribute} must be frozenset\[str\]"):
+            type("_InvalidAffinityMetadata", (Rule,), namespace)

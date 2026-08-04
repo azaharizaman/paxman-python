@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import ClassVar, Generic, TypeVar, cast
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from paxman.core.contract import Contract
 
 NotationT = TypeVar("NotationT")
+
+
+def _contains_only_strings(values: Iterable[Any]) -> bool:
+    """Return whether every reflected metadata value is a string."""
+    return all(isinstance(value, str) for value in values)
 
 
 class RuleStrategy(Enum):
@@ -154,10 +159,14 @@ class Rule(ABC, Generic[NotationT]):
             raise TypeError(
                 f"{cls.__name__} must define Rule metadata: {', '.join(missing)}"
             )
-        # Type and element-type are enforced statically by the
-        # ``ClassVar[frozenset[str]]`` annotation; only the non-empty constraint
-        # needs a runtime guard (an empty frozenset is valid type-wise but would
-        # make the rule match nothing).
+        for attribute in ("target_grammars", "requires_features"):
+            value: Any = vars(cls).get(attribute, getattr(cls, attribute))
+            if type(value) is not frozenset:
+                raise TypeError(f"{cls.__name__}.{attribute} must be frozenset[str]")
+            if not _contains_only_strings(
+                vars(cls).get(attribute, getattr(cls, attribute))
+            ):
+                raise TypeError(f"{cls.__name__}.{attribute} must be frozenset[str]")
         if not cls.target_grammars:
             raise TypeError(f"{cls.__name__}.target_grammars must be non-empty")
 
