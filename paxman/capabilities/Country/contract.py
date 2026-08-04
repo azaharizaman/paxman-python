@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import ClassVar, Final
 
 from paxman.core.contract import CapabilityContract
 
@@ -59,3 +59,8 @@ class CountryContract(CapabilityContract):
             "include_localized": self.include_localized,
             "include_historical": self.include_historical,
         }
+
+
+VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
+    {CountryContract.DEFAULT_OUTPUT_FORMAT, *CountryContract.OFFERED_OUTPUT_FORMATS}
+)

@@ -3,7 +3,7 @@
 import pytest
 
 from paxman.capabilities.Country.capability import CountryCapability
-from paxman.capabilities.Country.contract import CountryContract
+from paxman.capabilities.Country.contract import VALID_OUTPUT_FORMATS, CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.core.capability import Capability
 from paxman.core.errors import ContractError
@@ -136,6 +136,16 @@ class TestCountryContract:
         """Verify output_format defaults to alpha2."""
         contract = CountryContract()
         assert contract.output_format == "alpha2"
+
+    def test_valid_output_formats_compatibility_surface(self) -> None:
+        """The legacy module constant retains the complete format set."""
+        assert frozenset({"alpha2", "alpha3", "numeric", "name"}) == (
+            VALID_OUTPUT_FORMATS
+        )
+        assert {
+            CountryContract.DEFAULT_OUTPUT_FORMAT,
+            *CountryContract.OFFERED_OUTPUT_FORMATS,
+        } == VALID_OUTPUT_FORMATS
 
     def test_custom_output_format_alpha3(self) -> None:
         """Verify output_format can be set to alpha3."""
