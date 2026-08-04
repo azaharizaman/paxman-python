@@ -1011,7 +1011,7 @@ If your rule needs to read a capability-specific parameter (like `two_digit_base
 Use this checklist to verify your capability is complete:
 
 - [ ] Notation is a frozen dataclass with `as_list()` method
-- [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[YourDomainNotation]`
+- [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[RecognitionMatch[YourDomainNotation]]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
 - [ ] Each rule declares `target_grammars` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
 - [ ] Each rule file has a `PUBLICATION` provenance constant
@@ -1026,7 +1026,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Grammar data is key-only (no token-to-canonical mappings); rule data owns all authority-backed mappings (see The Grammar/Rule Boundary)
 - [ ] Recognition keys and rule tables live in separate files, with a consistency test covering every shipped recognition key
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`
-- [ ] If grammar handles multiple sub-patterns: implements dedup via `seen` set
+- [ ] Grammar emits span-bearing `RecognitionMatch` objects and does NOT deduplicate or order — the engine owns containment dedup ("longer wins") and document ordering
 - [ ] Package `__init__.py` files export the public API
 - [ ] Capability is registered in `paxman/capabilities/__init__.py`
 - [ ] Test markers are consistent within each file
