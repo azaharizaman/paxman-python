@@ -18,19 +18,20 @@ The contract *surface* is now largely unanimous — base `CapabilityContract` pl
 `resolve_output_format` in `paxman/core/contract.py` unify `output_format`
 resolution and `as_dict()` serialization. The behavioral-contract audit found
 divergences at four layers; the findings below are preserved as historical
-record, with current status tracked by the addenda:
+record, with current status noted below:
 
 1. **Orchestrator routing** (F1) — full cartesian product, no grammar→rule affinity. *(resolved 2026-08-03)*
-2. **Feature gating** (F2) — `include_*` toggles grammars in one cap, rules in another.
+2. **Feature gating** (F2) — `include_*` toggles grammars in one cap, rules in another. *(resolved 2026-08-03)*
 3. **Format application** (F4) — `output_format` honored inconsistently within multi-format caps. *(resolved 2026-08-04)*
 4. **Recognition/validation boundary** (F3) — Country canonicalizes at recognition, duplicating authority tables. *(resolved 2026-08-03)*
 
 Oracle's bottom line (original verdict): **3 genuine architecture-level defects
 (F1, F2, F4)**, 1 defect-lite (F3), 1 accepted (F5), plus lower-severity items
-(F6). Current status: F4 — and its Phone `_canonical` triplication — was resolved
-on 2026-08-04 by the centralized output formatting seam (see the addendum below);
-F1 and F3 carry resolution addenda dated 2026-08-03. F2 remains the open
-architecture-level defect.
+(F6). Current status: all four architecture-level findings are resolved — F1 and
+F3 by their 2026-08-03 addenda, F2 by the engine-enforced
+`Rule.requires_features`/`_filter_rules()` feature-gating work (2026-08-03), and
+F4 — with its Phone `_canonical` triplication — by the centralized output
+formatting seam on 2026-08-04 (see the sections and addenda below).
 
 ---
 
@@ -69,7 +70,7 @@ multiplicity changes the hash (semantics/status unchanged). Preserves Date
 ambiguity (each rule sees only its grammar's notation → 2 candidates →
 AMBIGUOUS). Effort: Medium.
 
-### F2. `include_*` gates grammars (Email) vs rules (Country) — `DEFECT` (ad-hoc form)
+### F2. `include_*` gates grammars (Email) vs rules (Country) — `DEFECT` (resolved 2026-08-03)
 
 Email `include_obfuscated=True` adds `obfuscated_recognition` to `active_grammars`
 (→ MISSING when off). Country `include_localized`/`include_historical` are static
@@ -89,6 +90,17 @@ loci — input-shape features → `active_grammars`; authority features → decl
 `Rule.requires_features` metadata checked by the engine in `_filter_rules`. Never
 via casts in `matches()`. Document in `HOW_TO_ADD_NEW_CAPABILITY.md`.
 
+**Resolved 2026-08-03:** engine-enforced feature gating was implemented exactly
+as the ideal prescribes. Authority features are now declared as
+`Rule.requires_features` on the rules (e.g. Country
+`SectionLocalizedNames` → `frozenset({"include_localized"})`,
+`SectionHistoricalNames` → `frozenset({"include_historical"})`), and
+`paxman/engine/orchestrator.py:_filter_rules()` drops a rule whose required
+contract feature is false (recognized-but-unvalidated input then yields
+`INVALID`) and fails fast with `ContractError` on unknown feature names. The
+subclass cast inside `matches()` is gone — Country rules contain no `cast()`. The
+old implementation described above is preserved as historical record.
+
 ### F3. Grammar canonicalization (Country/Phone) — `DEFECT-lite` / partial
 
 - **Phone `strip_separators`** = presentation normalization, not canonicalization →
@@ -107,13 +119,14 @@ recognition keys + automated consistency test.
 
 ### F4. `output_format` consumption fragmented — `DEFECT` (resolved 2026-08-04)
 
-Contract layer is unanimous (`resolve_output_format` in `__post_init__`). But **no
-rule calls it**; each branches on raw strings, and within multi-format caps the
-format is honored inconsistently. The audit's original Date premise — that
-`iso_8601` *ignores* `output_format`, so `output_format="US"` on ISO input
-silently yields ISO — was withdrawn by Addendum A below (Date routes the format
-into rendering). The finding's substance was the duplicated, per-rule
-presentation branches and the Phone `_canonical` triplication (see Tier 3 #5).
+Contract layer is unanimous (`resolve_output_format` in `__post_init__`). But, at
+the time of the audit, **no rule called it**; each branched on raw strings, and
+within multi-format caps the format was honored inconsistently. The audit's
+original Date premise — that `iso_8601` *ignores* `output_format`, so
+`output_format="US"` on ISO input silently yields ISO — was withdrawn by Addendum
+A below (Date routes the format into rendering). The finding's substance was the
+duplicated, per-rule presentation branches and the Phone `_canonical`
+triplication (see Tier 3 #5).
 
 **Unanimous ideal:** capability-level `format_value(value, output_format,
 notation)` hook invoked by the engine immediately after `Rule.normalize()`;
@@ -180,7 +193,7 @@ Ranked defects (from the rule-comparison agent):
 | Rank | Finding | Class |
 |---|---|---|
 | 1 | F1 cartesian product / no grammar→rule affinity | Defect |
-| 2 | F2 ad-hoc `include_*` gating via subclass cast | Defect |
+| 2 | F2 ad-hoc `include_*` gating via subclass cast | Defect (resolved 2026-08-03) |
 | 3 | F4 `output_format` honored inconsistently + Phone `_canonical` triplication | Defect (resolved 2026-08-04) |
 | 4 | F3 Country recognition-time canonicalization + duplicated authority tables | Defect-lite |
 | 5 | Rule `RuleStrategy` decorative (Section63localhost; E.164 6.1/6.2; NANP 1.2) | Defect |
@@ -200,7 +213,8 @@ Ranked defects (from the rule-comparison agent):
 1. **`Rule.target_grammars`** + one-line orchestrator filter (fixes F1; makes
    `ARCHITECTURE.md:201` true; replay-safe with candidate dedup).
 2. **Move `include_*` feature-gating** to engine-enforced declared metadata, split
-   by feature kind (fixes F2).
+   by feature kind (fixes F2). **[DONE 2026-08-03]** — enforced via
+   `Rule.requires_features` and `_filter_rules()`.
 3. **Capability-level `format_value` hook**; rules emit default canonical only
    (fixes F4; kills Phone `_canonical` triplication). **[DONE 2026-08-04]** — see
    the centralize-output-format addendum below.
@@ -226,27 +240,35 @@ Ranked defects (from the rule-comparison agent):
 
 F1 was implemented and verified (plan: `docs/superpowers/plans/2026-08-03-f1-grammar-rule-affinity.md`; `pyright` / `ruff` / `import-linter` / `pytest` 782 all green). Two findings surfaced that correct this audit's premises:
 
-### A. Date honors `output_format` — the F4 premise for Date is wrong
+### A. Date honors `output_format` in the ambiguity cases — the F4 Date premise was partly wrong
 
-The audit (F4, lines 103–113) states *"Date `iso_8601` ignores `output_format`, so `output_format="US"` on ISO input silently yields ISO."* This is **not** borne out by the code. Observed behavior for `01/02/2026`:
+The audit (F4, lines 103–113) states *"Date `iso_8601` ignores `output_format`, so `output_format="US"` on ISO input silently yields ISO."* The ambiguity cases do **not** bear this out. Observed behavior for `01/02/2026` under the then-current rule-level implementation:
 
 | `output_format` | canonical candidate values |
 |---|---|
 | `None` (resolves to default `"ISO"`) | `{"2026-01-02", "2026-02-01"}` |
 | `"US"` | `{"01/02/2026", "02/01/2026"}` |
 
-Date already routes `output_format` into formatting. The reformat is a per-format
-bijection, so the count of distinct canonical values (and therefore the `AMBIGUOUS`
-status) is preserved under any `output_format` (see F1 plan, `TestGrammarRuleAffinity`).
+For these `01/02/2026` ambiguity cases Date already routed `output_format` into
+formatting: the reformat was a per-format bijection, so the count of distinct
+canonical values (and therefore the `AMBIGUOUS` status) was preserved under any
+`output_format` (see F1 plan, `TestGrammarRuleAffinity`). The premise was wrong
+for that case.
+
+The real silent-ignore edge case was the **pinned-ISO** path: with
+`pinned_rules=["Section 4.3.1-calendar-date"]` and `output_format="US"`, the
+pinned ISO rule emitted ISO unconditionally (`2026-01-15` → `2026-01-15`) because
+no rule-level US branch ran for that rule. That edge case is fixed by the
+2026-08-04 formatter centralization: `DateCapability.format_value()` renders the
+ISO default as `MM/DD/YYYY` (see the F4 completion addendum below).
 
 **Consequence (withdrawn):** the interim conclusion that a capability-level
 `format_value` hook is *not required for Date* was itself superseded by the
 centralize-output-format work (2026-08-04): the hook **is** required for Date and
-was implemented there. F4's premise that Date *ignores* `output_format` remains
-wrong, but the formatter seam still had to be built — Date rules now emit ISO
-defaults only, and `DateCapability.format_value()` renders `output_format="US"`.
-The audit's original F4 severity for Date was overstated; the resolution is the
-uniform formatter seam described in the centralize-output-format addendum below.
+was implemented there. Date rules now emit ISO defaults only, and
+`DateCapability.format_value()` renders `output_format="US"`. The audit's
+original F4 severity for Date was overstated; the resolution is the uniform
+formatter seam described in the centralize-output-format addendum below.
 
 ### B. F1 replay-hash is byte-identical — the "watch out" risk did not materialize
 
