@@ -51,11 +51,12 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     freeze_registry()
     capability = get_capability(contract.capability_name)
 
+    all_rules = capability.get_rules()
+    _validate_affinity(capability, all_rules)
     recognitions = _recognize(text, capability, contract)
     had_recognitions = len(recognitions) > 0
 
-    rules = _filter_rules(capability, contract)
-    _validate_affinity(capability, rules)
+    rules = _filter_rules(all_rules, contract)
     candidates = _collect_candidates(recognitions, rules)
 
     status = _determine_status(candidates, had_recognitions)
@@ -99,7 +100,7 @@ def _recognize(
     return recognitions
 
 
-def _filter_rules(capability: Capability[Any], contract: Contract) -> list[Rule[Any]]:
+def _filter_rules(all_rules: list[Rule[Any]], contract: Contract) -> list[Rule[Any]]:
     """Return rules based on pinning, exclusion, year, and feature filters.
 
     When pinned_rules is set, ONLY those rules run (excluded_rules is ignored).
@@ -110,8 +111,6 @@ def _filter_rules(capability: Capability[Any], contract: Contract) -> list[Rule[
     contract does not have is a metadata/contract mismatch that fails fast
     with ContractError rather than silently excluding the rule.
     """
-    all_rules = capability.get_rules()
-
     if contract.pinned_rules is not None:
         pinned_set = set(contract.pinned_rules)
         known_names = {r.name for r in all_rules}

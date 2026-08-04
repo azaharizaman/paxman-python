@@ -190,6 +190,76 @@ class _DanglingFeatureContract:
         return {"capability_name": "dangling_feature"}
 
 
+class _DanglingGrammarRule(Rule[CountryNotation]):
+    """Rule whose grammar affinity points at a nonexistent grammar."""
+
+    name = "dangling_grammar_rule"
+    strategy = RuleStrategy.REGEX
+    provenance = Provenance(
+        authority="test",
+        specification_name="test",
+        kind="test",
+        reference_url="https://test",
+        version=None,
+        lifecycle="active",
+        publication_year=2024,
+    )
+    citation = "test"
+    target_grammars = frozenset({"missing_grammar"})
+    requires_features = frozenset()
+
+    def matches(self, notation: CountryNotation, contract: object) -> bool:
+        return True
+
+    def normalize(self, notation: CountryNotation, contract: object) -> str:
+        return "US"
+
+
+class _DanglingGrammarCapability(Capability[CountryNotation]):
+    """Capability exposing a rule with a dangling grammar affinity."""
+
+    name = "dangling_grammar"
+    version = "0.1.0"
+
+    def get_grammars(self) -> list[Grammar[CountryNotation]]:
+        return [_NameRecognitionGrammar()]
+
+    def get_rules(self) -> list[Rule[CountryNotation]]:
+        return [_DanglingGrammarRule()]
+
+
+class _ExcludedDanglingGrammarContract(_LocalizedFixtureContract):
+    """Contract that excludes the malformed rule from normal execution."""
+
+    @property
+    def capability_name(self) -> str:
+        return "dangling_grammar"
+
+    @property
+    def excluded_rules(self) -> list[str]:
+        return ["dangling_grammar_rule"]
+
+
+# ---------------------------------------------------------------------------
+# Existing test cases
+# ---------------------------------------------------------------------------
+
+
+class TestDanglingGrammarValidation:
+    """Affinity validation must precede rule filtering."""
+
+    @pytest.mark.integration
+    def test_excluded_rule_with_unknown_grammar_still_fails_fast(self) -> None:
+        register_capability(_DanglingGrammarCapability())
+        contract = _ExcludedDanglingGrammarContract(include_localized=False)
+
+        with pytest.raises(
+            ContractError,
+            match=r"dangling_grammar_rule.*missing_grammar",
+        ):
+            run_capability("Estados Unidos", contract)
+
+
 class TestDanglingFeatureValidation:
     """A rule naming a contract field the contract lacks fails fast."""
 
