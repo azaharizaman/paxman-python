@@ -74,8 +74,9 @@ class DateCapability(Capability[DateNotation]):
         The default ISO path is the identity: the rule-produced ``YYYY-MM-DD``
         canonical value is returned unchanged. An explicit ``"US"`` request
         converts a validated fixed-shape ``YYYY-MM-DD`` value to ``MM/DD/YYYY``
-        by strict parsing; arbitrary strings that are not valid dates raise
-        rather than being rendered as if they were valid.
+        by strict parsing; values that do not match the fixed-width shape
+        (e.g. ``2026-1-5``) raise rather than being rendered as if they were
+        valid.
 
         Args:
             value: The default canonical value produced by ``Rule.normalize()``.
@@ -89,5 +90,9 @@ class DateCapability(Capability[DateNotation]):
         """
         if output_format != "US":
             return value
+        if len(value) != 10 or value[4] != "-" or value[7] != "-":
+            raise ValueError(
+                f"Invalid ISO date {value!r}: expected fixed-shape YYYY-MM-DD"
+            )
         parsed = datetime.strptime(value, "%Y-%m-%d")
         return parsed.strftime("%m/%d/%Y")

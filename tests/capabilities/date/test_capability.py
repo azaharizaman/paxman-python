@@ -103,6 +103,12 @@ class TestDateCapabilityFormatValue:
         with pytest.raises(ValueError):
             cap.format_value("not-a-date", "US", self.NOTATION)
 
+    def test_us_format_rejects_non_fixed_width_values(self) -> None:
+        """US rendering rejects values that are not fixed-shape YYYY-MM-DD."""
+        cap = DateCapability()
+        with pytest.raises(ValueError):
+            cap.format_value("2026-1-5", "US", self.NOTATION)
+
 
 # --- DateContract tests ---
 
