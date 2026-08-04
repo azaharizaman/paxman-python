@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.IP.notation import IPNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 _IPV4_PATTERN = re.compile(r"\b(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\b")
 
@@ -15,9 +15,16 @@ class IPv4Grammar(Grammar[IPNotation]):
 
     name = "ipv4_recognition"
 
-    def recognize(self, text: str) -> list[IPNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[IPNotation]]:
         """Extract IPv4 dotted-decimal patterns from text."""
-        return [
-            IPNotation(address=f"{a}.{b}.{c}.{d}")
-            for a, b, c, d in _IPV4_PATTERN.findall(text)
-        ]
+        matches: list[RecognitionMatch[IPNotation]] = []
+        for match in _IPV4_PATTERN.finditer(text):
+            matches.append(
+                RecognitionMatch(
+                    notation=IPNotation(address=match.group(0)),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
+        return matches
