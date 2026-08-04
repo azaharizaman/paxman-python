@@ -23,6 +23,27 @@ Paxman strictly separates the act of finding values in text (recognition) from t
 
 This separation means that a single input can be recognized by multiple grammars and validated by multiple rules, enabling ambiguity detection when different authoritative sources disagree.
 
+### Recognition Pipeline Contract
+
+Every grammar implements `recognize(text) -> list[RecognitionMatch]`, where
+`RecognitionMatch` carries the notation plus a half-open `[start, end)` span
+and the matched `raw_text`. The grammar produces positions; the engine owns
+all cross-match policy:
+
+- **Containment dedup (per grammar):** a match fully contained in a longer
+  match from the SAME grammar is dropped ("longer wins"). Dedup never runs
+  across grammars, so two grammars agreeing on the same span (e.g. US vs
+  European date reading of `01/02/2026`) are both preserved and ambiguity
+  stays observable.
+- **Ordering:** recognitions are emitted in the total order
+  `(start, end, active_grammars index, grammar name)`, i.e. document order.
+- **Candidate dedup** (`value, recognition_rule, validation_rule`) runs
+  after validation as a stability net.
+
+Grammars perform syntax-level extraction and normalization only; rules own
+semantic validation with provenance. This contract applies identically to
+every capability, built-in or future.
+
 ### Capability Isolation
 
 Each domain (Email, Date, Country, etc.) is encapsulated as a **Capability** — an independent module that defines its own intermediate representation, recognition rules, and validation rules. Capabilities cannot import from each other. The engine and core domain provide the orchestration layer; capabilities provide the domain expertise.

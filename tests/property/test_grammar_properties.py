@@ -13,6 +13,7 @@ from paxman.capabilities.Date.grammar.us_recognition import USDateGrammar
 from paxman.capabilities.Email.grammar.standard_recognition import (
     StandardEmailGrammar,
 )
+from paxman.core.domain import RecognitionMatch
 
 
 @pytest.mark.property
@@ -51,6 +52,7 @@ def test_standard_email_grammar_returns_list(
     domain_part = f"{domain_label}.{tld}"
     result = grammar.recognize(f"{local_part}@{domain_part}")
     assert isinstance(result, list)
+    assert all(isinstance(m, RecognitionMatch) for m in result)
 
 
 @pytest.mark.property
@@ -69,6 +71,7 @@ def test_iso8601_grammar_returns_list(
     date_str = f"{year:04d}-{month:02d}-{day:02d}"
     result = grammar.recognize(date_str)
     assert isinstance(result, list)
+    assert all(isinstance(m, RecognitionMatch) for m in result)
     if result:
         assert len(result) == 1
 
@@ -89,6 +92,7 @@ def test_us_grammar_returns_list(
     date_str = f"{month}/{day}/{year}"
     result = grammar.recognize(date_str)
     assert isinstance(result, list)
+    assert all(isinstance(m, RecognitionMatch) for m in result)
     if result:
         assert len(result) == 1
 
@@ -108,3 +112,4 @@ def test_grammar_never_returns_none(text: str) -> None:
         result = grammar.recognize(text)
         assert result is not None
         assert isinstance(result, list)
+        assert all(isinstance(m, RecognitionMatch) for m in result)

@@ -133,55 +133,68 @@ This is optional. Use it when your notation will be instantiated many times (e.g
 
 ## Step 4: Create a Grammar
 
-Grammars are recognition rules that scan raw text and extract notations. Each grammar handles one specific pattern or format.
+Grammars are recognition rules that scan raw text and extract span-bearing notations. Each grammar handles one specific pattern or format.
 
 Create `paxman/capabilities/YourDomain/grammar/your_grammar.py`:
 
-1. Import `Grammar` from `paxman.core.domain`
+1. Import `Grammar` and `RecognitionMatch` from `paxman.core.domain`
 2. Import your `YourDomainNotation` from the notation module
 3. Define a class that extends `Grammar`
 4. Set the `name` class attribute to a snake_case identifier (this name is used by the contract to toggle grammars)
-5. Implement the `recognize(text: str) -> list[YourDomainNotation]` method
+5. Implement the `recognize(text: str) -> list[RecognitionMatch[YourDomainNotation]]` method
 
 **The `recognize` method must:**
 
 - Accept a single string parameter (the raw input text)
-- Return a list of typed notations (each notation is an instance of `YourDomainNotation`)
+- Return a list of `RecognitionMatch` objects — NOT bare notations. Every match carries the notation plus a half-open `[start, end)` span and the matched `raw_text`, so `len(raw_text) == end - start` always holds
 - Return an empty list if nothing matches
 - Never raise exceptions for normal input (use try/except for regex or parsing errors)
 - Handle edge cases gracefully (empty strings, partial matches, Unicode)
 
+Example:
+
+```python
+import re
+
+from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.capabilities.MyDomain.notation import MyDomainNotation
+
+class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
+    """Standard recognition for the MyDomain capability."""
+
+    name = "standard_recognition"
+
+    def recognize(self, text: str) -> list[RecognitionMatch[MyDomainNotation]]:
+        """Extract span-bearing matches from raw text.
+
+        The engine dedups contained matches and orders recognitions; the
+        grammar only extracts and emits spans.
+        """
+        pattern = re.compile(r"...")  # your pattern
+        matches = []
+        for match in pattern.finditer(text):
+            matches.append(
+                RecognitionMatch(
+                    notation=MyDomainNotation(...),  # parsed from groups
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
+        return matches
+```
+
 **Grammar design principles:**
 
 - Each grammar should handle one logical format (e.g., "obfuscated email", "IPv6 address")
-- A grammar may match multiple sub-patterns within that format (e.g., `user at domain dot tld` and `user at domain.tld`). When it does, use a `seen` set to deduplicate results:
-
-```python
-def recognize(self, text: str) -> list[YourDomainNotation]:
-    results: list[YourDomainNotation] = []
-    seen: set[tuple[str, ...]] = set()
-    for match in PATTERN_1.finditer(text):
-        notation = self._parse(match)
-        key = tuple(notation.as_list())
-        if key not in seen:
-            seen.add(key)
-            results.append(notation)
-    for match in PATTERN_2.finditer(text):
-        notation = self._parse(match)
-        key = tuple(notation.as_list())
-        if key not in seen:
-            seen.add(key)
-            results.append(notation)
-    return results
-```
-
-- Grammars do NOT validate — they only extract
-- A single grammar can return multiple notations if the input contains multiple matches
+- The grammar does syntax only — extraction and separator/case normalization. It does NOT de-duplicate, sort, or validate: the engine owns within-grammar containment dedup ("longer wins") and the total recognition order, and rules own meaning
+- A single grammar can return multiple matches if the input contains multiple occurrences
 - Grammar names must be unique within the capability
+- Never import from `rules/` — a grammar that imports a rule would let semantics leak across the pipeline's separation boundary (enforced by the semantic purity gate)
 
 **Common grammar strategies:**
 
-- **Regex** — use compiled regex patterns with `re.findall()` or `re.finditer()`
+- **Regex** — use compiled regex patterns with `re.finditer()`
 - **String parsing** — split or scan text for delimiters
 - **Hybrid** — combine regex with string operations for complex patterns
 
