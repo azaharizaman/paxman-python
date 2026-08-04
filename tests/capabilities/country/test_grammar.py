@@ -295,6 +295,48 @@ class TestNameGrammar:
         assert len(results) == 1
         assert results[0].value == "Holland"
 
+    def test_recognizes_hyphenated_official_names(self) -> None:
+        """Official hyphenated names (Guinea-Bissau, Timor-Leste) are recognized."""
+        for text in ("Guinea-Bissau", "Timor-Leste"):
+            results = self.grammar.recognize(text)
+            assert len(results) == 1
+            assert results[0].shape == "name"
+            assert results[0].value == text
+
+    def test_recognizes_separator_variants(self) -> None:
+        """Hyphen, space, en dash, and slash variants share one recognition key."""
+        for text in (
+            "Guinea-Bissau",
+            "Guinea Bissau",
+            "Guinea\u2013Bissau",
+            "Guinea/Bissau",
+            "Timor-Leste",
+            "Timor Leste",
+        ):
+            results = self.grammar.recognize(text)
+            assert len(results) == 1, text
+            assert results[0].shape == "name"
+
+    def test_recognizes_france_metropolitan_official_form(self) -> None:
+        """Official ISO 3166-3 spelling 'France, Metropolitan' is recognized."""
+        results = self.grammar.recognize("France, Metropolitan")
+        assert len(results) == 1
+        assert results[0].value == "France, Metropolitan"
+
+    def test_recognizes_viet_nam_democratic_republic_official_form(self) -> None:
+        """Official ISO 3166-3 spelling is recognized, token preserved."""
+        text = "Viet-Nam, Democratic Republic of"
+        results = self.grammar.recognize(text)
+        assert len(results) == 1
+        assert results[0].value == text
+
+    def test_recognizes_yemen_democratic_official_form(self) -> None:
+        """Official ISO 3166-3 spelling is recognized, token preserved."""
+        text = "Yemen, Democratic"
+        results = self.grammar.recognize(text)
+        assert len(results) == 1
+        assert results[0].value == text
+
     def test_rejects_numeric(self) -> None:
         """Numeric input is not a name pattern."""
         results = self.grammar.recognize("840")
@@ -373,3 +415,18 @@ class TestNormalizeName:
     def test_normalize_name_collapses_and_trims_whitespace(self) -> None:
         """Normalizer collapses internal whitespace and trims outer whitespace."""
         assert normalize_name("  United   Kingdom  ") == "UNITED KINGDOM"
+
+    def test_normalize_name_treats_separators_as_word_boundaries(self) -> None:
+        """Hyphen, en dash, and slash become spaces; all variants share a key."""
+        assert normalize_name("Guinea-Bissau") == "GUINEA BISSAU"
+        assert normalize_name("Guinea\u2013Bissau") == "GUINEA BISSAU"
+        assert normalize_name("Guinea/Bissau") == "GUINEA BISSAU"
+        assert normalize_name("Guinea Bissau") == "GUINEA BISSAU"
+        assert normalize_name("Timor-Leste") == "TIMOR LESTE"
+        assert normalize_name("Timor Leste") == "TIMOR LESTE"
+
+    def test_normalize_name_preserves_cjk_and_punctuation_removal(self) -> None:
+        """CJK letters survive; other punctuation is still stripped."""
+        assert normalize_name("马来西亚") == "马来西亚"
+        assert normalize_name("Cote d'Ivoire") == "COTE DIVOIRE"
+        assert normalize_name("U.S.A.") == "USA"
