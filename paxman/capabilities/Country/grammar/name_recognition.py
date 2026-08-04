@@ -22,7 +22,7 @@ from paxman.capabilities.Country.grammar.data.localized_names import (
 )
 from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # Union of every recognized name representation across locales.
 _KNOWN_NAME_KEYS = (
@@ -50,14 +50,14 @@ class NameGrammar(Grammar[CountryNotation]):
 
     name = "name_recognition"
 
-    def recognize(self, text: str) -> list[CountryNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
         """Extract a country name representation from text.
 
         Args:
             text: Raw input text.
 
         Returns:
-            A list with a single CountryNotation of shape="name" carrying
+            A list with a single span-bearing match of shape="name" carrying
             the trimmed input token when the token is a known name
             representation, or an empty list for empty/unknown input.
         """
@@ -68,6 +68,14 @@ class NameGrammar(Grammar[CountryNotation]):
         normalized = normalize_name(trimmed)
 
         if normalized in _KNOWN_NAME_KEYS:
-            return [CountryNotation(shape="name", value=trimmed)]
+            start = len(text) - len(text.lstrip())
+            return [
+                RecognitionMatch(
+                    notation=CountryNotation(shape="name", value=trimmed),
+                    start=start,
+                    end=start + len(trimmed),
+                    raw_text=trimmed,
+                )
+            ]
 
         return []
