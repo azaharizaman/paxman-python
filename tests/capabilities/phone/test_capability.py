@@ -6,7 +6,6 @@ from paxman.api import canonicalize
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.capabilities.Phone.rules.rfc_3966_ed2004 import Section3TelUri
 from paxman.core.capability import Capability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
@@ -211,6 +210,60 @@ class TestPhoneCapability:
         assert contract.excluded_rules == ("Section 1.2-service-npa",)
 
 
+class TestPhoneCapabilityFormatValue:
+    """Tests for PhoneCapability.format_value()."""
+
+    NOTATION = PhoneNotation(shape="e164", value="15551234567")
+
+    def test_e164_is_identity(self) -> None:
+        """The default e164 path returns the canonical value unchanged."""
+        cap = PhoneCapability()
+        assert cap.format_value("+15551234567", "e164", self.NOTATION) == "+15551234567"
+
+    def test_default_format_is_identity(self) -> None:
+        """An unset output format returns the canonical value unchanged."""
+        cap = PhoneCapability()
+        assert cap.format_value("+15551234567", None, self.NOTATION) == "+15551234567"
+
+    def test_rfc3966_renders_tel_uri(self) -> None:
+        """RFC 3966 rendering wraps the canonical value in a tel: URI."""
+        cap = PhoneCapability()
+        assert (
+            cap.format_value("+15551234567", "rfc3966", self.NOTATION)
+            == "tel:+15551234567"
+        )
+
+    def test_national_strips_country_code(self) -> None:
+        """National rendering strips the embedded country code."""
+        cap = PhoneCapability()
+        assert (
+            cap.format_value("+15551234567", "national", self.NOTATION) == "5551234567"
+        )
+
+    def test_rfc3966_preserves_extension(self) -> None:
+        """RFC 3966 rendering appends ;ext= when the notation carries one."""
+        cap = PhoneCapability()
+        notation = PhoneNotation(shape="rfc3966", value="15551234567", extension="890")
+        assert (
+            cap.format_value("+15551234567", "rfc3966", notation)
+            == "tel:+15551234567;ext=890"
+        )
+
+    def test_national_uses_longest_country_code_prefix(self) -> None:
+        """Taiwan (886) splits as 886, not 86 (China) plus a stray digit."""
+        cap = PhoneCapability()
+        notation = PhoneNotation(shape="e164", value="886212345678")
+        assert cap.format_value("+886212345678", "national", notation) == "212345678"
+
+    def test_defensive_passthrough_when_no_country_code_splits(self) -> None:
+        """National rendering passes the value through when no prefix splits."""
+        cap = PhoneCapability()
+        notation = PhoneNotation(shape="e164", value="999123456789")
+        assert (
+            cap.format_value("+999123456789", "national", notation) == "+999123456789"
+        )
+
+
 class TestPhoneContractValidation:
     """Tests for PhoneContract __post_init__ validation."""
 
@@ -300,10 +353,3 @@ class TestPhoneNationalOutput:
         result = canonicalize("tel:+15551234567", contract)
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "5551234567"
-
-    def test_national_from_rfc3966_rule_without_default_country(self) -> None:
-        """The RFC 3966 rule's national branch works sans default_country."""
-        rule = Section3TelUri()
-        notation = PhoneNotation(shape="rfc3966", value="15551234567")
-        contract = PhoneContract(output_format="national")
-        assert rule.normalize(notation, contract) == "5551234567"

@@ -140,6 +140,28 @@ class TestPhonePipeline:
         assert len(result.candidates) == 1
 
     @pytest.mark.integration
+    def test_two_tel_uris_differing_only_by_extension_ambiguous(self) -> None:
+        """Two tel URIs differing only in ;ext= stay AMBIGUOUS in rfc3966.
+
+        Formatting must happen before dedup/status: the pre-format E.164
+        values are identical, so only the formatted ;ext= parameter keeps
+        the two candidates distinct. If formatting ran after dedup (or the
+        extension were dropped), the candidates would collapse into one
+        value and the result would be SUCCESS instead of AMBIGUOUS.
+        """
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(output_format="rfc3966")
+        result = run_capability(
+            "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
+        )
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+        assert {c.value for c in result.candidates} == {
+            "tel:+15551234567;ext=890",
+            "tel:+15551234567;ext=891",
+        }
+
+    @pytest.mark.integration
     def test_pinned_rules_only(self) -> None:
         """Pinning to one rule runs only that rule."""
         register_capability(PhoneCapability())
