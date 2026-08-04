@@ -244,3 +244,70 @@ Country / IP / Phone). The hash is therefore byte-identical by construction. The
 behavior change. The plan's Step 6.7 hash-snapshot gate was satisfied *structurally*
 (target_grammars == effective domain ⇒ identical hash) rather than by captured
 pre-change constants; the full 782-test suite passing is the empirical confirmation.
+
+## Addendum — F3 completion: Country recognition/validation boundary restored (2026-08-03)
+
+F3 (lines 87–101) was implemented and verified (plan:
+`docs/superpowers/plans/2026-08-03-f3-recognition-validation-boundary.md`). The
+defect described there is resolved; the finding's premise is now historical, and the
+lines above are left intact as the record of what was found.
+
+### A. Old behavior — grammar-side canonicalization and duplicated tables
+
+`Country/grammar/name_recognition.py` previously held dictionaries whose values were
+canonical names (`USA`/`中国`/`Burma` → "United States"/"China"/"BURMA" at
+recognition), duplicating authority tables in the grammar layer
+(`HISTORICAL_NAME_TO_CANONICAL` vs `FORMER_NAME_TO_ALPHA2`; "BURMA"→"BURMA" vs "BU")
+and letting localized names resolve through the ISO name rule with the wrong
+provenance.
+
+### B. New behavior — raw tokens, key-only catalogs, shared normalizer
+
+- Grammar data files are now key-only recognition sets (`ENGLISH_NAME_KEYS`,
+  `HISTORICAL_NAME_KEYS`, `CHINESE_NAME_KEYS`, `LOCALIZED_NAME_KEYS`) with no
+  token-to-country mapping.
+- `NameGrammar` returns the trimmed input token as the notation value
+  (`CountryNotation(shape="name", value=<input>)`); it never substitutes a canonical
+  name or code.
+- `paxman/capabilities/Country/name_normalization.py` provides `normalize_name()`,
+  shared by grammar membership checks and rule lookups — syntax-only (case folding,
+  NFKD decomposition, punctuation/whitespace cleanup), no transliteration or synonym
+  resolution.
+- Rules own meaning: ISO 3166-1 owns official names and synonyms (`NAME_TO_ALPHA2`,
+  `SYNONYM_TO_ALPHA2`), ISO 3166-3 owns former names (`FORMER_NAME_TO_ALPHA2`), CLDR
+  owns localized names (`LOCALIZED_TO_ALPHA2`). Grammar-rescued aliases (`USA`,
+  `HOLLAND`, `VIET CONG` → `VD`, and the rest) were moved into the owning rule tables.
+
+### C. Localized status/provenance matrix
+
+| Input | Contract | Status | Candidates | Provenance |
+|---|---|---|---|---|
+| `Alemania` / `中国` / `马来西亚` | default | `INVALID` | `()` | — (recognized, no authority rule runs) |
+| `Alemania` / `中国` / `马来西亚` | `include_localized=True` | `SUCCESS` | `≥1` (`DE`/`CN`/`MY`) | `Unicode` (CLDR v45) |
+| `Burma` | `include_historical=True` | `SUCCESS` | `1` (`BU`) | ISO (ISO 3166-3) |
+| `Malaysia` | default | `SUCCESS` | `1` (`MY`) | ISO (ISO 3166-1:2024) |
+
+Recognition of localized input is not ISO validation: disabled localized input is
+recognized (not `MISSING`) and yields `INVALID` with no candidates, matching the F2
+rule-gating semantics (recognized-but-unvalidated, not fails-fast at recognition).
+
+### D. Consistency guard and coverage
+
+`tests/capabilities/country/test_data_consistency.py` asserts every shipped
+recognition key is covered by at least one rule-data mapping, plus per-locale
+ownership assertions (English → ISO 3166-1, historical → ISO 3166-3, Chinese and
+localized → CLDR). The `LOCALIZED_NAME_KEYS` catalog is the single source of truth
+for which CLDR spellings are recognized, independent of `include_localized`
+(recognition is not gated; validation is).
+
+### E. What remains accepted
+
+Phone `strip_separators` remains presentation/syntax normalization and is unchanged
+by F3, as the original finding accepted.
+
+### F. Replay/provenance note
+
+For inputs whose candidate provenance or route changed (localized names that
+previously resolved through ISO), replay hashes are intentionally not byte-identical
+to pre-F3 behavior. Same input + same contract remains deterministic; the change is
+intentional and attributable to the corrected authority routing, not to ordering.
