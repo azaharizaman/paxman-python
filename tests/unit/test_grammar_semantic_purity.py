@@ -18,15 +18,47 @@ GRAMMAR_FILES = sorted((PAXMAN / "capabilities").glob("*/grammar/*.py"))
 RULE_FILES = sorted((PAXMAN / "capabilities").glob("*/rules/*.py"))
 
 
+def _package_of(path: Path) -> list[str]:
+    """Dotted components of the package containing a module file."""
+    rel = path.relative_to(PAXMAN)
+    return ["paxman", *rel.parts[:-1]]
+
+
 def _forbidden_imports(path: Path, forbidden: str) -> list[str]:
-    """Return import-from statements referencing the forbidden package."""
+    """Return import statements referencing the forbidden package.
+
+    Handles absolute imports (``import paxman.capabilities.rules.X`` and
+    ``from paxman.capabilities import rules``), dotted import-from
+    (``from paxman.capabilities.rules import X``), and relative imports
+    resolved against the importing module's package
+    (``from .rules import X``, ``from . import rules``).
+    """
     tree = ast.parse(path.read_text(encoding="utf-8"))
+    package = _package_of(path)
     violations: list[str] = []
+
+    def record(components: list[str], display: str) -> None:
+        if forbidden in components and "paxman" in components:
+            violations.append(f"{path.name}: {display}")
+
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            parts = node.module.split(".")
-            if forbidden in parts and "paxman" in parts:
-                violations.append(f"{path.name}: {ast.unparse(node)}")
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                record(alias.name.split("."), ast.unparse(node))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                parts = node.module.split(".")
+                record(parts, ast.unparse(node))
+                # "from paxman.capabilities import rules" imports the subpackage.
+                for alias in node.names:
+                    record([*parts, alias.name], ast.unparse(node))
+            if node.level:
+                base = package[: len(package) - node.level + 1]
+                for alias in node.names:
+                    if alias.name != "*":
+                        record([*base, alias.name], ast.unparse(node))
+                if node.module:
+                    record([*base, node.module], ast.unparse(node))
     return violations
 
 

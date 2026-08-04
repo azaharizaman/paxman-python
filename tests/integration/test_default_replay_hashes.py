@@ -44,9 +44,10 @@ CASES = [
 
 @pytest.fixture(autouse=True)
 def _fresh_registry():
-    """Reset the registry before each case (mirrors test_format_value_seam)."""
+    """Reset the registry before and after each test."""
     reset_registry()
     yield
+    reset_registry()
 
 
 @pytest.mark.integration

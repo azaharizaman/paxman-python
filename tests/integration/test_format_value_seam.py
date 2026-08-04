@@ -290,7 +290,8 @@ class TestFormatValueSeam:
         register_capability(_DualFormattingCapability())
         contract = _DualFormattingContract()
 
-        result = run_capability("any input", contract)
+        # _DualTokenGrammar hardcodes spans for "alphabeta": (0, 5) and (5, 9).
+        result = run_capability("alphabeta", contract)
 
         assert result.status == Resolution.AMBIGUOUS
         assert result.canonicalized_value is None
