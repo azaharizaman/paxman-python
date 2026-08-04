@@ -108,3 +108,46 @@ class TestRecognitionKeysAreRuleDataCovered:
         """Localized recognition keys are covered by the CLDR localized table."""
         uncovered = sorted(LOCALIZED_NAME_KEYS - _normalized_keys(LOCALIZED_TO_ALPHA2))
         assert not uncovered, _uncovered_report(uncovered)
+
+
+class TestOfficialFormsAreRuleDataCovered:
+    """Official hyphenated and historical spellings are rule-data backed.
+
+    These lock the CodeRabbit fixes: separator variants share one normalized
+    key that is both recognized and backed by an authority rule map, and the
+    official ISO 3166-3 spellings whose rule mappings already exist are
+    reachable through recognition.
+    """
+
+    def test_guinea_bissau_official_name_shares_normalized_key(self) -> None:
+        """GUINEA-BISSAU and GUINEA BISSAU normalize to the same recognized key."""
+        key = normalize_name("GUINEA-BISSAU")
+        assert key == normalize_name("GUINEA BISSAU")
+        assert key in ENGLISH_NAME_KEYS
+        assert key in _normalized_keys(NAME_TO_ALPHA2)
+
+    def test_timor_leste_official_name_is_recognized_and_covered(self) -> None:
+        """TIMOR-LESTE normalizes into a recognized, rule-data-backed key."""
+        key = normalize_name("TIMOR-LESTE")
+        assert key in ENGLISH_NAME_KEYS
+        assert key in _normalized_keys(NAME_TO_ALPHA2)
+
+    def test_france_metropolitan_official_form_is_recognized_and_covered(self) -> None:
+        """FRANCE, METROPOLITAN is recognized and ISO 3166-3 backed."""
+        key = normalize_name("FRANCE, METROPOLITAN")
+        assert key in HISTORICAL_NAME_KEYS
+        assert key in _normalized_keys(FORMER_NAME_TO_ALPHA2)
+
+    def test_viet_nam_democratic_republic_official_form_is_recognized_and_covered(
+        self,
+    ) -> None:
+        """VIET-NAM, DEMOCRATIC REPUBLIC OF is recognized and ISO 3166-3 backed."""
+        key = normalize_name("VIET-NAM, DEMOCRATIC REPUBLIC OF")
+        assert key in HISTORICAL_NAME_KEYS
+        assert key in _normalized_keys(FORMER_NAME_TO_ALPHA2)
+
+    def test_yemen_democratic_official_form_is_recognized_and_covered(self) -> None:
+        """YEMEN, DEMOCRATIC is recognized and ISO 3166-3 backed."""
+        key = normalize_name("YEMEN, DEMOCRATIC")
+        assert key in HISTORICAL_NAME_KEYS
+        assert key in _normalized_keys(FORMER_NAME_TO_ALPHA2)

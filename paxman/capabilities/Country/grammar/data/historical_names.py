@@ -32,6 +32,7 @@ HISTORICAL_NAME_KEYS: frozenset[str] = frozenset(
         "EAST GERMAN",
         "GDR",
         "METROPOLITAN FRANCE",
+        "FRANCE, METROPOLITAN",  # ISO 3166-3 official spelling
         # --- Divisions ---
         "CANTON AND ENDERBURY ISLANDS",
         "CZECHOSLOVAKIA",
@@ -45,8 +46,10 @@ HISTORICAL_NAME_KEYS: frozenset[str] = frozenset(
         "UNION OF SOVIET SOCIALIST REPUBLICS",
         "USSR SOVIET SOCIALIST REPUBLICS",
         "NORTH VIETNAM",
+        "VIET-NAM, DEMOCRATIC REPUBLIC OF",  # ISO 3166-3 official spelling
         "VIET CONG",
         "SOUTH YEMEN",
+        "YEMEN, DEMOCRATIC",  # ISO 3166-3 official spelling
         "PEOPLES DEMOCRATIC REPUBLIC OF YEMEN",
         # --- Merged into existing ---
         "SIKKIM",
