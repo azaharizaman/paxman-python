@@ -191,7 +191,7 @@ Grammars recognize *representations*; rules assign *meaning*. Keep the two layer
 
 - **Grammars may normalize syntax and use key-only recognition tables.** Case folding, Unicode decomposition, punctuation removal, and whitespace collapsing are not semantic decisions. A grammar lookup table may contain *keys only* — the raw spellings the grammar recognizes — with no token mapped to a canonical value.
 - **Grammars must not map tokens to canonical values or import provenance-backed semantic tables.** A grammar must never return a canonical country, code, or name in place of the recognized input token, and it must not import the rule layer's authority data. If a representation needs a synonym, the rule owns it.
-- **Rules validate notation, assign meaning, normalize output, and carry provenance.** Validation rules hold the authority-backed tables (e.g., ISO 3166-1 for official names and synonyms, ISO 3166-3 for former names, CLDR for localized names) and produce the candidate with that provenance.
+- **Rules validate notation, assign meaning, normalize the default canonical form, and carry provenance.** Validation rules hold the authority-backed tables (e.g., ISO 3166-1 for official names and synonyms, ISO 3166-3 for former names, CLDR for localized names) and produce the candidate with that provenance.
 - **Recognition and authority data may evolve separately.** Keep grammar recognition keys and rule lookup tables in separate files, and add a consistency test that asserts every shipped recognition key is covered by at least one rule-data mapping. That test is what lets the two catalogs drift independently without breaking shipped behavior.
 
 ---
