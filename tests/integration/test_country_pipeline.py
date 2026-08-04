@@ -186,14 +186,19 @@ class TestCountryPipeline:
 
     @pytest.mark.integration
     def test_localized_name_disabled(self) -> None:
-        """Localized name not recognized by default."""
+        """Localized name recognized but not validated by default.
+
+        "Alemania" is a CLDR (Spanish) key in the name grammar's localized
+        recognition catalog, so it IS recognized without include_localized.
+        The CLDR rule is gated off by F2, no other rule owns the token, so
+        the result is INVALID with no candidates — not MISSING.
+        """
         register_capability(CountryCapability())
         contract = CountryCapability.create_contract()
         result = run_capability("Alemania", contract)
 
-        # "Alemania" is only in CLDR (not in grammar tables),
-        # so without include_localized, no grammar recognizes it → MISSING
-        assert result.status == Resolution.MISSING
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
 
     @pytest.mark.integration
     def test_localized_name_enabled(self) -> None:
@@ -204,6 +209,95 @@ class TestCountryPipeline:
 
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "MY"
+
+    @pytest.mark.integration
+    def test_localized_name_spanish_enabled_uses_unicode_provenance(self) -> None:
+        """Spanish localized input with the flag resolves via CLDR/Unicode only."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("Alemania", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "DE"
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    def test_localized_name_disabled_is_invalid_without_iso_provenance(self) -> None:
+        """Localized input without the flag is INVALID with no candidates.
+
+        Recognition of a localized token is not ISO validation: the ISO name
+        rule must not produce a candidate for input that only CLDR can
+        resolve. F2 gates the CLDR rule, so without the flag no rule runs.
+        """
+        register_capability(CountryCapability())
+        result = run_capability("马来西亚", CountryCapability.create_contract())
+
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
+
+    @pytest.mark.integration
+    def test_localized_name_enabled_uses_unicode_provenance(self) -> None:
+        """Localized input with the flag resolves via CLDR/Unicode only."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("马来西亚", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MY"
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    def test_english_name_uses_iso_provenance(self) -> None:
+        """English country names resolve via ISO 3166-1 with ISO provenance."""
+        register_capability(CountryCapability())
+        result = run_capability("Malaysia", CountryCapability.create_contract())
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MY"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "ISO"
+        assert (
+            result.candidates[0].provenance[0].specification_name == "ISO 3166-1:2024"
+        )
+
+    @pytest.mark.integration
+    def test_chinese_name_disabled_invalid(self) -> None:
+        """Chinese localized input without the flag is INVALID with no candidates."""
+        register_capability(CountryCapability())
+        result = run_capability("中国", CountryCapability.create_contract())
+
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
+
+    @pytest.mark.integration
+    def test_chinese_name_enabled_uses_unicode_provenance(self) -> None:
+        """Chinese localized input with the flag resolves via CLDR/Unicode only."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("中国", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "CN"
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "Unicode"
+        }
+
+    @pytest.mark.integration
+    def test_historical_name_uses_iso3166_3_provenance(self) -> None:
+        """Historical names resolve via ISO 3166-3 with ISO provenance."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_historical=True)
+        result = run_capability("Burma", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "BU"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "ISO"
+        assert result.candidates[0].provenance[0].specification_name == "ISO 3166-3"
 
     @pytest.mark.integration
     def test_version_stamp_present(self) -> None:
