@@ -129,14 +129,16 @@ result = paxman.canonicalize("United States", contract)
 
 # Enable localized names (CLDR multilingual)
 contract = Country.create_contract(include_localized=True)
-result = paxman.canonicalize("Deutschland", contract)
+result = paxman.canonicalize("Alemania", contract)
 # → "DE"
 
-# Enable historical/deprecated names
+# Enable historical/deprecated names (ISO 3166-3)
 contract = Country.create_contract(include_historical=True)
 result = paxman.canonicalize("Burma", contract)
-# → "MM"
+# → "BU"
 ```
+
+Localized names are validated by the CLDR rule, so an enabled resolution like `Alemania` → `DE` carries Unicode/CLDR provenance. Recognizing a localized token is not ISO validation: without `include_localized`, recognized localized input (e.g., `Alemania`) is `INVALID` — recognized, but no authority rule runs — rather than being resolved via ISO. Historical names resolve through ISO 3166-3 and return the historical entity's own former code (`Burma` → `BU`), not a successor state's code.
 
 ### IP Capability
 

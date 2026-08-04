@@ -185,6 +185,15 @@ def recognize(self, text: str) -> list[YourDomainNotation]:
 - **String parsing** — split or scan text for delimiters
 - **Hybrid** — combine regex with string operations for complex patterns
 
+### The Grammar/Rule Boundary (hard rule)
+
+Grammars recognize *representations*; rules assign *meaning*. Keep the two layers apart:
+
+- **Grammars may normalize syntax and use key-only recognition tables.** Case folding, Unicode decomposition, punctuation removal, and whitespace collapsing are not semantic decisions. A grammar lookup table may contain *keys only* — the raw spellings the grammar recognizes — with no token mapped to a canonical value.
+- **Grammars must not map tokens to canonical values or import provenance-backed semantic tables.** A grammar must never return a canonical country, code, or name in place of the recognized input token, and it must not import the rule layer's authority data. If a representation needs a synonym, the rule owns it.
+- **Rules validate notation, assign meaning, normalize output, and carry provenance.** Validation rules hold the authority-backed tables (e.g., ISO 3166-1 for official names and synonyms, ISO 3166-3 for former names, CLDR for localized names) and produce the candidate with that provenance.
+- **Recognition and authority data may evolve separately.** Keep grammar recognition keys and rule lookup tables in separate files, and add a consistency test that asserts every shipped recognition key is covered by at least one rule-data mapping. That test is what lets the two catalogs drift independently without breaking shipped behavior.
+
 ---
 
 ## Step 5: Create Validation Rules
@@ -993,6 +1002,8 @@ Use this checklist to verify your capability is complete:
 - [ ] `output_format` is used only for presentation: rules never use it to filter `matches()`, to select candidates, or to collapse ambiguity; all offered formats are injective w.r.t. the canonical value (see presentational-only invariant)
 - [ ] Contract overrides `_extra_dict_fields()` with all capability-specific fields that affect behavior (never hand-writes `as_dict()`)
 - [ ] If using lookup tables: `rules/data/` directory contains data files
+- [ ] Grammar data is key-only (no token-to-canonical mappings); rule data owns all authority-backed mappings (see The Grammar/Rule Boundary)
+- [ ] Recognition keys and rule tables live in separate files, with a consistency test covering every shipped recognition key
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`
 - [ ] If grammar handles multiple sub-patterns: implements dedup via `seen` set
 - [ ] Package `__init__.py` files export the public API
