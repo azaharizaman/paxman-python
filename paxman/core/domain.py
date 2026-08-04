@@ -72,17 +72,53 @@ class GrammarRule:
 
 
 @dataclass(frozen=True, slots=True)
+class RecognitionMatch(Generic[NotationT]):
+    """A span-bearing recognition produced by a grammar.
+
+    Grammars emit these instead of bare notations so the engine can
+    deduplicate overlapping matches and order recognitions deterministically
+    without losing positional information.
+
+    ``start`` and ``end`` are half-open character offsets into the input
+    text passed to ``Grammar.recognize()``; ``raw_text`` is the matched
+    substring, so ``len(raw_text) == end - start`` always holds.
+    """
+
+    notation: NotationT
+    start: int
+    end: int
+    raw_text: str
+
+    def __post_init__(self) -> None:
+        if self.start < 0 or self.end < self.start:
+            raise ValueError(
+                f"Invalid span start={self.start}, end={self.end}: "
+                "expected 0 <= start <= end"
+            )
+        if len(self.raw_text) != self.end - self.start:
+            raise ValueError(
+                f"raw_text {self.raw_text!r} length {len(self.raw_text)} "
+                f"does not match span [{self.start}, {self.end})"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class RecognizedRep(Generic[NotationT]):
     """Intermediate representation from recognition.
 
     Pairs a notation (capability-defined shape) with the grammar that
     produced it and the contract that governed recognition, providing
-    traceability from validation back to the recognition source.
+    traceability from validation back to the recognition source. Carries
+    the producing match's span so the engine's recognition order and
+    dedup decisions remain traceable end to end.
     """
 
     notation: NotationT
     contract: Contract
     grammar: GrammarRule
+    start: int
+    end: int
+    raw_text: str
 
     def __hash__(self) -> int:
         """Hash is safe for unhashable notation types like list."""
@@ -183,4 +219,10 @@ class Grammar(ABC, Generic[NotationT]):
     name: str
 
     @abstractmethod
-    def recognize(self, text: str) -> list[NotationT]: ...
+    def recognize(self, text: str) -> list[RecognitionMatch[NotationT]]:
+        """Extract span-bearing recognition matches from raw text.
+
+        Grammars MUST return their matches with positional spans; the engine
+        owns deduplication and ordering. See RecognitionMatch.
+        """
+        ...
