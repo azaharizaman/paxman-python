@@ -37,6 +37,7 @@ class _CapabilityFactory(Protocol):
         """Create a no-argument contract for the capability."""
         ...
 
+
 DEFAULT_REPLAY_HASHES = {
     "date": "cb2e67023a8c74e5eb76913a00eb1756a7ed76c3a3c8bb553a588ac5d03c65b4",
     "country": "3489ca17221e11f98068a4c5e9306a0ebfb06b857bcbaa137fdd3f14a761a70b",
