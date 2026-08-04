@@ -65,23 +65,12 @@ class TestSectionAlpha2Codes:
         notation = CountryNotation(shape="alpha2", value="US")
         assert self.rule.normalize(notation, contract) == "US"
 
-    def test_normalize_alpha3_output(self) -> None:
-        """Alpha-2 input with alpha3 output format."""
-        contract = CountryContract(output_format="alpha3")
+    @pytest.mark.parametrize("fmt", ["alpha3", "numeric", "name"])
+    def test_normalize_ignores_output_format_returns_alpha2(self, fmt: str) -> None:
+        """Rules emit the default alpha-2 canonical value, not the requested format."""
+        contract = CountryContract(output_format=fmt)
         notation = CountryNotation(shape="alpha2", value="DE")
-        assert self.rule.normalize(notation, contract) == "DEU"
-
-    def test_normalize_numeric_output(self) -> None:
-        """Alpha-2 input with numeric output format."""
-        contract = CountryContract(output_format="numeric")
-        notation = CountryNotation(shape="alpha2", value="DE")
-        assert self.rule.normalize(notation, contract) == "276"
-
-    def test_normalize_name_output(self) -> None:
-        """Alpha-2 input with name output format."""
-        contract = CountryContract(output_format="name")
-        notation = CountryNotation(shape="alpha2", value="DE")
-        assert self.rule.normalize(notation, contract) == "GERMANY"
+        assert self.rule.normalize(notation, contract) == "DE"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -135,23 +124,12 @@ class TestSectionAlpha3Codes:
         notation = CountryNotation(shape="alpha3", value="USA")
         assert self.rule.normalize(notation, contract) == "US"
 
-    def test_normalize_alpha3_output(self) -> None:
-        """Alpha-3 input with alpha3 output format returns canonical alpha-3."""
-        contract = CountryContract(output_format="alpha3")
+    @pytest.mark.parametrize("fmt", ["alpha3", "numeric", "name"])
+    def test_normalize_ignores_output_format_returns_alpha2(self, fmt: str) -> None:
+        """Rules emit the default alpha-2 canonical value, not the requested format."""
+        contract = CountryContract(output_format=fmt)
         notation = CountryNotation(shape="alpha3", value="DEU")
-        assert self.rule.normalize(notation, contract) == "DEU"
-
-    def test_normalize_numeric_output(self) -> None:
-        """Alpha-3 input with numeric output format."""
-        contract = CountryContract(output_format="numeric")
-        notation = CountryNotation(shape="alpha3", value="DEU")
-        assert self.rule.normalize(notation, contract) == "276"
-
-    def test_normalize_name_output(self) -> None:
-        """Alpha-3 input with name output format."""
-        contract = CountryContract(output_format="name")
-        notation = CountryNotation(shape="alpha3", value="DEU")
-        assert self.rule.normalize(notation, contract) == "GERMANY"
+        assert self.rule.normalize(notation, contract) == "DE"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -211,23 +189,12 @@ class TestSectionNumericCodes:
         notation = CountryNotation(shape="numeric", value="004")
         assert self.rule.normalize(notation, contract) == "AF"
 
-    def test_normalize_alpha3_output(self) -> None:
-        """Numeric input with alpha3 output format."""
-        contract = CountryContract(output_format="alpha3")
+    @pytest.mark.parametrize("fmt", ["alpha3", "numeric", "name"])
+    def test_normalize_ignores_output_format_returns_alpha2(self, fmt: str) -> None:
+        """Rules emit the default alpha-2 canonical value, not the requested format."""
+        contract = CountryContract(output_format=fmt)
         notation = CountryNotation(shape="numeric", value="276")
-        assert self.rule.normalize(notation, contract) == "DEU"
-
-    def test_normalize_numeric_output(self) -> None:
-        """Numeric input with numeric output format returns canonical M49."""
-        contract = CountryContract(output_format="numeric")
-        notation = CountryNotation(shape="numeric", value="276")
-        assert self.rule.normalize(notation, contract) == "276"
-
-    def test_normalize_name_output(self) -> None:
-        """Numeric input with name output format."""
-        contract = CountryContract(output_format="name")
-        notation = CountryNotation(shape="numeric", value="276")
-        assert self.rule.normalize(notation, contract) == "GERMANY"
+        assert self.rule.normalize(notation, contract) == "DE"
 
     def test_provenance_attributes(self) -> None:
         """Verify authority, spec name, year, lifecycle."""
@@ -287,25 +254,18 @@ class TestSectionNames:
         notation = CountryNotation(shape="name", value="USA")
         assert self.rule.normalize(notation, contract) == "US"
 
-    def test_normalize_alpha3_output(self) -> None:
-        """Name input with alpha3 output format."""
-        contract = CountryContract(output_format="alpha3")
+    @pytest.mark.parametrize("fmt", ["alpha3", "numeric", "name"])
+    def test_normalize_ignores_output_format_returns_alpha2(self, fmt: str) -> None:
+        """Rules emit the default alpha-2 canonical value, not the requested format."""
+        contract = CountryContract(output_format=fmt)
         notation = CountryNotation(shape="name", value="GERMANY")
-        assert self.rule.normalize(notation, contract) == "DEU"
+        assert self.rule.normalize(notation, contract) == "DE"
 
-    def test_normalize_numeric_output(self) -> None:
-        """Name input with numeric output format."""
-        contract = CountryContract(output_format="numeric")
-        notation = CountryNotation(shape="name", value="GERMANY")
-        assert self.rule.normalize(notation, contract) == "276"
-
-    def test_normalize_name_output(self) -> None:
-        """Name input with name output format returns canonical official name."""
+    def test_normalize_synonym_ignores_output_format_returns_alpha2(self) -> None:
+        """Synonym input still normalizes to the default alpha-2, not a name."""
         contract = CountryContract(output_format="name")
         notation = CountryNotation(shape="name", value="USA")
-        # "USA" is a synonym, so normalize should resolve to "US" alpha-2,
-        # then look up canonical name "UNITED STATES" from ALPHA2_TO_NAME.
-        assert self.rule.normalize(notation, contract) == "UNITED STATES"
+        assert self.rule.normalize(notation, contract) == "US"
 
     def test_matches_usa(self) -> None:
         """USA synonym matches SectionNames."""
