@@ -18,6 +18,36 @@ from paxman.core.domain import Grammar, RecognitionMatch
 # whitespace, or sentence punctuation after the number.
 _E164_PATTERN = re.compile(r"(?<![\w:.])\+\d[\d\s().\-]*(?<=\d)")
 
+# Maximum E.164 number length in digits (spec limit; the grammar trims
+# runaway matches at this boundary). Duplicated from the rule module on
+# purpose: the semantic-purity gate forbids grammar -> rules imports, so
+# each side keeps its own copy. Keep in sync with
+# rules/e164_ed2010.py:_MAX_E164_DIGITS.
+_MAX_E164_DIGITS = 15
+
+
+def _trim_to_e164_boundary(raw: str) -> str:
+    """Trim a runaway raw match at the last digit-run group within the limit.
+
+    ``_E164_PATTERN``'s trailing character class consumes separators AND
+    following digit runs, so "+15551234567 5551234567" is captured as one raw
+    span. The raw match is trimmed back to the last complete digit-run group
+    whose inclusion keeps the total digit count at or below
+    ``_MAX_E164_DIGITS`` (15), so a legitimate following number is not
+    swallowed into the match. If the first run alone exceeds the limit, the
+    raw match is kept whole: validation then rejects the oversized value
+    instead of silently recognizing a truncated 15-digit prefix.
+    """
+    runs = list(re.finditer(r"\d+", raw))
+    total = 0
+    for index, run in enumerate(runs):
+        total += len(run.group(0))
+        if total > _MAX_E164_DIGITS:
+            if index == 0:
+                return raw
+            return raw[: runs[index - 1].end()]
+    return raw
+
 
 class E164Grammar(Grammar[PhoneNotation]):
     """Recognizes E.164-style international numbers (leading +).
@@ -35,14 +65,18 @@ class E164Grammar(Grammar[PhoneNotation]):
             List of RecognitionMatches; notation.value is the digit-only
             number (leading "+" and separators removed).
         """
-        return [
-            RecognitionMatch(
-                notation=PhoneNotation(
-                    shape="e164", value=strip_separators(match.group(0), plus=True)
-                ),
-                start=match.start(),
-                end=match.end(),
-                raw_text=match.group(0),
+        matches: list[RecognitionMatch[PhoneNotation]] = []
+        for match in _E164_PATTERN.finditer(text):
+            raw_text = _trim_to_e164_boundary(match.group(0))
+            matches.append(
+                RecognitionMatch(
+                    notation=PhoneNotation(
+                        shape="e164",
+                        value=strip_separators(raw_text, plus=True),
+                    ),
+                    start=match.start(),
+                    end=match.start() + len(raw_text),
+                    raw_text=raw_text,
+                )
             )
-            for match in _E164_PATTERN.finditer(text)
-        ]
+        return matches

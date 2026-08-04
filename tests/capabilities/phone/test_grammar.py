@@ -348,18 +348,32 @@ class TestGrammarDedup:
         ]
         assert [(r.start, r.end) for r in results] == [(5, 20), (24, 36)]
 
-    def test_e164_merges_space_separated_following_number(self) -> None:
-        """A space-separated number after an E.164 match is merged into it.
+    def test_e164_does_not_swallow_following_number(self) -> None:
+        """A space-separated run after an E.164 match is not merged into it.
 
-        Regression: the trailing character class of _E164_PATTERN consumes
-        separators and following digit runs, so "+15551234567 5551234567"
-        yields ONE match (the regex produces the single span, not dedup)
-        with the concatenated value. Changes to _E164_PATTERN must not
-        alter this behavior silently.
+        Regression: the trailing character class of _E164_PATTERN consumed
+        separators AND following digit runs, so "+15551234567 5551234567"
+        yielded one 20-digit match. recognize() now trims the raw match at
+        the last digit-run group within the 15-digit E.164 limit, so the
+        match stops at "+15551234567" and the national-format run is left
+        for other grammars.
         """
         results = self.e164.recognize("+15551234567 5551234567")
         assert len(results) == 1
-        assert results[0].notation.value == "155512345675551234567"
+        assert results[0].notation.value == "15551234567"
+        assert (results[0].start, results[0].end) == (0, 12)
+        assert results[0].raw_text == "+15551234567"
+
+    def test_e164_oversized_run_not_truncated(self) -> None:
+        """A digit run longer than 15 digits is left whole, not truncated.
+
+        The boundary trim keeps the full raw match when the first run alone
+        exceeds _MAX_E164_DIGITS, so validation rejects the oversized value
+        (INVALID) instead of silently recognizing a 15-digit prefix.
+        """
+        results = self.e164.recognize("+12345678901234567890")
+        assert len(results) == 1
+        assert results[0].notation.value == "12345678901234567890"
 
     def test_tel_uri_multiple_matches(self) -> None:
         """Multiple distinct tel: URIs are all returned."""
