@@ -65,11 +65,9 @@ class Section4DateFormat(Rule[DateNotation]):
             return False
 
     def normalize(self, notation: DateNotation, contract: Contract) -> str:
-        """Normalize based on output_format contract parameter."""
+        """Normalize to the default canonical ISO 8601 format."""
         day = int(notation.N1)
         month = int(notation.N2)
         year = self._interpret_two_digit_year(notation.N3, contract)
 
-        if contract.output_format == "US":
-            return f"{month:02d}/{day:02d}/{year:04d}"
         return f"{year:04d}-{month:02d}-{day:02d}"

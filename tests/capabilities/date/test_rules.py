@@ -91,11 +91,12 @@ class TestSection1DateFormat:
         contract = DateContract(output_format="ISO")
         assert rule.normalize(notation, contract) == "2026-07-26"
 
-    def test_output_format_us(self) -> None:
+    def test_output_format_us_still_returns_iso(self) -> None:
+        """Rules emit the default ISO canonical form even when US is requested."""
         rule = Section1DateFormat()
         notation = DateNotation(N1="07", N2="26", N3="2026")
         contract = DateContract(output_format="US")
-        assert rule.normalize(notation, contract) == "07/26/2026"
+        assert rule.normalize(notation, contract) == "2026-07-26"
 
     def test_output_format_default_is_iso(self) -> None:
         rule = Section1DateFormat()
@@ -137,12 +138,12 @@ class TestEN50160Section4DateFormat:
         contract = DateContract(output_format="ISO")
         assert rule.normalize(notation, contract) == "2026-07-26"
 
-    def test_normalize_to_us(self) -> None:
-        """European date is normalized to US format when output_format=US."""
+    def test_output_format_us_still_returns_iso(self) -> None:
+        """Rules emit the default ISO canonical form even when US is requested."""
         rule = Section4DateFormat()
         notation = DateNotation(N1="26", N2="07", N3="2026")
         contract = DateContract(output_format="US")
-        assert rule.normalize(notation, contract) == "07/26/2026"
+        assert rule.normalize(notation, contract) == "2026-07-26"
 
     def test_invalid_date(self) -> None:
         """Invalid European date is rejected."""
