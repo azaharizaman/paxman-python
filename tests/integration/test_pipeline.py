@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+from paxman.capabilities.Country.capability import CountryCapability
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Email.notation import EmailNotation
+from paxman.capabilities.IP.capability import IPCapability
+from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.capability import Capability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Grammar, Provenance, Resolution, Rule, RuleStrategy
@@ -411,25 +414,26 @@ class TestGrammarRuleAffinity:
 
     @pytest.mark.integration
     @pytest.mark.parametrize("output_format", [None, "ISO", "US"])
-    def test_date_ambiguity_preserved_under_output_format(
+    def test_date_ambiguity_holds_after_formatting_before_status(
         self, output_format: str | None
     ) -> None:
         """01/02/2026 is recognized by both US and EU grammars; both rules
-        validate both notations, yielding two distinct canonical values.
+        validate both notations, yielding two distinct canonical dates.
 
-        The result is AMBIGUOUS regardless of output_format: formatting is a
-        post-status presentation transform and can neither create nor resolve
-        ambiguity (see HOW_TO_ADD_NEW_CAPABILITY.md presentational-only invariant).
+        The engine formats each canonical value (to the requested format, or
+        ISO by default) before deduplication and status, so the formatted
+        candidate values remain two distinct values and the result is
+        AMBIGUOUS for every requested format.
         """
         register_capability(DateCapability())
         contract = DateCapability.create_contract(output_format=output_format)
         result = run_capability("01/02/2026", contract)
 
-        # Ambiguity is locked from the canonical candidate values before any
-        # output_format formatting, so it must hold for every output_format.
+        # Formatting precedes status: the two distinct canonical dates render
+        # as two distinct formatted values, so the status must be AMBIGUOUS.
         assert result.status == Resolution.AMBIGUOUS
         assert len(result.candidates) == 4
-        # Two genuinely distinct canonical values -> AMBIGUOUS (not SUCCESS).
+        # Two genuinely distinct formatted values -> AMBIGUOUS (not SUCCESS).
         assert len({c.value for c in result.candidates}) == 2
 
     @pytest.mark.integration
@@ -443,10 +447,14 @@ class TestGrammarRuleAffinity:
         assert result.canonicalized_value == "2026-12-12"
 
     @pytest.mark.integration
-    def test_date_ambiguity_value_set_independent_of_output_format(self) -> None:
-        """The candidate value set (and thus the status) must not change when the
-        caller requests a different output_format — formatting is a post-status
-        presentation transform (HOW_TO presentational-only invariant)."""
+    def test_date_ambiguity_formatted_values_remain_two_distinct(self) -> None:
+        """The two canonical dates stay distinct after formatting.
+
+        Formatting converts each canonical value before deduplication and
+        status: the default ISO and requested US formats each render the two
+        distinct canonical dates as two distinct formatted values, so the
+        result is AMBIGUOUS in both cases.
+        """
         register_capability(DateCapability())
         base = run_capability("01/02/2026", DateCapability.create_contract())
         us = run_capability(
@@ -454,11 +462,9 @@ class TestGrammarRuleAffinity:
         )
 
         assert base.status == us.status == Resolution.AMBIGUOUS
-        # output_format reformats the canonical value (a per-format bijection),
-        # so the literal strings differ between ISO and US — but the NUMBER of
-        # distinct canonical values (and therefore the ambiguity) is invariant.
-        # That is the presentational-only guarantee: status is decided before
-        # formatting and cannot be created or resolved by output_format.
+        # Each format renders the two distinct canonical dates as two distinct
+        # formatted values; the number of distinct formatted candidate values
+        # (and therefore the ambiguity) is invariant across formats.
         assert len({c.value for c in base.candidates}) == 2
         assert len({c.value for c in us.candidates}) == 2
 
@@ -469,3 +475,91 @@ class TestGrammarRuleAffinity:
         register_capability(_PhantomCapability())
         with pytest.raises(ContractError):
             run_capability("test input", _PhantomContract())
+
+
+class TestReplayAndCandidateOrder:
+    """Replay determinism and candidate order across capabilities.
+
+    Each fixed input+contract is run twice; the second run must reproduce the
+    first run's status, canonicalized value, candidate tuple (order included),
+    and replay hash. The literal pre-migration snapshots in
+    ``test_default_replay_hashes.py`` are the separate byte-compatibility
+    guard; these regressions lock within-run determinism for formatted cases.
+    """
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        ("capability_cls", "contract_kwargs", "input_text"),
+        [
+            pytest.param(
+                DateCapability,
+                {"output_format": "US"},
+                "01/02/2026",
+                id="date-ambiguous-us",
+            ),
+            pytest.param(
+                PhoneCapability,
+                {"output_format": "rfc3966"},
+                "tel:+15551234567;ext=890",
+                id="phone-rfc3966-extension",
+            ),
+            pytest.param(
+                CountryCapability,
+                {"output_format": "alpha3"},
+                "DE",
+                id="country-alpha3",
+            ),
+            pytest.param(
+                EmailCapability,
+                {},
+                "user@example.com",
+                id="email-default",
+            ),
+            pytest.param(
+                IPCapability,
+                {},
+                "192.0.2.1",
+                id="ip-default",
+            ),
+        ],
+    )
+    def test_repeated_run_is_byte_identical(
+        self,
+        capability_cls: type[Capability],
+        contract_kwargs: dict[str, str],
+        input_text: str,
+    ) -> None:
+        """Running the same case twice yields identical results and hash."""
+        register_capability(capability_cls())
+        contract = capability_cls.create_contract(**contract_kwargs)
+
+        first = run_capability(input_text, contract)
+        second = run_capability(input_text, contract)
+
+        assert second.status == first.status
+        assert second.canonicalized_value == first.canonicalized_value
+        assert second.candidates == first.candidates
+        assert second.version_stamp.replay_hash == first.version_stamp.replay_hash
+
+    @pytest.mark.integration
+    def test_phone_formatting_precedes_dedup_two_extensions(self) -> None:
+        """Two tel URIs differing only in ;ext= stay AMBIGUOUS in rfc3966.
+
+        The pre-format E.164 values are identical, so only formatting-before-
+        deduplication keeps the two extension-bearing candidates distinct. If
+        the extension were dropped or formatting deferred until after dedup,
+        the candidates would collapse into a single value and the status
+        would be SUCCESS instead of AMBIGUOUS.
+        """
+        register_capability(PhoneCapability())
+        contract = PhoneCapability.create_contract(output_format="rfc3966")
+        result = run_capability(
+            "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
+        )
+
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+        assert {c.value for c in result.candidates} == {
+            "tel:+15551234567;ext=890",
+            "tel:+15551234567;ext=891",
+        }
