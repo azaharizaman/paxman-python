@@ -512,3 +512,28 @@ class TestCountryPipeline:
         assert {
             p.specification_name for c in result.candidates for p in c.provenance
         } == {"ISO 3166-3"}
+
+    @pytest.mark.integration
+    @pytest.mark.parametrize(
+        ("historical_name", "former_code"),
+        [
+            ("GILBERT ISLANDS", "GE"),
+            ("SIKKIM", "SK"),
+        ],
+    )
+    @pytest.mark.parametrize("output_format", ["alpha3", "numeric", "name"])
+    def test_historical_name_with_current_code_collision_passes_through(
+        self, historical_name: str, former_code: str, output_format: str
+    ) -> None:
+        """Historical former codes do not become unrelated current values."""
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(
+            include_historical=True, output_format=output_format
+        )
+        result = run_capability(historical_name, contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == former_code
+        assert {
+            p.specification_name for c in result.candidates for p in c.provenance
+        } == {"ISO 3166-3"}

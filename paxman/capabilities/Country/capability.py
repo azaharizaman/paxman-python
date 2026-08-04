@@ -9,6 +9,7 @@ from paxman.capabilities.Country.grammar.alpha2_recognition import Alpha2Grammar
 from paxman.capabilities.Country.grammar.alpha3_recognition import Alpha3Grammar
 from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
 from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
+from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
     SectionLocalizedNames,
@@ -25,6 +26,7 @@ from paxman.capabilities.Country.rules.iso_3166_ed2024 import (
     SectionNumericCodes,
 )
 from paxman.capabilities.Country.rules.iso_3166_historical_ed2020 import (
+    FORMER_NAME_TO_ALPHA2_NORMALIZED,
     SectionHistoricalNames,
 )
 from paxman.core.capability import Capability
@@ -131,6 +133,12 @@ class CountryCapability(Capability[CountryNotation]):
         Returns:
             The value rendered in the requested format.
         """
+        if notation.shape == "name":
+            historical_value = FORMER_NAME_TO_ALPHA2_NORMALIZED.get(
+                normalize_name(notation.value)
+            )
+            if historical_value == value:
+                return value
         if output_format == "alpha3":
             return ALPHA2_TO_ALPHA3.get(value, value)
         if output_format == "numeric":
