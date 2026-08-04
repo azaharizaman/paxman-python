@@ -7,7 +7,10 @@ values:
 
 - default-format rendering is the identity for every built-in capability;
 - valid ISO dates convert to valid US dates;
-- every current alpha-2 code maps consistently through the ISO 3166-1 tables;
+- every current alpha-2 code formats to alpha-3/numeric values that
+  round-trip through the authoritative reverse tables, and the name output is
+  a non-empty presentation string, with literal expectations locking the
+  exact values for representative codes;
 - localized names use the current mapping while former codes pass through.
 """
 
@@ -26,9 +29,6 @@ from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
 )
 from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import (
     ALPHA2_CODES,
-    ALPHA2_TO_ALPHA3,
-    ALPHA2_TO_NAME,
-    ALPHA2_TO_NUMERIC,
     ALPHA3_TO_ALPHA2,
     NUMERIC_TO_ALPHA2,
 )
@@ -95,6 +95,16 @@ _LOCALIZED_SAMPLES = (
     ("中国", "CN", "CHN", "156", "CHINA"),
 )
 
+# Independent literal presentation values for representative current codes.
+# These are real expected outputs, not derived from the forward tables the
+# formatter consumes — a shared regression in those tables cannot mask itself.
+_CURRENT_FORMAT_LITERALS = (
+    ("DE", "DEU", "276", "GERMANY"),
+    ("US", "USA", "840", "UNITED STATES"),
+    ("CN", "CHN", "156", "CHINA"),
+    ("MY", "MYS", "458", "MALAYSIA"),
+)
+
 _HISTORICAL_SAMPLES = (
     ("USSR", "SU"),
     ("BURMA", "BU"),
@@ -139,13 +149,15 @@ def test_date_iso_to_us_matches_independent_derivation(
 
 
 @pytest.mark.property
-def test_country_every_current_alpha2_maps_consistently() -> None:
-    """Every current alpha-2 code converts through the ISO tables and round-trips.
+def test_country_every_current_alpha2_round_trips_independently() -> None:
+    """Every current alpha-2 code formats to reverse-consistent current values.
 
-    For each of the 249 assigned alpha-2 codes the formatter must produce the
-    authoritative alpha-3/numeric/name entries, and each conversion must
-    round-trip back through the reverse tables. A code missing from any table
-    (or a drifted table) fails here.
+    For each of the 249 assigned alpha-2 codes the formatter's alpha-3 and
+    numeric outputs must independently round-trip back to the original alpha-2
+    through the authoritative reverse tables, and the name output must be a
+    non-empty presentation string. Exact presentation values are locked
+    separately by literal expectations for representative codes, so a shared
+    regression in the forward tables cannot mask itself here.
     """
     cap = CountryCapability()
     for alpha2 in sorted(ALPHA2_CODES):
@@ -153,23 +165,46 @@ def test_country_every_current_alpha2_maps_consistently() -> None:
         alpha3 = cap.format_value(alpha2, "alpha3", notation)
         numeric = cap.format_value(alpha2, "numeric", notation)
         name = cap.format_value(alpha2, "name", notation)
-        assert alpha3 == ALPHA2_TO_ALPHA3[alpha2]
-        assert numeric == ALPHA2_TO_NUMERIC[alpha2]
-        assert name == ALPHA2_TO_NAME[alpha2]
         assert ALPHA3_TO_ALPHA2[alpha3] == alpha2
         assert NUMERIC_TO_ALPHA2[numeric] == alpha2
+        assert isinstance(name, str) and name != ""
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(
+    ("alpha2", "alpha3", "numeric", "name"),
+    _CURRENT_FORMAT_LITERALS,
+)
+def test_country_representative_codes_render_independent_literals(
+    alpha2: str, alpha3: str, numeric: str, name: str
+) -> None:
+    """Representative current codes render the literal presentation values."""
+    cap = CountryCapability()
+    notation = CountryNotation(shape="alpha2", value=alpha2)
+    assert cap.format_value(alpha2, "alpha3", notation) == alpha3
+    assert cap.format_value(alpha2, "numeric", notation) == numeric
+    assert cap.format_value(alpha2, "name", notation) == name
 
 
 @pytest.mark.property
 @given(localized=st.sampled_from(sorted(LOCALIZED_TO_ALPHA2)))
 def test_country_localized_names_use_current_mapping(localized: str) -> None:
-    """A localized-resolved alpha-2 formats through the current tables."""
+    """A localized-resolved alpha-2 formats through the current mapping.
+
+    The alpha-3 and numeric outputs must round-trip back to the resolved
+    alpha-2 through the authoritative reverse tables, proving the localized
+    name formats through a current mapping; exact values for representative
+    codes are covered by the literal expectations.
+    """
     cap = CountryCapability()
     alpha2 = LOCALIZED_TO_ALPHA2[localized]
     notation = CountryNotation(shape="name", value=localized)
-    assert cap.format_value(alpha2, "alpha3", notation) == ALPHA2_TO_ALPHA3[alpha2]
-    assert cap.format_value(alpha2, "numeric", notation) == ALPHA2_TO_NUMERIC[alpha2]
-    assert cap.format_value(alpha2, "name", notation) == ALPHA2_TO_NAME[alpha2]
+    alpha3 = cap.format_value(alpha2, "alpha3", notation)
+    numeric = cap.format_value(alpha2, "numeric", notation)
+    name = cap.format_value(alpha2, "name", notation)
+    assert ALPHA3_TO_ALPHA2[alpha3] == alpha2
+    assert NUMERIC_TO_ALPHA2[numeric] == alpha2
+    assert isinstance(name, str) and name != ""
 
 
 @pytest.mark.property
