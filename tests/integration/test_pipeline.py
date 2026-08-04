@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 import pytest
 
 from paxman.capabilities.Country.capability import CountryCapability
@@ -11,6 +14,7 @@ from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.IP.capability import IPCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.capability import Capability
+from paxman.core.contract import Contract
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Grammar, Provenance, Resolution, Rule, RuleStrategy
 from paxman.core.errors import ContractError, RecognitionError, ValidationError
@@ -365,7 +369,7 @@ class _PhantomRule(Rule[EmailNotation]):
         return "phantom"
 
 
-class _PhantomCapability(Capability):
+class _PhantomCapability(Capability[EmailNotation]):
     """Capability whose rule declares a grammar the capability lacks."""
 
     name = "phantom"
@@ -489,35 +493,35 @@ class TestReplayAndCandidateOrder:
 
     @pytest.mark.integration
     @pytest.mark.parametrize(
-        ("capability_cls", "contract_kwargs", "input_text"),
+        ("capability_cls", "contract_factory", "input_text"),
         [
             pytest.param(
                 DateCapability,
-                {"output_format": "US"},
+                lambda: DateCapability.create_contract(output_format="US"),
                 "01/02/2026",
                 id="date-ambiguous-us",
             ),
             pytest.param(
                 PhoneCapability,
-                {"output_format": "rfc3966"},
+                lambda: PhoneCapability.create_contract(output_format="rfc3966"),
                 "tel:+15551234567;ext=890",
                 id="phone-rfc3966-extension",
             ),
             pytest.param(
                 CountryCapability,
-                {"output_format": "alpha3"},
+                lambda: CountryCapability.create_contract(output_format="alpha3"),
                 "DE",
                 id="country-alpha3",
             ),
             pytest.param(
                 EmailCapability,
-                {},
+                lambda: EmailCapability.create_contract(),
                 "user@example.com",
                 id="email-default",
             ),
             pytest.param(
                 IPCapability,
-                {},
+                lambda: IPCapability.create_contract(),
                 "192.0.2.1",
                 id="ip-default",
             ),
@@ -525,13 +529,13 @@ class TestReplayAndCandidateOrder:
     )
     def test_repeated_run_is_byte_identical(
         self,
-        capability_cls: type[Capability],
-        contract_kwargs: dict[str, str],
+        capability_cls: type[Capability[Any]],
+        contract_factory: Callable[[], Contract],
         input_text: str,
     ) -> None:
         """Running the same case twice yields identical results and hash."""
         register_capability(capability_cls())
-        contract = capability_cls.create_contract(**contract_kwargs)
+        contract = contract_factory()
 
         first = run_capability(input_text, contract)
         second = run_capability(input_text, contract)
