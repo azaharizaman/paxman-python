@@ -82,6 +82,7 @@ Data files contain only module-level dictionaries and sets — no classes or fun
 # rules/your_rule.py
 from paxman.capabilities.YourDomain.rules.data.lookup_table import VALID_CODES
 
+
 class SectionYourRule(Rule[YourDomainNotation]):
     TABLE = VALID_CODES
 ```
@@ -158,6 +159,7 @@ import re
 
 from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.MyDomain.notation import MyDomainNotation
+
 
 class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
     """Standard recognition for the MyDomain capability."""
@@ -285,6 +287,7 @@ Your rules receive the base `Contract` protocol type. To access capability-speci
 from typing import cast
 from paxman.capabilities.YourDomain.contract import YourDomainContract
 
+
 class SectionYourRule(Rule[YourDomainNotation]):
     def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
         typed_contract = cast(YourDomainContract, contract)
@@ -382,8 +385,7 @@ def create_contract(
     year: int | None = None,
     output_format: str | None = None,
     include_extended: bool = False,  # capability-specific params follow
-) -> YourDomainContract:
-    ...
+) -> YourDomainContract: ...
 ```
 
 Capability-specific parameters come after the common block. Every capability satisfies the `ContractFactory` protocol in `paxman/core/capability.py`.
@@ -443,8 +445,8 @@ class YourDomainContract(CapabilityContract):
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"expanded"})
 
     capability_name: str = field(default="yourdomain", init=False)
-    include_obfuscated: bool = False    # toggles obfuscated_recognition grammar
-    include_ipv6: bool = True           # toggles ipv6_recognition grammar
+    include_obfuscated: bool = False  # toggles obfuscated_recognition grammar
+    include_ipv6: bool = True  # toggles ipv6_recognition grammar
 
     @property
     def active_grammars(self) -> list[str]:
@@ -538,7 +540,9 @@ Example wiring — inherited from `CapabilityContract`, you only set the class v
 @dataclass(frozen=True)
 class YourDomainContract(CapabilityContract):
     DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "alpha2"
-    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"alpha3", "numeric", "name"})
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset(
+        {"alpha3", "numeric", "name"}
+    )
     # ... your capability-specific fields ...
 ```
 
@@ -619,7 +623,10 @@ Create `paxman/capabilities/YourDomain/__init__.py`:
 Export the Capability class, Contract class, and Notation type:
 
 ```python
-from paxman.capabilities.YourDomain.capability import YourDomainCapability, YourDomainContract
+from paxman.capabilities.YourDomain.capability import (
+    YourDomainCapability,
+    YourDomainContract,
+)
 from paxman.capabilities.YourDomain.notation import YourDomainNotation
 
 __all__ = ["YourDomainCapability", "YourDomainContract", "YourDomainNotation"]
@@ -776,8 +783,7 @@ Use pytest markers to categorize tests. Place markers on either the class or ind
 ```python
 @pytest.mark.capability
 class TestYourGrammar:
-    def test_recognizes_valid_input(self):
-        ...
+    def test_recognizes_valid_input(self): ...
 ```
 
 **Per-method** (when methods have different markers):
@@ -785,12 +791,10 @@ class TestYourGrammar:
 ```python
 class TestYourGrammar:
     @pytest.mark.capability
-    def test_recognizes_valid_input(self):
-        ...
+    def test_recognizes_valid_input(self): ...
 
     @pytest.mark.unit
-    def test_regex_pattern_compiled(self):
-        ...
+    def test_regex_pattern_compiled(self): ...
 ```
 
 Both styles are acceptable. Be consistent within each test file.
@@ -819,11 +823,13 @@ Each integration test file registers the capability it tests. Do this inside tes
 ```python
 from paxman.core.discovery import register_capability, reset_registry
 
+
 @pytest.fixture(autouse=True)
 def _clean_registry():
     reset_registry()
     yield
     reset_registry()
+
 
 class TestYourCapabilityPipeline:
     def test_success(self):

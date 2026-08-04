@@ -70,6 +70,7 @@ tests/unit/test_domain.py          # Remove (split into per-object files)
 ```python
 # tests/unit/test_contract.py - add these tests
 
+
 def test_contract_has_output_format_property():
     """Contract protocol defines output_format property."""
     assert hasattr(Contract, "output_format")
@@ -214,6 +215,7 @@ class EmailContract:
 ```python
 # paxman/capabilities/Email/capability.py - update create_contract()
 
+
 @staticmethod
 def create_contract(
     include_obfuscated: bool = False,
@@ -262,6 +264,7 @@ git commit -m "feat: add output_format and two_digit_base_year to Contract proto
 ```python
 # tests/unit/test_domain.py - add these tests
 
+
 def test_rule_matches_accepts_contract():
     """Rule.matches() accepts notation and contract parameters."""
     from paxman.capabilities.Email.notation import EmailNotation
@@ -296,6 +299,7 @@ Expected: FAIL with "matches() takes 2 positional arguments but 3 were given"
 ```python
 # paxman/core/domain.py - update Rule class
 
+
 class Rule(ABC, Generic[NotationT]):
     """Base class for validation rules."""
 
@@ -315,6 +319,7 @@ class Rule(ABC, Generic[NotationT]):
 
 ```python
 # paxman/capabilities/Email/rules/rfc_5322_ed2008.py
+
 
 class Section341AddrSpec(Rule[EmailNotation]):
     """RFC 5322 Section 3.4.1 — addr-spec."""
@@ -337,6 +342,7 @@ class Section341AddrSpec(Rule[EmailNotation]):
 ```python
 # paxman/capabilities/Email/rules/rfc_6761_ed2012.py
 
+
 class Section63localhost(Rule[EmailNotation]):
     """RFC 6761 Section 6.3 — localhost."""
 
@@ -357,6 +363,7 @@ class Section63localhost(Rule[EmailNotation]):
 ```python
 # paxman/engine/orchestrator.py - update _collect_candidates()
 
+
 def _collect_candidates(
     recognitions: list[RecognizedRep[Any]], rules: list[Rule[Any]]
 ) -> list[Candidate]:
@@ -366,7 +373,9 @@ def _collect_candidates(
         for rule in rules:
             try:
                 if rule.matches(recognition.notation, recognition.contract):
-                    canonical = rule.normalize(recognition.notation, recognition.contract)
+                    canonical = rule.normalize(
+                        recognition.notation, recognition.contract
+                    )
                     candidates.append(
                         Candidate(
                             value=canonical,
@@ -1135,12 +1144,16 @@ from paxman.capabilities.Email.grammar.standard_recognition import StandardEmail
 
 @given(
     local_part=st.text(
-        alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="._%+-"),
+        alphabet=st.characters(
+            whitelist_categories=("L", "N"), whitelist_characters="._%+-"
+        ),
         min_size=1,
         max_size=64,
     ),
     domain_part=st.text(
-        alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="-."),
+        alphabet=st.characters(
+            whitelist_categories=("L", "N"), whitelist_characters="-."
+        ),
         min_size=3,
         max_size=253,
     ),
@@ -1402,7 +1415,9 @@ class TestRecognizedRep:
     def test_creates_with_fields(self):
         notation = EmailNotation(local_part="user", domain_part="example.com")
         contract = EmailContract()
-        grammar = GrammarRule(capability_name="email", grammar_name="standard_recognition")
+        grammar = GrammarRule(
+            capability_name="email", grammar_name="standard_recognition"
+        )
         rep = RecognizedRep(notation=notation, contract=contract, grammar=grammar)
         assert rep.notation == notation
         assert rep.contract == contract
@@ -1411,7 +1426,9 @@ class TestRecognizedRep:
     def test_is_frozen(self):
         notation = EmailNotation(local_part="user", domain_part="example.com")
         contract = EmailContract()
-        grammar = GrammarRule(capability_name="email", grammar_name="standard_recognition")
+        grammar = GrammarRule(
+            capability_name="email", grammar_name="standard_recognition"
+        )
         rep = RecognizedRep(notation=notation, contract=contract, grammar=grammar)
         with pytest.raises(AttributeError):
             rep.notation = "changed"  # type: ignore[misc]
@@ -1419,7 +1436,9 @@ class TestRecognizedRep:
     def test_hashable(self):
         notation = EmailNotation(local_part="user", domain_part="example.com")
         contract = EmailContract()
-        grammar = GrammarRule(capability_name="email", grammar_name="standard_recognition")
+        grammar = GrammarRule(
+            capability_name="email", grammar_name="standard_recognition"
+        )
         rep = RecognizedRep(notation=notation, contract=contract, grammar=grammar)
         assert hash(rep) is not None
 ```

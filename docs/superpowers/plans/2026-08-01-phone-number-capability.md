@@ -802,7 +802,7 @@ class TestE164CountryCodes:
         """
         codes = sorted(ASSIGNED_COUNTRY_CODES)
         for i, short in enumerate(codes):
-            for long in codes[i + 1:]:
+            for long in codes[i + 1 :]:
                 assert not long.startswith(short), (
                     f"{long} starts with {short} — ambiguous country code"
                 )
@@ -826,15 +826,11 @@ class TestNanpTables:
 
     def test_n11_codes_exact(self) -> None:
         """N11 service codes are exactly the 8 reserved codes."""
-        assert N11_CODES == {
-            "211", "311", "411", "511", "611", "711", "811", "911"
-        }
+        assert N11_CODES == {"211", "311", "411", "511", "611", "711", "811", "911"}
 
     def test_service_npas_exact(self) -> None:
         """Service NPAs are exactly the toll-free and premium codes."""
-        assert SERVICE_NPAS == {
-            "800", "833", "844", "855", "866", "877", "888", "900"
-        }
+        assert SERVICE_NPAS == {"800", "833", "844", "855", "866", "877", "888", "900"}
 ```
 
 - [ ] **Step 5: Run data tests to verify they pass**
@@ -1404,7 +1400,11 @@ class TestNationalGrammar:
 
     def test_ignores_tel_uri(self) -> None:
         """Grammar does not match inside tel: URIs."""
-        for text in ("tel:+1-201-555-0123", "tel:+15551234567", "tel:+1 (555) 123-4567"):
+        for text in (
+            "tel:+1-201-555-0123",
+            "tel:+15551234567",
+            "tel:+1 (555) 123-4567",
+        ):
             results = self.grammar.recognize(text)
             assert len(results) == 0
 
@@ -1563,9 +1563,7 @@ class TestGrammarDedup:
 
     def test_national_multiple_matches(self) -> None:
         """Multiple distinct national numbers are all returned."""
-        results = self.national.recognize(
-            "Call (555) 123-4567 today or (212) 234-5678"
-        )
+        results = self.national.recognize("Call (555) 123-4567 today or (212) 234-5678")
         assert len(results) == 2
 
     def test_e164_trailing_period_still_digit_correct(self) -> None:
@@ -1889,7 +1887,7 @@ def _canonical(value: str, contract: Contract) -> str:
     if contract.output_format == "national":
         country_code = split_country_code(value)
         assert country_code is not None  # matches() ran first
-        return value[len(country_code):]
+        return value[len(country_code) :]
     return f"+{value}"
 
 
@@ -2167,7 +2165,7 @@ class Section3TelUri(Rule[PhoneNotation]):
         if contract.output_format == "national":
             country_code = split_country_code(notation.value)
             assert country_code is not None  # matches() ran first
-            return notation.value[len(country_code):]
+            return notation.value[len(country_code) :]
         return f"+{notation.value}"
 ```
 
@@ -2897,7 +2895,12 @@ def _validate_alpha2(value: str | None) -> None:
         raise ContractError(
             f"default_country must be an uppercase ISO 3166-1 alpha-2 code, got {value!r}"
         )
-    if len(value) != 2 or not value.isascii() or not value.isalpha() or not value.isupper():
+    if (
+        len(value) != 2
+        or not value.isascii()
+        or not value.isalpha()
+        or not value.isupper()
+    ):
         raise ContractError(
             f"default_country must be an uppercase ISO 3166-1 alpha-2 code, got {value!r}"
         )

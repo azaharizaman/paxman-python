@@ -57,7 +57,7 @@ _DEFAULT_GRAMMAR = _grammar_rule()
 
 def _rep(
     *,
-    notation: Any = ["user", "example.com"],
+    notation: Any = None,
     contract: FakeContract | None = None,
     grammar: GrammarRule | None = None,
     start: int = 0,
@@ -66,7 +66,7 @@ def _rep(
 ) -> RecognizedRep[Any]:
     """Build a RecognizedRep with span-neutral defaults for unit tests."""
     return RecognizedRep(
-        notation=notation,
+        notation=notation if notation is not None else ["user", "example.com"],
         contract=contract or _DEFAULT_CONTRACT,
         grammar=grammar or _DEFAULT_GRAMMAR,
         start=start,
@@ -143,9 +143,9 @@ class TestRecognizedRep:
         match = RecognitionMatch(
             notation=("user", "example.com"), start=0, end=4, raw_text="AAAA"
         )
-        rep = _rep(
-            notation=("user", "example.com"), start=0, end=4, raw_text="AAAA"
-        )
+        rep = _rep(notation=("user", "example.com"), start=0, end=4, raw_text="AAAA")
         assert hash(match) is not None
         assert hash(rep) == hash(rep)
-        assert hash(_rep(notation=("user", "example.com"), start=0, end=4, raw_text="AAAA")) == hash(rep)
+        assert hash(
+            _rep(notation=("user", "example.com"), start=0, end=4, raw_text="AAAA")
+        ) == hash(rep)

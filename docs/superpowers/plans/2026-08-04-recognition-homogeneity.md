@@ -577,10 +577,7 @@ def _dedup_spans(
     ordered = sorted(matches, key=lambda m: (m.start, -(m.end - m.start)))
     kept: list[RecognitionMatch[Any]] = []
     for match in ordered:
-        if any(
-            other.start <= match.start and match.end <= other.end
-            for other in kept
-        ):
+        if any(other.start <= match.start and match.end <= other.end for other in kept):
             continue
         kept.append(match)
     return kept
@@ -615,26 +612,25 @@ And add `"RecognitionMatch"` to the `__all__` list (alphabetical order, between 
 Update all 9 constructor call sites to pass the new required fields. For span-neutral cases (tests that construct reps without real span data), use `start=0, end=0, raw_text=""`. For tests that build a span, use realistic values. Keep the existing equality semantics: two reps constructed with identical `start/end/raw_text` are equal; differing span fields make them unequal. Add:
 
 ```python
-    def test_span_fields_participate_in_equality(self) -> None:
-        """Two reps with identical fields are equal; span differences break it."""
-        base = dict(notation=..., contract=..., grammar=...)
-        a = RecognizedRep(**base, start=0, end=4, raw_text="AAAA")
-        b = RecognizedRep(**base, start=0, end=4, raw_text="AAAA")
-        c = RecognizedRep(**base, start=2, end=6, raw_text="AAAA")
-        assert a == b
-        assert a != c
+def test_span_fields_participate_in_equality(self) -> None:
+    """Two reps with identical fields are equal; span differences break it."""
+    base = dict(notation=..., contract=..., grammar=...)
+    a = RecognizedRep(**base, start=0, end=4, raw_text="AAAA")
+    b = RecognizedRep(**base, start=0, end=4, raw_text="AAAA")
+    c = RecognizedRep(**base, start=2, end=6, raw_text="AAAA")
+    assert a == b
+    assert a != c
 
-    def test_recognized_rep_hash_stable_with_span_fields(self) -> None:
-        """RecognitionMatch and RecognizedRep with identical fields hash the same."""
-        # RecognitionMatch is used transiently; RecognizedRep is stored.
-        # Both must be hashable for use in sets/dicts if needed.
-        match = RecognitionMatch(
-            notation=..., start=0, end=4, raw_text="AAAA"
-        )
-        rep = RecognizedRep(
-            notation=..., contract=..., grammar=..., start=0, end=4, raw_text="AAAA"
-        )
-        assert hash(match) == hash(rep)
+
+def test_recognized_rep_hash_stable_with_span_fields(self) -> None:
+    """RecognitionMatch and RecognizedRep with identical fields hash the same."""
+    # RecognitionMatch is used transiently; RecognizedRep is stored.
+    # Both must be hashable for use in sets/dicts if needed.
+    match = RecognitionMatch(notation=..., start=0, end=4, raw_text="AAAA")
+    rep = RecognizedRep(
+        notation=..., contract=..., grammar=..., start=0, end=4, raw_text="AAAA"
+    )
+    assert hash(match) == hash(rep)
 ```
 
 (Replace the ellipses with the existing fixtures from that file.)
@@ -926,23 +922,21 @@ Add one span test per grammar class. Alpha-2:
 All four follow the same shape; syntax normalization (`.upper()`) STAYS in the grammars (see Behavioral Contract — deferred syntax seam). `alpha2_recognition.py`:
 
 ```python
-    def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
-        """Extract alpha-2 patterns from text."""
-        if not text.strip():
-            return []
-        matches = []
-        for match in _ALPHA2_PATTERN.finditer(text):
-            matches.append(
-                RecognitionMatch(
-                    notation=CountryNotation(
-                        shape="alpha2", value=match.group(0).upper()
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
+def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
+    """Extract alpha-2 patterns from text."""
+    if not text.strip():
+        return []
+    matches = []
+    for match in _ALPHA2_PATTERN.finditer(text):
+        matches.append(
+            RecognitionMatch(
+                notation=CountryNotation(shape="alpha2", value=match.group(0).upper()),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
             )
-        return matches
+        )
+    return matches
 ```
 
 `alpha3_recognition.py`: identical with `shape="alpha3"`.
@@ -1336,6 +1330,7 @@ import re
 
 from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.MyDomain.notation import MyDomainNotation
+
 
 class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
     """Standard recognition for the MyDomain capability."""

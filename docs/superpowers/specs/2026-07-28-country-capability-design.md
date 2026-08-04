@@ -84,10 +84,10 @@ The Country capability canonicalizes country representations to ISO 3166-1 alpha
 @dataclass(frozen=True, slots=True)
 class CountryNotation:
     """Intermediate representation for country recognition."""
-    
-    shape: str      # "alpha2" | "alpha3" | "numeric" | "name"
-    value: str      # Raw input value (e.g., "US", "USA", "840", "United States")
-    
+
+    shape: str  # "alpha2" | "alpha3" | "numeric" | "name"
+    value: str  # Raw input value (e.g., "US", "USA", "840", "United States")
+
     def as_list(self) -> list[str]:
         """Bridge to generic list[str] interface."""
         return [self.shape, self.value]

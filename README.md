@@ -229,8 +229,7 @@ result = paxman.canonicalize("user@example.com", contract)
 
 # Pin + year filter — both apply
 contract = Email.create_contract(
-    pinned_rules=["Section 3.4.1-addr-spec", "Section 6.3-localhost"],
-    year=2010
+    pinned_rules=["Section 3.4.1-addr-spec", "Section 6.3-localhost"], year=2010
 )
 
 # Exclude specific rules
@@ -285,10 +284,10 @@ Paxman raises typed exceptions for different failure modes:
 
 ```python
 from paxman.core.errors import (
-    CapabilityError,    # Unknown capability or registry frozen
-    ContractError,      # Malformed contract configuration
-    RecognitionError,   # Grammar failed during recognition
-    ValidationError,    # Rule failed during validation
+    CapabilityError,  # Unknown capability or registry frozen
+    ContractError,  # Malformed contract configuration
+    RecognitionError,  # Grammar failed during recognition
+    ValidationError,  # Rule failed during validation
 )
 
 try:

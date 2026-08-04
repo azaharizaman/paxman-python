@@ -52,9 +52,7 @@ class TestStandardEmailGrammar:
         results = grammar.recognize("Email a@b.com or c@d.org")
         assert len(results) == 2
         assert results[0].notation == EmailNotation(local_part="a", domain_part="b.com")
-        assert results[1].notation == EmailNotation(
-            local_part="c", domain_part="d.org"
-        )
+        assert results[1].notation == EmailNotation(local_part="c", domain_part="d.org")
 
     @pytest.mark.capability
     def test_ignores_invalid_email(self) -> None:

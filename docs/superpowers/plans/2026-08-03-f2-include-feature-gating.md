@@ -122,9 +122,7 @@ declare an empty frozenset — the unanimous surface.
   ```python
   for rule in active_rules:
       missing = [
-          feature
-          for feature in rule.requires_features
-          if not hasattr(contract, feature)
+          feature for feature in rule.requires_features if not hasattr(contract, feature)
       ]
       if missing:
           raise ContractError(

@@ -143,10 +143,7 @@ def _dedup_spans(
     ordered = sorted(matches, key=lambda m: (m.start, -(m.end - m.start)))
     kept: list[RecognitionMatch[Any]] = []
     for match in ordered:
-        if any(
-            other.start <= match.start and match.end <= other.end
-            for other in kept
-        ):
+        if any(other.start <= match.start and match.end <= other.end for other in kept):
             continue
         kept.append(match)
     return kept
