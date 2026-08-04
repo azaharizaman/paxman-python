@@ -70,6 +70,40 @@ class TestDateCapability:
         assert len(cap.get_rules()) == 3
 
 
+@pytest.mark.capability
+class TestDateCapabilityFormatValue:
+    """Tests for DateCapability.format_value()."""
+
+    NOTATION = DateNotation(N1="2026", N2="07", N3="26")
+
+    def test_iso_format_is_identity(self) -> None:
+        """The default ISO path returns the canonical value unchanged."""
+        cap = DateCapability()
+        assert cap.format_value("2026-07-26", "ISO", self.NOTATION) == "2026-07-26"
+
+    def test_default_format_is_identity(self) -> None:
+        """An unset output format returns the canonical value unchanged."""
+        cap = DateCapability()
+        assert cap.format_value("2026-07-26", None, self.NOTATION) == "2026-07-26"
+
+    def test_us_format_converts_iso_canonical(self) -> None:
+        """US rendering converts a validated YYYY-MM-DD value to MM/DD/YYYY."""
+        cap = DateCapability()
+        assert cap.format_value("2026-07-26", "US", self.NOTATION) == "07/26/2026"
+
+    def test_us_format_converts_other_dates(self) -> None:
+        """US rendering handles dates outside the notation sample."""
+        cap = DateCapability()
+        notation = DateNotation(N1="1999", N2="12", N3="31")
+        assert cap.format_value("1999-12-31", "US", notation) == "12/31/1999"
+
+    def test_us_format_rejects_arbitrary_strings(self) -> None:
+        """US rendering must not accept arbitrary strings as valid dates."""
+        cap = DateCapability()
+        with pytest.raises(ValueError):
+            cap.format_value("not-a-date", "US", self.NOTATION)
+
+
 # --- DateContract tests ---
 
 
