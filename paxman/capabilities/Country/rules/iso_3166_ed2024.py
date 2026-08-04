@@ -13,6 +13,9 @@ from __future__ import annotations
 
 from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
+    LOCALIZED_TO_ALPHA2_NORMALIZED,
+)
 from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import (
     ALPHA2_CODES,
     ALPHA3_TO_ALPHA2,
@@ -189,18 +192,33 @@ class SectionNames(Rule[CountryNotation]):
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
         """Check if notation is a valid country name or synonym.
 
+        Single-authority precedence (see LOCALIZED_TO_ALPHA2_NORMALIZED in
+        the CLDR rule): when localized matching is enabled, names owned by
+        the CLDR localized table (e.g. "MEXICO" from "México") are validated
+        only by the CLDR rule; this ISO rule defers so a localized name
+        cannot also yield an ISO-provenance candidate.
+
         Args:
             notation: Country notation to validate.
             contract: Contract configuration.
 
         Returns:
             True if notation.shape == "name" AND the normalized value is in
-            the normalized NAME_TO_ALPHA2 or SYNONYM_TO_ALPHA2 views.
+            the normalized NAME_TO_ALPHA2 or SYNONYM_TO_ALPHA2 views, and the
+            name is not CLDR-owned while localized matching is enabled.
         """
         if notation.shape != "name":
             return False
         key = normalize_name(notation.value)
-        return key in NAME_TO_ALPHA2_NORMALIZED or key in SYNONYM_TO_ALPHA2_NORMALIZED
+        if (
+            key not in NAME_TO_ALPHA2_NORMALIZED
+            and key not in SYNONYM_TO_ALPHA2_NORMALIZED
+        ):
+            return False
+        return not (
+            getattr(contract, "include_localized", False)
+            and key in LOCALIZED_TO_ALPHA2_NORMALIZED
+        )
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
         """Normalize to the canonical alpha-2 code.

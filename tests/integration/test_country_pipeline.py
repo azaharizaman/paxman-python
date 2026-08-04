@@ -265,6 +265,52 @@ class TestCountryPipeline:
         )
 
     @pytest.mark.integration
+    def test_localized_name_colliding_with_iso_name_single_authority(self) -> None:
+        """Accented Spanish "México" resolves via CLDR/Unicode only.
+
+        "México" normalizes to "MEXICO", which also matches the ISO 3166-1
+        English short name "Mexico". Under the single-authority policy the
+        ISO name rule defers while ``include_localized`` is enabled, so
+        exactly one candidate with Unicode provenance is produced.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("México", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MX"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "Unicode"
+
+    @pytest.mark.integration
+    def test_ascii_normalized_cldr_key_single_authority(self) -> None:
+        """Unaccented MEXICO (a normalized CLDR key) resolves via CLDR only.
+
+        The same normalized key that collides with the ISO English short
+        name resolves through the localized authority alone when
+        ``include_localized`` is enabled.
+        """
+        register_capability(CountryCapability())
+        contract = CountryCapability.create_contract(include_localized=True)
+        result = run_capability("MEXICO", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MX"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "Unicode"
+
+    @pytest.mark.integration
+    def test_cldr_colliding_english_name_without_localized_uses_iso(self) -> None:
+        """Without include_localized, MEXICO resolves via ISO English names."""
+        register_capability(CountryCapability())
+        result = run_capability("Mexico", CountryCapability.create_contract())
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MX"
+        assert len(result.candidates) == 1
+        assert result.candidates[0].provenance[0].authority == "ISO"
+
+    @pytest.mark.integration
     def test_chinese_name_disabled_invalid(self) -> None:
         """Chinese localized input without the flag is INVALID with no candidates."""
         register_capability(CountryCapability())

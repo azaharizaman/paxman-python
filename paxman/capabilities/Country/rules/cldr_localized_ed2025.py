@@ -11,6 +11,13 @@ from paxman.core.domain import Provenance, Rule, RuleStrategy
 # Normalized localized-name lookup view: keys normalized with the shared
 # Country syntax normalizer so grammar tokens and rule lookups agree; values
 # unchanged.
+#
+# Single-authority precedence policy: these normalized keys (e.g. "MEXICO"
+# from Spanish "México") are owned by CLDR while localized matching is
+# enabled. A normalized key can collide with an ISO 3166-1 English short
+# name (e.g. "MEXICO" == English "Mexico"); the ISO name rule defers to this
+# view when ``include_localized`` is enabled, so a localized name is never
+# also validated by the ISO authority.
 LOCALIZED_TO_ALPHA2_NORMALIZED: dict[str, str] = {
     normalize_name(name): alpha2 for name, alpha2 in LOCALIZED_TO_ALPHA2.items()
 }

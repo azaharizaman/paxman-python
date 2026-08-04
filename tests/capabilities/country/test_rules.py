@@ -333,6 +333,24 @@ class TestSectionNames:
             assert self.rule.matches(notation, contract) is True
             assert self.rule.normalize(notation, contract) == "TR"
 
+    def test_defers_cldr_owned_key_when_localized_enabled(self) -> None:
+        """A CLDR-owned normalized key is not ISO-validated when localized.
+
+        "México" normalizes to "MEXICO", which also matches the ISO English
+        short name "Mexico". Under the single-authority precedence policy the
+        ISO rule defers to the CLDR rule while ``include_localized`` is
+        enabled, so the localized name cannot also yield an ISO candidate.
+        """
+        contract = CountryContract(include_localized=True)
+        notation = CountryNotation(shape="name", value="México")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_validates_cldr_colliding_english_name_without_localized(self) -> None:
+        """Without include_localized, the English name "Mexico" is ISO-owned."""
+        contract = CountryContract()
+        notation = CountryNotation(shape="name", value="Mexico")
+        assert self.rule.matches(notation, contract) is True
+
     def test_matches_collapsed_whitespace_name(self) -> None:
         """Collapsed whitespace United Kingdom resolves to GB."""
         contract = CountryContract()
