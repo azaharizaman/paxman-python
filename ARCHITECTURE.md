@@ -85,7 +85,7 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 
 1. Freezes the capability registry
 2. Looks up the requested capability by name
-3. Runs the recognition phase — iterating over active grammars to extract notations
+3. Runs the recognition phase — iterating over active grammars to extract span-bearing recognition matches
 4. Runs the validation phase — testing each notation against active rules, which normalize to each capability's default canonical form and never inspect `output_format`
 5. Formats each validated value through the capability's `format_value()` seam — immediately after normalization and before deduplication, status determination, and replay hashing
 6. Deduplicates identical candidates
@@ -93,7 +93,7 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 8. Computes a deterministic replay hash for integrity verification
 9. Assembles the final execution result
 
-The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce notations and rules produce candidates.
+The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce span-bearing recognition matches and rules produce candidates.
 
 ### Public API
 

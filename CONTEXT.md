@@ -23,8 +23,8 @@ User-facing configuration object that:
 - **Pins rules** to run only specific validation rules (e.g., `pinned_rules=["Section 3.4.1-addr-spec"]`)
 - **Excludes rules** to skip specific validation rules (e.g., `excluded_rules=["Section 6.3-localhost"]`)
 - **Pins year** to filter validation rules by `publication_year`
-- **Passes parameters** to validation rules (e.g., `output_format=ISO`)
-  - Note: `two_digit_base_year` is a Date-specific parameter, not part of the base Contract
+- **Passes parameters** to validation rules (e.g., `two_digit_base_year`)
+  - Note: `output_format` is a *presentation* parameter consumed by the capability's `format_value()` seam — validation rules never read it
 - Does NOT define Notation (that's internal to Capability)
 
 When `pinned_rules` is set, `excluded_rules` is ignored — only the pinned rules run.
@@ -59,16 +59,17 @@ class EmailNotation:
 ### Grammar (Recognition Rule)
 Syntactic extraction rules that:
 - Scan raw text for patterns
-- Produce **Notation** (capability-defined shape)
+- Produce **span-bearing `RecognitionMatch` objects** (notation + half-open `[start, end)` span + matched `raw_text`) — never bare notations
 - Live in `capabilities/<CapabilityName>/grammar/`
 - Are **filtered by the orchestrator** based on the contract's `active_grammars`
-- Do NOT validate — only recognize
+- Do NOT validate, de-duplicate, or order — the engine owns containment dedup and document ordering
+- Only recognize
 
 ### Validation Rule
 Semantic rules that:
 - Accept **Notation** (not raw input)
 - Are backed by **Provenance** (authority specification)
-- Use **Contract parameters** (e.g., `output_format`)
+- Use **Contract parameters** (e.g., `two_digit_base_year`) — never `output_format` (presentation lives in the capability's formatting seam)
 - Produce **Candidate** with canonical value
 - Live in `capabilities/<CapabilityName>/rules/`
 - Are filtered by **pinned_rules** (if set, only those rules run) or **excluded_rules**
@@ -195,7 +196,7 @@ class Section431CalendarDate(Rule[DateNotation]):
 
 import re
 
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.Email.notation import EmailNotation
 
 
@@ -204,22 +205,27 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
 
     name = "standard_recognition"
 
-    def recognize(self, text: str) -> list[EmailNotation]:
-        """Extract email patterns from text."""
-        pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-        matches = re.findall(pattern, text)
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
+        """Extract span-bearing email matches from text."""
+        pattern = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
         return [
-            EmailNotation(
-                local_part=match.split("@")[0], domain_part=match.split("@")[1]
+            RecognitionMatch(
+                notation=EmailNotation(
+                    local_part=match.group(0).split("@")[0],
+                    domain_part=match.group(0).split("@")[1],
+                ),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
             )
-            for match in matches
+            for match in pattern.finditer(text)
         ]
 ```
 
 ### Date Ambiguity Example
 ```python
 # Input: "01/02/2026"
-# Grammar outputs notation based on its own mapping:
+# Each grammar wraps its own notation mapping in a span-bearing RecognitionMatch:
 #   ISO grammar:    N1="2026", N2="01", N3="02"  (N1=year, N2=month, N3=day)
 #   US grammar:     N1="01",   N2="02", N3="2026" (N1=month, N2=day, N3=year)
 #   European grammar: N1="01", N2="02", N3="2026" (N1=day, N2=month, N3=year)
@@ -290,13 +296,18 @@ contract = Email.create_contract(
 ```
 
 ### RecognizedRep
-Data class carrying recognition output:
+Data class carrying recognition output. Produced by the engine from each
+span-bearing `RecognitionMatch` after recognition, so the producing span and
+raw text stay traceable end to end:
 ```python
 @dataclass(frozen=True)
 class RecognizedRep(Generic[NotationT]):
     notation: NotationT  # capability-defined shape
     contract: Contract  # contract configuration
     grammar: GrammarRule  # which grammar produced this
+    start: int  # half-open start offset of the producing match
+    end: int  # half-open end offset of the producing match
+    raw_text: str  # matched substring (len(raw_text) == end - start)
 ```
 
 ### Candidate
