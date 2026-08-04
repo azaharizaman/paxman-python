@@ -16,7 +16,14 @@ from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
 from paxman.core.discovery import register_capability, reset_registry
-from paxman.core.domain import Grammar, Provenance, Resolution, Rule, RuleStrategy
+from paxman.core.domain import (
+    Grammar,
+    Provenance,
+    RecognitionMatch,
+    Resolution,
+    Rule,
+    RuleStrategy,
+)
 from paxman.core.errors import ContractError, RecognitionError, ValidationError
 from paxman.engine.orchestrator import run_capability
 
@@ -111,7 +118,7 @@ class CrashGrammar(Grammar[EmailNotation]):
 
     name = "crash_grammar"
 
-    def recognize(self, text: str) -> list[EmailNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         raise RuntimeError("grammar crashed")
 
 
@@ -120,8 +127,15 @@ class SimpleGrammar(Grammar[EmailNotation]):
 
     name = "simple_grammar"
 
-    def recognize(self, text: str) -> list[EmailNotation]:
-        return [EmailNotation(local_part="user", domain_part="example.com")]
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
+        return [
+            RecognitionMatch(
+                notation=EmailNotation(local_part="user", domain_part="example.com"),
+                start=0,
+                end=16,
+                raw_text="user@example.com",
+            )
+        ]
 
 
 class StubRule(Rule[EmailNotation]):
@@ -340,8 +354,15 @@ class _PhantomGrammar(Grammar[EmailNotation]):
 
     name = "phantom_grammar"
 
-    def recognize(self, text: str) -> list[EmailNotation]:
-        return [EmailNotation(local_part="user", domain_part="example.com")]
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
+        return [
+            RecognitionMatch(
+                notation=EmailNotation(local_part="user", domain_part="example.com"),
+                start=0,
+                end=16,
+                raw_text="user@example.com",
+            )
+        ]
 
 
 class _PhantomRule(Rule[EmailNotation]):
