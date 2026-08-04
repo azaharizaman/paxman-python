@@ -47,9 +47,10 @@ Existing rule data remains authoritative:
 - ISO 3166-3 owns historical names and former codes.
 - CLDR owns localized names.
 
-Rules normalize the notation value for lookup, then return the canonical value
-in the requested output format. Every candidate continues to carry the
-validating rule's provenance.
+Rules normalize the notation value for lookup, then return the canonical alpha-2
+value. ``CountryCapability.format_value()`` applies the requested output format
+after validation. Every candidate continues to carry the validating rule's
+provenance.
 
 Recognition key sets and rule mappings remain separate files so recognition and
 authority data can evolve independently. A consistency test ensures the
