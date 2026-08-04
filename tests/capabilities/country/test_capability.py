@@ -275,3 +275,46 @@ class TestCountryCapability:
         for fmt in ("alpha2", "alpha3", "numeric", "name"):
             contract = CountryCapability.create_contract(output_format=fmt)
             assert contract.output_format == fmt
+
+
+@pytest.mark.capability
+class TestCountryCapabilityFormatValue:
+    """Tests for CountryCapability.format_value()."""
+
+    NOTATION = CountryNotation(shape="alpha2", value="DE")
+
+    def test_alpha2_format_is_identity(self) -> None:
+        """The default alpha-2 path returns the canonical value unchanged."""
+        cap = CountryCapability()
+        assert cap.format_value("DE", "alpha2", self.NOTATION) == "DE"
+
+    def test_default_format_is_identity(self) -> None:
+        """An unset output format returns the canonical value unchanged."""
+        cap = CountryCapability()
+        assert cap.format_value("DE", None, self.NOTATION) == "DE"
+
+    def test_alpha3_format_maps_current_alpha2(self) -> None:
+        """Alpha-3 rendering maps the canonical alpha-2 code."""
+        cap = CountryCapability()
+        assert cap.format_value("DE", "alpha3", self.NOTATION) == "DEU"
+
+    def test_numeric_format_maps_current_alpha2(self) -> None:
+        """Numeric rendering maps the canonical alpha-2 code."""
+        cap = CountryCapability()
+        assert cap.format_value("DE", "numeric", self.NOTATION) == "276"
+
+    def test_name_format_maps_current_alpha2(self) -> None:
+        """Name rendering maps the canonical alpha-2 code."""
+        cap = CountryCapability()
+        assert cap.format_value("DE", "name", self.NOTATION) == "GERMANY"
+
+    @pytest.mark.parametrize("fmt", ["alpha3", "numeric", "name"])
+    def test_former_code_without_current_mapping_passes_through(self, fmt: str) -> None:
+        """Former codes absent from the current tables pass through unchanged.
+
+        ``SU`` (USSR) has no entry in the current ISO 3166-1 conversion
+        tables, so alpha-3/numeric/name requests return it unchanged rather
+        than fabricating a current-code mapping.
+        """
+        cap = CountryCapability()
+        assert cap.format_value("SU", fmt, self.NOTATION) == "SU"
