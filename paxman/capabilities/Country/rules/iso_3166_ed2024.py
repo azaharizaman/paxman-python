@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import cast
 
 from paxman.capabilities.Country.contract import CountryContract
+from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import (
     ALPHA2_CODES,
@@ -26,6 +27,17 @@ from paxman.capabilities.Country.rules.data.iso_3166_ed2024 import (
 )
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
+
+# Normalized name lookup views: keys are normalized with the shared Country
+# syntax normalizer so grammar tokens and rule lookups agree; values are
+# unchanged. Normalized keys that collide across or within the two tables
+# always map to the same alpha-2 code.
+NAME_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): alpha2 for name, alpha2 in NAME_TO_ALPHA2.items()
+}
+SYNONYM_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): alpha2 for name, alpha2 in SYNONYM_TO_ALPHA2.items()
+}
 
 PUBLICATION = Provenance(
     authority="ISO",
@@ -221,19 +233,19 @@ class SectionNames(Rule[CountryNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if notation.shape == "name" AND value is in NAME_TO_ALPHA2
-            or SYNONYM_TO_ALPHA2.
+            True if notation.shape == "name" AND the normalized value is in
+            the normalized NAME_TO_ALPHA2 or SYNONYM_TO_ALPHA2 views.
         """
         if notation.shape != "name":
             return False
-        upper = notation.value.upper()
-        return upper in NAME_TO_ALPHA2 or upper in SYNONYM_TO_ALPHA2
+        key = normalize_name(notation.value)
+        return key in NAME_TO_ALPHA2_NORMALIZED or key in SYNONYM_TO_ALPHA2_NORMALIZED
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
         """Normalize to canonical country code in requested output format.
 
-        Checks NAME_TO_ALPHA2 first, then falls back to SYNONYM_TO_ALPHA2,
-        then converts to requested output format.
+        Checks the normalized NAME view first, then falls back to the
+        normalized SYNONYM view, then converts to requested output format.
 
         Args:
             notation: Validated notation.
@@ -243,11 +255,11 @@ class SectionNames(Rule[CountryNotation]):
             Country code in the requested output format.
         """
         country_contract = cast(CountryContract, contract)
-        upper = notation.value.upper()
-        if upper in NAME_TO_ALPHA2:
-            alpha2 = NAME_TO_ALPHA2[upper]
+        key = normalize_name(notation.value)
+        if key in NAME_TO_ALPHA2_NORMALIZED:
+            alpha2 = NAME_TO_ALPHA2_NORMALIZED[key]
         else:
-            alpha2 = SYNONYM_TO_ALPHA2[upper]
+            alpha2 = SYNONYM_TO_ALPHA2_NORMALIZED[key]
         fmt = country_contract.output_format
 
         if fmt == "alpha2":

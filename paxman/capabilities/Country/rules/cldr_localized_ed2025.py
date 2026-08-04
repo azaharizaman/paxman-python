@@ -2,10 +2,18 @@
 
 from __future__ import annotations
 
+from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.data.cldr_ed2025 import LOCALIZED_TO_ALPHA2
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
+
+# Normalized localized-name lookup view: keys normalized with the shared
+# Country syntax normalizer so grammar tokens and rule lookups agree; values
+# unchanged.
+LOCALIZED_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): alpha2 for name, alpha2 in LOCALIZED_TO_ALPHA2.items()
+}
 
 PUBLICATION = Provenance(
     authority="Unicode",
@@ -44,12 +52,12 @@ class SectionLocalizedNames(Rule[CountryNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if notation.shape == "name" AND name is in
-            LOCALIZED_TO_ALPHA2.
+            True if notation.shape == "name" AND the normalized name is in
+            the normalized LOCALIZED_TO_ALPHA2 view.
         """
         if notation.shape != "name":
             return False
-        return notation.value in LOCALIZED_TO_ALPHA2
+        return normalize_name(notation.value) in LOCALIZED_TO_ALPHA2_NORMALIZED
 
     def normalize(self, notation: CountryNotation, contract: Contract) -> str:
         """Normalize to canonical alpha-2 code.
@@ -61,4 +69,4 @@ class SectionLocalizedNames(Rule[CountryNotation]):
         Returns:
             Uppercase alpha-2 code.
         """
-        return LOCALIZED_TO_ALPHA2[notation.value]
+        return LOCALIZED_TO_ALPHA2_NORMALIZED[normalize_name(notation.value)]

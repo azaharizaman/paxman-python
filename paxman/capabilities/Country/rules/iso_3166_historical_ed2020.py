@@ -7,7 +7,7 @@ state's code.
 
 SectionHistoricalNames accepts the following input shapes for round-trip
 support:
-- shape="name":   Validates the name against FORMER_NAME_TO_ALPHA2
+- shape="name":   Validates the name against FORMER_NAME_TO_ALPHA2_NORMALIZED
 - shape="alpha2": Validates the code against FORMER_ALPHA2_CODES
                   (enables round-trip: canonicalize("SU") → "SU")
 - shape="numeric": checks FORMER_NUMERIC_TO_ALPHA2 (for round-trip support)
@@ -15,6 +15,7 @@ support:
 
 from __future__ import annotations
 
+from paxman.capabilities.Country.name_normalization import normalize_name
 from paxman.capabilities.Country.notation import CountryNotation
 from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
     FORMER_ALPHA2_CODES,
@@ -32,6 +33,12 @@ def _normalize_numeric_key(value: str) -> str:
     except ValueError:
         return value.upper()
 
+
+# Normalized former-name lookup view: keys normalized with the shared Country
+# syntax normalizer so grammar tokens and rule lookups agree; values unchanged.
+FORMER_NAME_TO_ALPHA2_NORMALIZED: dict[str, str] = {
+    normalize_name(name): code for name, code in FORMER_NAME_TO_ALPHA2.items()
+}
 
 PUBLICATION = Provenance(
     authority="ISO",
@@ -71,7 +78,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
         all is decided by the engine from ``requires_features``.
 
         Accepts multiple shapes:
-        - name:    checks FORMER_NAME_TO_ALPHA2
+        - name:    checks FORMER_NAME_TO_ALPHA2_NORMALIZED
         - alpha2:  checks FORMER_ALPHA2_CODES (for round-trip support)
         - numeric: checks FORMER_NUMERIC_TO_ALPHA2 (for round-trip support)
 
@@ -83,7 +90,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             True if notation is a valid formerly used country.
         """
         if notation.shape == "name":
-            return notation.value.upper() in FORMER_NAME_TO_ALPHA2
+            return normalize_name(notation.value) in FORMER_NAME_TO_ALPHA2_NORMALIZED
 
         if notation.shape == "alpha2":
             return notation.value.upper() in FORMER_ALPHA2_CODES
@@ -104,7 +111,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
             Former alpha-2 code of the historical country.
         """
         if notation.shape == "name":
-            return FORMER_NAME_TO_ALPHA2[notation.value.upper()]
+            return FORMER_NAME_TO_ALPHA2_NORMALIZED[normalize_name(notation.value)]
 
         if notation.shape == "alpha2":
             return notation.value.upper()
