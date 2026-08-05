@@ -120,6 +120,19 @@ class RecognizedRep(Generic[NotationT]):
     end: int
     raw_text: str
 
+    def __post_init__(self) -> None:
+        """Enforce the same span invariants as RecognitionMatch."""
+        if self.start < 0 or self.end < self.start:
+            raise ValueError(
+                f"Invalid span start={self.start}, end={self.end}: "
+                "expected 0 <= start <= end"
+            )
+        if len(self.raw_text) != self.end - self.start:
+            raise ValueError(
+                f"raw_text {self.raw_text!r} length {len(self.raw_text)} "
+                f"does not match span [{self.start}, {self.end})"
+            )
+
     def __hash__(self) -> int:
         """Hash is safe for unhashable notation types like list."""
         notation = self.notation

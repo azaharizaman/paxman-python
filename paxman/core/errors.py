@@ -14,9 +14,16 @@ class CapabilityError(PaxmanError):
 
 
 class RecognitionError(PaxmanError):
-    """Raised when grammar fails to parse input."""
+    """Raised when grammar fails to parse input.
 
-    def __init__(self, rule: str, message: str, original_error: Exception) -> None:
+    ``original_error`` is the underlying exception for failures inside
+    ``Grammar.recognize()``; it is ``None`` for structural failures the
+    engine itself detects (e.g. a malformed match returned by a grammar).
+    """
+
+    def __init__(
+        self, rule: str, message: str, original_error: Exception | None = None
+    ) -> None:
         self.rule = rule
         self.original_error = original_error
         super().__init__(f"[{rule}] {message}")

@@ -132,8 +132,8 @@ class SimpleGrammar(Grammar[EmailNotation]):
             RecognitionMatch(
                 notation=EmailNotation(local_part="user", domain_part="example.com"),
                 start=0,
-                end=16,
-                raw_text="user@example.com",
+                end=len(text),
+                raw_text=text,
             )
         ]
 
@@ -359,8 +359,8 @@ class _PhantomGrammar(Grammar[EmailNotation]):
             RecognitionMatch(
                 notation=EmailNotation(local_part="user", domain_part="example.com"),
                 start=0,
-                end=16,
-                raw_text="user@example.com",
+                end=len(text),
+                raw_text=text,
             )
         ]
 

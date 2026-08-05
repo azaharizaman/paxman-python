@@ -247,6 +247,27 @@ class TestRecognitionSeam:
         ]
 
     @pytest.mark.integration
+    def test_engine_grammar_index_follows_contract_order(self) -> None:
+        """The same-span tiebreak uses contract.active_grammars order.
+
+        Reversing the contract's active grammar order flips the
+        (start, end, index, name) tiebreak at the shared (0,2) span: with
+        contract order [probe_short, probe_long], short's index is 0, so
+        S:AA precedes L:AA — the index follows the CONTRACT's order, not
+        the capability's internal get_grammars() order.
+        """
+        register_capability(_ProbeCapability())
+        result = run_capability(
+            "AA AAAA", _ProbeContract(["probe_short", "probe_long"])
+        )
+
+        assert [c.value for c in result.candidates] == [
+            "S:AA",
+            "L:AA",
+            "L:AAAA",
+        ]
+
+    @pytest.mark.integration
     def test_grammar_emits_span_bearing_matches(self) -> None:
         """The ABC contract: recognize() returns matches with real spans."""
         grammar = _ProbeLongGrammar()

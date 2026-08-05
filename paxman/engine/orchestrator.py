@@ -78,15 +78,21 @@ def _recognize(
 ) -> list[RecognizedRep[Any]]:
     """Run active grammars, dedup contained matches per grammar, and order.
 
-    The engine owns all cross-match policy: containment dedup runs strictly
-    within a single grammar's output (never across grammars, so cross-grammar
-    ambiguity stays observable), and recognitions are emitted in the total
-    order (start, end, active_grammars index, grammar name).
+    Every match is validated against the span contract (bounds within the
+    input, ``raw_text`` equal to the matched slice) before dedup; a grammar
+    returning a malformed match raises ``RecognitionError`` naming the
+    grammar. The engine owns all cross-match policy: containment dedup runs
+    strictly within a single grammar's output (never across grammars, so
+    cross-grammar ambiguity stays observable), and recognitions are emitted
+    in the total order (start, end, active_grammars index, grammar name)
+    where the index follows ``contract.active_grammars`` order.
     """
-    active_grammar_names = set(contract.active_grammars)
     all_grammars = capability.get_grammars()
-    active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
-    grammar_index = {g.name: i for i, g in enumerate(active_grammars)}
+    supported_names = {g.name for g in all_grammars}
+    active_names = [n for n in contract.active_grammars if n in supported_names]
+    grammar_index = {name: i for i, name in enumerate(active_names)}
+    by_name = {g.name: g for g in all_grammars}
+    active_grammars = [by_name[name] for name in active_names]
 
     ordered: list[tuple[int, int, int, str, RecognitionMatch[Any]]] = []
     for grammar in active_grammars:
@@ -98,6 +104,26 @@ def _recognize(
                 message=f"Grammar failed: {exc}",
                 original_error=exc,
             ) from exc
+        for match in matches:
+            if not 0 <= match.start <= match.end <= len(text):
+                raise RecognitionError(
+                    rule=grammar.name,
+                    message=(
+                        f"Grammar '{grammar.name}' returned a match with span "
+                        f"[{match.start}, {match.end}) outside the input "
+                        f"bounds [0, {len(text)}]"
+                    ),
+                )
+            if match.raw_text != text[match.start : match.end]:
+                raise RecognitionError(
+                    rule=grammar.name,
+                    message=(
+                        f"Grammar '{grammar.name}' returned a match whose "
+                        f"raw_text {match.raw_text!r} does not equal "
+                        f"text[{match.start}:{match.end}] = "
+                        f"{text[match.start : match.end]!r}"
+                    ),
+                )
         for match in _dedup_spans(matches):
             ordered.append(
                 (
