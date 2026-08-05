@@ -8,7 +8,8 @@ from paxman.capabilities.ISBN.notation import ISBNNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
 _ISBN10_PATTERN = re.compile(
-    r"\b(?:ISBN(?:-10)?[\s:-]+)?(?=((?:\d[ -]?){9}[0-9Xx])(?![\d]))\1(?<![\s:-])\b",
+    r"(?<!\d)(?<!\d[ -])(?:ISBN(?:-10)?[\s:-]+)?"
+    r"(?=((?:\d[ -]?){9}[0-9Xx])(?![\d]))\1(?<![\s:-])\b",
     re.IGNORECASE,
 )
 

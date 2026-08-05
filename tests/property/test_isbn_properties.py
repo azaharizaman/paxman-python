@@ -63,7 +63,7 @@ def test_isbn13_grammar_recognized_implies_check_digit(text: str) -> None:
     rule = Section53Isbn13CheckDigit()
     contract = ISBNContract()
     for match in grammar.recognize(text):
-        digits = "".join(ch for ch in match.raw_text if ch.isdigit())
+        digits = match.notation.digits
         notation = ISBNNotation(shape="isbn13", digits=digits)
         if rule.matches(notation, contract):
             assert digits[-1] == _check_digit_isbn13(digits[:12])
