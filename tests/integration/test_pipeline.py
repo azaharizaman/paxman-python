@@ -12,6 +12,7 @@ from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.IP.capability import IPCapability
+from paxman.capabilities.ISBN.capability import ISBNCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
@@ -546,6 +547,18 @@ class TestReplayAndCandidateOrder:
                 "192.0.2.1",
                 id="ip-default",
             ),
+            pytest.param(
+                ISBNCapability,
+                lambda: ISBNCapability.create_contract(output_format="hyphenated"),
+                "978-0-11-000222-4",
+                id="isbn-hyphenated",
+            ),
+            pytest.param(
+                ISBNCapability,
+                lambda: ISBNCapability.create_contract(),
+                "0306406152",
+                id="isbn10-default",
+            ),
         ],
     )
     def test_repeated_run_is_byte_identical(
@@ -588,3 +601,138 @@ class TestReplayAndCandidateOrder:
             "tel:+15551234567;ext=890",
             "tel:+15551234567;ext=891",
         }
+
+
+class TestISBNPipeline:
+    """Integration resolution map for the ISBN capability (memo §7.6)."""
+
+    @pytest.mark.integration
+    def test_isbn13_bare_success(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("9780306406157", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780306406157"
+        assert len(result.candidates) >= 1
+
+    @pytest.mark.integration
+    def test_isbn13_hyphenated_success(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("978-0-306-40615-7", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780306406157"
+
+    @pytest.mark.integration
+    def test_isbn13_labeled_success(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("ISBN 9780306406157", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780306406157"
+
+    @pytest.mark.integration
+    def test_isbn10_success(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("0306406152", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780306406157"
+
+    @pytest.mark.integration
+    def test_isbn10_x_folds(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("080442957x", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780804429573"
+
+    @pytest.mark.integration
+    def test_cross_shape_collapse_success(self) -> None:
+        """The ISBN-10 sub-run is contained in the ISBN-13 match; both
+        normalize to the same value, so the result is SUCCESS, never
+        AMBIGUOUS (memo §7.2)."""
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("ISBN 978-0-306-40615-7 and 0-306-40615-2", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780306406157"
+
+    @pytest.mark.integration
+    def test_bad_check_digit_invalid(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("9780306406158", contract)
+
+        assert result.status == Resolution.INVALID
+        assert len(result.candidates) == 0
+
+    @pytest.mark.integration
+    def test_unallocated_range_default_success(self) -> None:
+        """Valid check digit; range rule off by default. Range is a
+        provenance amplifier, not a validity gate."""
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("9789990000009", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9789990000009"
+
+    @pytest.mark.integration
+    def test_unallocated_range_with_validation_success(self) -> None:
+        """Range rule adds no provenance (unallocated) but the check-digit
+        rule still validates."""
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract(include_range_validation=True)
+        result = run_capability("9789990000009", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9789990000009"
+
+    @pytest.mark.integration
+    def test_two_books_ambiguous(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("9780306406157 and 9780201310054", contract)
+
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+        assert {c.value for c in result.candidates} == {
+            "9780306406157",
+            "9780201310054",
+        }
+
+    @pytest.mark.integration
+    def test_missing_yields_missing(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("no isbn here", contract)
+
+        assert result.status == Resolution.MISSING
+        assert len(result.candidates) == 0
+
+    @pytest.mark.integration
+    def test_hyphenated_output_format(self) -> None:
+        """Formatting precedes dedup; the bare value stays the candidate
+        identity."""
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract(output_format="hyphenated")
+        result = run_capability("978-0-11-000222-4", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "978-0-11-000222-4"
+
+    @pytest.mark.integration
+    def test_isbn10_conversion_0849396409(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("0849396409", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780849396403"

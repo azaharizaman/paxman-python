@@ -23,6 +23,7 @@ from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
 )
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.IP.capability import IPCapability
+from paxman.capabilities.ISBN.capability import ISBNCapability
 from paxman.core.capability import Capability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import (
@@ -371,3 +372,55 @@ class TestRealCapabilityGates:
 
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "2001:db8::1"
+
+
+class TestISBNFeatureGates:
+    """Real ISBN gates: range authority keeps INVALID, ISBN-10 grammar keeps MISSING."""
+
+    @pytest.mark.integration
+    def test_isbn_range_pinned_disabled_yields_invalid(self) -> None:
+        """Feature filtering applies after pinning: the pinned range rule is
+        dropped, so no authority validates. Same mechanism as Country
+        historical."""
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract(
+            pinned_rules=("Section 4-registrant-range",),
+            include_range_validation=False,
+        )
+        result = run_capability("9780110002224", contract)
+
+        assert result.status == Resolution.INVALID
+        assert result.canonicalized_value is None
+
+    @pytest.mark.integration
+    def test_isbn_range_pinned_enabled_yields_success(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract(
+            pinned_rules=("Section 4-registrant-range",),
+            include_range_validation=True,
+        )
+        result = run_capability("9780110002224", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780110002224"
+
+    @pytest.mark.integration
+    def test_isbn10_disabled_yields_missing(self) -> None:
+        """Grammar-level gate: only isbn13_recognition active, so nothing is
+        recognized."""
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract(include_isbn10=False)
+        result = run_capability("0306406152", contract)
+
+        assert result.status == Resolution.MISSING
+        assert result.canonicalized_value is None
+        assert len(result.candidates) == 0
+
+    @pytest.mark.integration
+    def test_isbn10_enabled_yields_success(self) -> None:
+        register_capability(ISBNCapability())
+        contract = ISBNCapability.create_contract()
+        result = run_capability("0306406152", contract)
+
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "9780306406157"
