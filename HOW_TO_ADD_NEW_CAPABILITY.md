@@ -160,6 +160,10 @@ import re
 from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.MyDomain.notation import MyDomainNotation
 
+# Compile reusable regexes once at module scope — never per call inside
+# recognize() (runs for every input).
+_PATTERN = re.compile(r"...")  # your pattern
+
 
 class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
     """Standard recognition for the MyDomain capability."""
@@ -172,9 +176,8 @@ class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
         The engine dedups contained matches and orders recognitions; the
         grammar only extracts and emits spans.
         """
-        pattern = re.compile(r"...")  # your pattern
         matches = []
-        for match in pattern.finditer(text):
+        for match in _PATTERN.finditer(text):
             matches.append(
                 RecognitionMatch(
                     notation=MyDomainNotation(...),  # parsed from groups
@@ -189,7 +192,7 @@ class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
 **Grammar design principles:**
 
 - Each grammar should handle one logical format (e.g., "obfuscated email", "IPv6 address")
-- The grammar does syntax only — extraction and separator/case normalization. It does NOT de-duplicate, sort, or validate: the engine owns within-grammar containment dedup ("longer wins") and the total recognition order, and rules own meaning
+- The grammar does syntax only — extraction and separator/case normalization. It does NOT de-duplicate, sort, or validate: the engine owns within-grammar containment dedup ("longer wins", with identical `[start, end)` spans keeping the first-emitted match) and the total recognition order, and rules own meaning
 - A single grammar can return multiple matches if the input contains multiple occurrences
 - Grammar names must be unique within the capability
 - Never import from `rules/` — a grammar that imports a rule would let semantics leak across the pipeline's separation boundary (enforced by the semantic purity gate)

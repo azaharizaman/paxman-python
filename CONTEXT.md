@@ -94,6 +94,10 @@ PUBLICATION = Provenance(
     publication_year=2008,
 )
 
+# Patterns compiled once at module scope, not per match call.
+_LOCAL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+$")
+_DOMAIN_PATTERN = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
 
 class Section341AddrSpec(Rule[EmailNotation]):
     """RFC 5322 Section 3.4.1 - addr-spec"""
@@ -105,11 +109,9 @@ class Section341AddrSpec(Rule[EmailNotation]):
 
     def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         """Check if notation matches addr-spec pattern."""
-        local_pattern = r"^[a-zA-Z0-9._%+-]+$"
-        domain_pattern = r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
         return bool(
-            re.match(local_pattern, notation.local_part)
-            and re.match(domain_pattern, notation.domain_part)
+            _LOCAL_PATTERN.match(notation.local_part)
+            and _DOMAIN_PATTERN.match(notation.domain_part)
         )
 
     def normalize(self, notation: EmailNotation, contract: Contract) -> str:
@@ -199,6 +201,11 @@ import re
 from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.Email.notation import EmailNotation
 
+# Pattern compiled once at module scope, not per recognize() call.
+_STANDARD_EMAIL_PATTERN = re.compile(
+    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+)
+
 
 class StandardEmailGrammar(Grammar[EmailNotation]):
     """Standard email recognition: user@domain.tld"""
@@ -207,7 +214,6 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         """Extract span-bearing email matches from text."""
-        pattern = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
         return [
             RecognitionMatch(
                 notation=EmailNotation(
@@ -218,7 +224,7 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
                 end=match.end(),
                 raw_text=match.group(0),
             )
-            for match in pattern.finditer(text)
+            for match in _STANDARD_EMAIL_PATTERN.finditer(text)
         ]
 ```
 

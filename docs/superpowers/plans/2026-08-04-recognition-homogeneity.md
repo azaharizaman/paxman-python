@@ -15,7 +15,7 @@ This deletes the four divergent mechanisms found in the research memo (`docs/rep
 
 ## Architecture
 
-```
+```text
 Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
                                      │
         engine._recognize(): per-grammar _dedup_spans()  (contained spans dropped, longer wins)
@@ -30,6 +30,7 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
 ```
 
 **Responsibility split (the invariant):**
+
 | Concern | Owner |
 |---|---|
 | Produce notations + their spans | Grammar (per-match position) |
@@ -44,7 +45,7 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
 ## Tech Stack
 
 - Python 3.11, `uv` (run everything through `uv run`)
-- `pytest` (1005-test suite), markers: `unit`, `capability`, `integration`, `e2e`, `property`
+- `pytest` (full test suite), markers: `unit`, `capability`, `integration`, `e2e`, `property`
 - `pyright` strict, `ruff` (E/W/F/I/N/UP/B/SIM), `import-linter`, `hypothesis`
 - Test-only probe capabilities follow the house pattern in `tests/integration/test_format_value_seam.py` (in-file classes, `_clean_registry` fixture, `run_capability()`).
 
@@ -523,11 +524,12 @@ def _recognize(
     ambiguity stays observable), and recognitions are emitted in the total
     order (start, end, active_grammars index, grammar name).
     """
-    active_grammar_names = set(contract.active_grammars)
     all_grammars = capability.get_grammars()
-    active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
-    grammar_index = {g.name: i for i, g in enumerate(active_grammars)}
-
+    supported_names = {g.name for g in all_grammars}
+    active_names = [n for n in contract.active_grammars if n in supported_names]
+    by_name = {g.name: g for g in all_grammars}
+    active_grammars = [by_name[n] for n in active_names]
+    grammar_index = {name: i for i, name in enumerate(active_names)}
     ordered: list[tuple[int, int, int, str, RecognitionMatch[Any]]] = []
     for grammar in active_grammars:
         try:
@@ -538,6 +540,26 @@ def _recognize(
                 message=f"Grammar failed: {exc}",
                 original_error=exc,
             ) from exc
+        for match in matches:
+            if not 0 <= match.start <= match.end <= len(text):
+                raise RecognitionError(
+                    rule=grammar.name,
+                    message=(
+                        f"Grammar '{grammar.name}' returned a match with span "
+                        f"[{match.start}, {match.end}) outside the input "
+                        f"bounds [0, {len(text)}]"
+                    ),
+                )
+            if match.raw_text != text[match.start : match.end]:
+                raise RecognitionError(
+                    rule=grammar.name,
+                    message=(
+                        f"Grammar '{grammar.name}' returned a match whose "
+                        f"raw_text {match.raw_text!r} does not equal "
+                        f"text[{match.start}:{match.end}] = "
+                        f"{text[match.start : match.end]!r}"
+                    ),
+                )
         for match in _dedup_spans(matches):
             ordered.append(
                 (
@@ -1086,16 +1108,16 @@ Add a span test per grammar:
                 )
             )
         for match in _IPV6_COMPRESSED.finditer(text):
-            for group in match.groups():
-                if group is not None:
-                    matches.append(
-                        RecognitionMatch(
-                            notation=IPNotation(address=group),
-                            start=match.start(),
-                            end=match.end(),
-                            raw_text=group,
-                        )
-                    )
+            # Boundary assertions are zero-width and each alternation branch
+            # has one capture group, so the full match text IS the address.
+            matches.append(
+                RecognitionMatch(
+                    notation=IPNotation(address=match.group(0)),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
         return matches
 ```
 
@@ -1190,17 +1212,21 @@ from paxman.capabilities.Phone.grammar.common import strip_separators
             List of RecognitionMatches; notation.value is the digit-only
             number (leading "+" and separators removed).
         """
-        return [
-            RecognitionMatch(
-                notation=PhoneNotation(
-                    shape="e164", value=strip_separators(match.group(0), plus=True)
-                ),
-                start=match.start(),
-                end=match.end(),
-                raw_text=match.group(0),
+        matches: list[RecognitionMatch[PhoneNotation]] = []
+        for match in _E164_PATTERN.finditer(text):
+            raw_text = _trim_to_e164_boundary(match.group(0))
+            matches.append(
+                RecognitionMatch(
+                    notation=PhoneNotation(
+                        shape="e164",
+                        value=strip_separators(raw_text, plus=True),
+                    ),
+                    start=match.start(),
+                    end=match.start() + len(raw_text),
+                    raw_text=raw_text,
+                )
             )
-            for match in _E164_PATTERN.finditer(text)
-        ]
+        return matches
 ```
 
 `international_00_recognition.py`:
@@ -1392,6 +1418,10 @@ import re
 from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.MyDomain.notation import MyDomainNotation
 
+# Compile reusable regexes once at module scope — never per call inside
+# recognize() (runs for every input).
+_PATTERN = re.compile(r"...")  # your pattern
+
 
 class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
     """Standard recognition for the MyDomain capability."""
@@ -1404,9 +1434,8 @@ class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
         The engine dedups contained matches and orders recognitions; the
         grammar only extracts and emits spans.
         """
-        pattern = re.compile(r"...")  # your pattern
         matches = []
-        for match in pattern.finditer(text):
+        for match in _PATTERN.finditer(text):
             matches.append(
                 RecognitionMatch(
                     notation=MyDomainNotation(...),  # parsed from groups
@@ -1480,7 +1509,7 @@ Green. Commit.
 uv run ruff format . && uv run ruff check .          # no violations
 uv run pyright                                        # strict, no errors
 uv run lint-imports                                   # import boundaries clean
-uv run pytest -q                                      # FULL 1005-test suite, 0 failures
+uv run pytest -q                                      # FULL test suite, 0 failures
 uv run pytest tests/integration/test_default_replay_hashes.py -q   # 5/5 — hashes byte-identical
 ```
 

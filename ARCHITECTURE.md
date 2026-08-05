@@ -31,10 +31,11 @@ and the matched `raw_text`. The grammar produces positions; the engine owns
 all cross-match policy:
 
 - **Containment dedup (per grammar):** a match fully contained in a longer
-  match from the SAME grammar is dropped ("longer wins"). Dedup never runs
-  across grammars, so two grammars agreeing on the same span (e.g. US vs
-  European date reading of `01/02/2026`) are both preserved and ambiguity
-  stays observable.
+  match from the SAME grammar is dropped ("longer wins"). Matches from the
+  same grammar with identical `[start, end)` spans keep the first-emitted
+  match. Dedup never runs across grammars, so two grammars agreeing on the
+  same span (e.g. US vs European date reading of `01/02/2026`) are both
+  preserved and ambiguity stays observable.
 - **Ordering:** recognitions are emitted in the total order
   `(start, end, active_grammars index, grammar name)`, i.e. document order.
 - **Candidate dedup** (`value, recognition_rule, validation_rule`) runs
