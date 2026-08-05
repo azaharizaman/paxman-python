@@ -1,0 +1,74 @@
+# Paxman Capability Milestones
+
+> **Purpose:** Roadmap guidance for capabilities to bring into Paxman, ordered by priority.
+> This table is a planning aid — details need not be exactly accurate in terms of implementation.
+> Existing capabilities (Email, Date, Country, IP, Phone) are excluded.
+
+---
+
+## Priority-ordered Capability Roadmap
+
+| # | Capability | Why this capability? | Grammar strategy | Provenance publications | Example input → canonical_value |
+|---|-----------|---------------------|------------------|------------------------|-------------------------------|
+| 1 | **Currency** | Financial data, e-commerce, and reporting systems constantly encounter currency representations ("USD", "usd", "US Dollar", "$"). ISO 4217 provides a stable, authoritative registry of 180+ currency codes. | LOOKUP_TABLE (alpha-3 code lookup + symbol-to-code mapping) | ISO 4217:2015, ISO 4217 Amendment 17 | "US$" → "USD", "euro" → "EUR", "GBP" → "GBP" |
+| 2 | **Language** | Multilingual systems need to normalize language identifiers ("en", "English", "fr_FR", "German") to a standard code. ISO 639 (parts 1/2/3) provides the authoritative registry. | LOOKUP_TABLE (alpha-2/alpha-3/term-name lookup + BCP 47 tag assembly) | ISO 639-1:2002, ISO 639-2:1998, ISO 639-3:2007, IANA Language Subtag Registry (BCP 47) | "German" → "de", "fr_FR" → "fr-FR", "eng" → "en" |
+| 3 | **Timezone** | User-facing dates/times are almost always expressed in ambiguous local names ("EST", "CET", "US/Eastern", "UTC+5"). The IANA tz database is the de-facto global standard. | PARSER (offset parser for ±HH:MM, lookup for named zones, abbreviation disambiguation) | IANA tz database, RFC 8536, CLDR timezone data | "EST" → "America/New_York", "UTC+5:30" → "Asia/Kolkata", "CET" → "Europe/Berlin" |
+| 4 | **URL / URI** | URLs appear everywhere in user input and need canonicalization (scheme lowercase, default port removal, percent-encoding normalization, dot-segment removal). RFC 3986 defines the grammar. | PARSER (RFC 3986 parser + normalization pass: scheme lowercase, host lowercase, default port stripping, percent-encoding to uppercase hex) | RFC 3986 (URI), RFC 3987 (IRI), WHATWG URL Standard | "HTTPS://Example.COM:443/path/../other" → "https://example.com/other" |
+| 5 | **UUID** | Universally unique identifiers appear in logs, APIs, and data pipelines in many formats (with/without hyphens, braces, uppercase, urn:uuid: prefix). RFC 4122 defines the canonical form. | PARSER (strip braces/urn prefix, insert hyphens at fixed positions, lowercase) | RFC 4122, DCE 1.1: Authentication and Security Services | "urn:uuid:6ba7b810-9dad-11d1-80b4-00c04fd430c8" → "6ba7b810-9dad-11d1-80b4-00c04fd430c8", "{550e8400-e29b-41d4-a716-446655440000}" → "550e8400-e29b-41d4-a716-446655440000" |
+| 6 | **Domain name / IDN** | Internationalized domain names (IDN) mix Unicode and ASCII punycode representations. RFC 5890/5891 (IDNA) and RFC 1034/1035 define canonicalization (lowercase, punycode encoding, trailing dot). | PARSER (lowercase, punycode-encode Unicode labels via IDNA 2008, strip trailing dot, remove dot-segments) | RFC 1034, RFC 1035, RFC 5890 (IDNA 2008), RFC 5891, IANA Root Zone Database | "Example.COM" → "example.com", "münchen.de" → "xn--mnchen-3ya.de", "www.example.com." → "www.example.com" |
+| 7 | **MIME media type** | Content-Type headers and file metadata use MIME types in inconsistent casing ("Text/Plain", "TEXT/HTML", "application/json"). IANA maintains the authoritative registry. | LOOKUP_TABLE (case-insensitive lookup in IANA registry, canonicalize to lowercase type/subtype) | IANA Media Types registry, RFC 6838, RFC 2045 (MIME) | "Text/Plain" → "text/plain", "APPLICATION/JSON" → "application/json", "image/jpg" → "image/jpeg" |
+| 8 | **Character encoding** | Text encoding names are wildly inconsistent ("utf-8", "UTF8", "unicode", "latin1", "ISO-8859-1"). The IANA charset registry provides canonical names. | LOOKUP_TABLE (case-insensitive lookup in IANA charset registry, alias resolution) | IANA Character Sets registry, RFC 6365, WHATWG Encoding Standard | "UTF8" → "utf-8", "latin1" → "iso-8859-1", "unicode" → "utf-8" |
+| 9 | **ISBN** | Book identifiers appear in bibliographic data in ISBN-10 and ISBN-13 forms, with or without hyphens/check digits. ISO 2108 provides the standard. | PARSER (strip hyphens/spaces, validate check digit, convert ISBN-10 → ISBN-13 via 978 prefix + recalculated check) | ISO 2108:2007, ISO 2108 Amendment 1 | "978-0-14-044913-6" → "9780140449136", "0-14-044913-2" → "9780140449136", "140449132" → "9780140449136" |
+| 10 | **ISSN** | Serial publications use ISSNs (8-digit, hyphenated). ISO 3297 defines the standard. | PARSER (strip hyphens/spaces, validate check digit, output uppercase X if needed) | ISO 3297:2007, ISSN Register (ISSN International Centre) | "1234-5678" → "12345678", "0024-9319" → "00249319" |
+| 11 | **DOI** | Digital Object Identifiers appear in academic and publishing contexts with varying prefixes ("doi:", "DOI:", "10.xxxx/..."). ISO 26324 defines the syntax. | PARSER (strip "doi:" prefix, lowercase, validate handle syntax) | ISO 26324:2012, DOI Handbook (IDF), Handle System (CNRI) | "doi:10.1000/xyz123" → "10.1000/xyz123", "DOI:10.1038/nature12345" → "10.1038/nature12345" |
+| 12 | **MAC address** | Media Access Control addresses appear in network data in multiple formats (colon-separated, hyphen-separated, Cisco dotted, no separators). IEEE 802 defines the EUI-48 and EUI-64 formats. | PARSER (strip separators, lowercase, reformat to canonical colon-separated or hyphenated form) | IEEE 802 (MAC Address), IEEE OUI Registry, RFC 7042 | "00:1A:2B:3C:4D:5E" → "00:1a:2b:3c:4d:5e", "001A.2B3C.4D5E" → "00:1a:2b:3c:4d:5e", "00-1A-2B-3C-4D-5E" → "00:1a:2b:3c:4d:5e" |
+| 13 | **HTTP header name** | HTTP headers in user-facing data appear with inconsistent casing ("Content-Type", "content-type", "CONTENT-TYPE"). RFC 9110 defines field-name normalization. | PARSER (lowercase, preserve hyphens) | RFC 9110 (HTTP Semantics), RFC 9111 (HTTP Caching) | "Content-Type" → "content-type", "X-Custom-Header" → "x-custom-header", "ACCEPT-ENCODING" → "accept-encoding" |
+| 14 | **Unicode normalization** | Text with combining characters, compatibility equivalents, or different normalizations of the same visual string needs canonical form. Unicode UAX #15 defines NFC/NFD/NFKC/NFKD. | PARSER (apply NFC normalization, strip combining marks for NFD comparison) | Unicode UAX #15 (Unicode Normalization Forms), Unicode Standard Annex #15 | "é" (e + combining acute) → "é" (NFC), "ﬁ" (ligature) → "fi" (NFKC) |
+| 15 | **IBAN** | International Bank Account Numbers appear in financial data with spaces, uppercase/lowercase, and country-code prefixes. ISO 13616 (ECBS) defines the standard. | PARSER (strip spaces, uppercase, validate check digits via mod-97, reformat with space-separated groups) | ISO 13616:2020, ECBS IBAN Registry, SWIFT IBAN Registry | "DE89 3704 0044 0532 0130 00" → "DE89370400440532013000", "gb29 nwbk 6016 1331 9268 19" → "GB29NWBK60161331926819" |
+| 16 | **BIC / SWIFT** | Bank Identifier Codes appear in financial messaging. ISO 9362 defines the standard. | PARSER (uppercase, strip spaces, validate length 8 or 11) | ISO 9362:2014, SWIFT BIC Registry | "bic: DEUTDEFF" → "DEUTDEFF", "NTSBGSFX" → "NTSBGSFX" |
+| 17 | **ISIN** | International Securities Identification Numbers for financial instruments. ISO 6166 defines the standard. | PARSER (strip spaces, uppercase, validate check digit) | ISO 6166:2021, ANNA (Association of National Numbering Agencies) | "US0378331005" → "US0378331005", "US 037833 1005" → "US0378331005" |
+| 18 | **LEI** | Legal Entity Identifiers for financial entities. ISO 17442 defines the standard. | PARSER (uppercase, strip spaces, validate 20-character alphanumeric with LOU prefix) | ISO 17442:2012, GLEIF (Global LEI Foundation) Registry | "5493001KJTIIGC8Y1R12" → "5493001KJTIIGC8Y1R12", "5493 001K JTII GC8Y 1R12" → "5493001KJTIIGC8Y1R12" |
+| 19 | **Credit card number** | Payment card numbers (PAN) follow ISO/IEC 7812 with a Luhn check digit. Multiple formats exist (spaced, dashed, continuous). | PARSER (strip separators, validate Luhn check digit, reformat with space-separated groups) | ISO/IEC 7812-1:2017, Luhn algorithm (ISO/IEC 7812-1), EMVCo specifications | "4111-1111-1111-1111" → "4111 1111 1111 1111", "4111 1111 1111 1111" → "4111 1111 1111 1111" |
+| 20 | **SPDX license** | Open-source license identifiers in SPDX format ("MIT", "MIT License", "MIT-0", "Apache-2.0") need normalization to the SPDX short identifier. SPDX License List is the authoritative source. | LOOKUP_TABLE (case-insensitive lookup in SPDX License List, resolve alternative names and deprecated IDs) | SPDX License List (spdx.org/licenses), SPDX Specification v2.3 | "MIT License" → "MIT", "Apache-2.0" → "Apache-2.0", "MIT-0" → "MIT-0", "GPLv3" → "GPL-3.0-only" |
+| 21 | **Semantic version** | Software version strings follow semver.org spec with varying prefixes ("v1.0.0", "1.0", "1.0.0-beta.1"). The SemVer 2.0.0 spec defines canonical form. | PARSER (strip "v" prefix, normalize pre-release/build metadata, ensure three-part version) | SemVer 2.0.0 (semver.org) | "v1.0.0" → "1.0.0", "1.0" → "1.0.0", "1.0.0-beta.1" → "1.0.0-beta.1", "VERSION 2.3.4" → "2.3.4" |
+| 22 | **Chemical element** | Scientific data uses element names, symbols, and atomic numbers interchangeably. IUPAC is the authoritative body. | LOOKUP_TABLE (name → symbol → atomic number, case-insensitive name matching) | IUPAC Periodic Table of the Elements, IUPAC Nomenclature of Inorganic Chemistry (Red Book) | "Iron" → "Fe", "fe" → "Fe", "Gold" → "Au", "Al" → "Al", "Carbon" → "C" |
+| 23 | **SI unit** | Scientific and engineering data uses units with inconsistent symbols and prefixes ("kg", "Kilogram", "K", "kelvin", "MHz", "megahertz"). The SI brochure (BIPM) defines canonical symbols. | LOOKUP_TABLE (unit name/symbol/prefix lookup, case-sensitive canonical symbols) | BIPM SI Brochure (9th edition, 2019), IEC 80000-1, ISO 80000 | "Kilogram" → "kg", "Kelvin" → "K", "megahertz" → "MHz", "m/s²" → "m/s2", "km/h" → "km/h" |
+| 24 | **TLD (top-level domain)** | Internet domain suffixes appear in user input with or without the dot, in mixed case. IANA maintains the authoritative root zone database. | LOOKUP_TABLE (case-insensitive lookup in IANA root zone, output lowercase with leading dot) | IANA Root Zone Database, RFC 1591, ICANN TLD List | ".COM" → ".com", "example.COM" → "example.com", "org" → ".org" |
+| 25 | **Color name (CSS)** | Web and design data use color names inconsistently ("Red", "red", "RED", "Aqua" vs "Cyan"). W3C CSS Color Module 4 defines the named-color keyword set. | LOOKUP_TABLE (case-insensitive lookup in CSS named colors, output lowercase hex) | W3C CSS Color Module Level 4, SVG 1.1 Color Keywords | "Red" → "#ff0000", "Aqua" → "#00ffff", "LightBlue" → "#add8e6", "WHITE" → "#ffffff" |
+| 26 | **HTML tag name** | HTML markup in user content uses mixed case tag names ("DIV", "div", "Div"). WHATWG HTML standard defines lowercase tag names. | PARSER (lowercase tag name, strip angle brackets) | WHATWG HTML Living Standard, HTML5.3, W3C HTML5.2 | "<DIV>" → "div", "<Br />" → "br", "<Section>" → "section" |
+| 27 | **Postal code** | Postal/ZIP codes appear in address data in inconsistent formats ("10001", "10001-1234", "SW1A 1AA"). No single global standard exists, but UPU S42 and national postal authorities provide structure. | PARSER (strip spaces/hyphens, uppercase for UK-style, preserve leading zeros for US ZIP+4) | UPU S42 (Addressing Standards), USPS Publication 28, Royal Mail Postcode Directory, Canada Post Format Guide | "10001-1234" → "10001-1234", "SW1A 1AA" → "SW1A1AA", "K1A 0B1" → "K1A0B1" |
+| 28 | **Geographic coordinate** | Coordinates appear in multiple formats (decimal degrees, DMS, UTM). ISO 6709 defines a standard representation. | PARSER (parse DMS notation, convert to decimal degrees, normalize to ±DD.DDDD format) | ISO 6709:2008, IHO S-57 (maritime), GeoJSON RFC 7946 | "40°26'46\"N 79°58'56\"W" → "+40.4461 -079.9822", "40.4461, -79.9822" → "+40.4461 -079.9822" |
+| 29 | **ORCID** | Open Researcher and Contributor IDs appear in academic profiles. ISO 27729 defines the format. | PARSER (strip "https://orcid.org/" prefix, strip dashes, validate 16-digit check digit, output with dashes) | ISO 27729:2012, ORCID Registry (orcid.org) | "https://orcid.org/0000-0002-1825-0097" → "0000-0002-1825-0097", "0000000218250097" → "0000-0002-1825-0097" |
+| 30 | **Language tag (BCP 47)** | Language tags in user data mix script, region, and variant subtags inconsistently ("en-US", "EN_us", "zh-Hans-CN"). BCP 47 / RFC 5646 defines canonical form. | PARSER (lowercase primary tag, uppercase region subtag, canonicalize script subtags, sort variant/extension subtags) | RFC 5646 (BCP 47), IANA Language Subtag Registry, Unicode CLDR | "EN_us" → "en-US", "zh-Hans-CN" → "zh-Hans-CN", "sl-nedis" → "sl-nedis", "i-cherokee" → "chr" |
+
+---
+
+## Priority Rationale
+
+Capabilities are ordered by a combination of:
+
+1. **Ambiguity frequency** — how often real-world input varies for the same canonical value
+2. **Authoritative provenance strength** — stability and accessibility of the governing specification/registry
+3. **Data surface area** — how commonly the domain appears in user-generated and machine-generated data
+4. **Implementation simplicity** — whether the canonicalization rule is deterministic and well-defined
+
+---
+
+## Excluded Domains (already built)
+
+| Capability | Status |
+|-----------|--------|
+| Email | Built (RFC 5322, RFC 6761) |
+| Date | Built (ISO 8601, US federal, EN 50160) |
+| Country | Built (ISO 3166, CLDR) |
+| IP | Built (RFC 791, RFC 5952) |
+| Phone | Built (ITU-T E.164, RFC 3966, NANP) |
+
+---
+
+## Notes
+
+- All capabilities are listed as **guidance only** — implementation details (grammar count, rule count, contract parameters) are not specified and may change.
+- Provenance publications are the primary authoritative sources; secondary references (CLDR, WHATWG, etc.) are listed where they provide the practical canonicalization rules.
+- Some domains (e.g., Postal code, Color name) have regional or vendor-specific variations that may require capability-specific contract parameters (e.g., `country` for postal codes).
+- The "grammar strategy" column uses Paxman's internal terminology: **REGEX** (pattern matching), **LOOKUP_TABLE** (table-driven validation), **PARSER** (value parsing and transformation).

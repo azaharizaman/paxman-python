@@ -47,6 +47,6 @@ paxman/capabilities/
 - No additions to `__init__.py` without matching `__all__` — the export list is the registration surface.
 
 ## NOTES
-- **Known drift**: `__init__.py` exports Country, Date, Email, ISBN, Phone — **IP is missing**; import from `paxman.capabilities.IP.capability` directly. Not test-enforced.
+- `__init__.py` exports all six capabilities (Country, Date, Email, IP, ISBN, Phone); completeness is enforced by `tests/unit/test_capability_exports.py`.
 - `__init__.py` acronym aliases (`ISBNCapability as ISBN`) trip N814; covered by the scoped per-file-ignore in pyproject — don't add inline `# noqa`.
 - Root AGENTS.md is authoritative for pipeline flow, domain objects, and quality gates; this file adds only capability-package specifics.

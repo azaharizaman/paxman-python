@@ -85,7 +85,7 @@ uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data mod
 Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-linter lint && pytest`
 
 ## NOTES
-- `paxman/capabilities/__init__.py` exports Country, Date, Email, ISBN, Phone — **IP is missing** (import from `paxman.capabilities.IP.capability` directly). Known drift, not test-enforced.
+- `paxman/capabilities/__init__.py` exports all six capabilities (Country, Date, Email, IP, ISBN, Phone); export completeness is enforced by `tests/unit/test_capability_exports.py`.
 - CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Phone.
 - No `pyrightconfig.json` — pyright config is inline `[tool.pyright]` in pyproject.toml. No `.editorconfig`.
 - Generated data modules live under `rules/data/` (Country, Phone, ISBN); ISBN keeps an XML source snapshot next to the generated `.py`.
