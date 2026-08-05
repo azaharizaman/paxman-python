@@ -33,6 +33,7 @@ markers = [
     "e2e: end-to-end tests",
     "property: property-based tests (Hypothesis)",
     "country: country capability tests",
+    "isbn: isbn capability tests",
 ]
 testpaths = ["tests"]
 
@@ -76,6 +77,10 @@ select = [
 # config exception is used instead. N801-only; does not suppress other rules.
 "paxman/capabilities/Phone/rules/*.py" = ["N801"]
 "tests/capabilities/phone/*.py" = ["N801"]
+# All-caps acronym aliases (ISBNCapability as ISBN) trip N814 by design.
+# Inline `# noqa` is prohibited in this project's source, so a scoped
+# config exception is used instead. N814-only; does not suppress other rules.
+"paxman/capabilities/__init__.py" = ["N814"]
 
 [tool.pyright]
 pythonVersion = "3.11"

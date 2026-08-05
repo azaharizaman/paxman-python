@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from paxman.capabilities import Email, Phone
+from paxman.capabilities import Email, ISBN, Phone
 
 
 class TestCapabilityExports:
@@ -29,3 +29,15 @@ class TestPhoneCapabilityExports:
     def test_phone_capability_name(self) -> None:
         """Phone capability has correct name."""
         assert Phone.name == "phone"
+
+
+class TestISBNCapabilityExports:
+    @pytest.mark.unit
+    def test_isbn_capability_importable(self) -> None:
+        """ISBN capability is importable from paxman.capabilities."""
+        assert ISBN is not None
+
+    @pytest.mark.unit
+    def test_isbn_capability_name(self) -> None:
+        """ISBN capability has correct name."""
+        assert ISBN.name == "isbn"
