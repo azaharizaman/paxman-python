@@ -2,15 +2,12 @@
 
 Space, dash, dot, and parentheses are the separators every Phone grammar
 tolerates inside a number. ``strip_separators`` normalizes a raw match to
-digit-only text, and ``dedup`` collapses duplicate notations so the same
-number written in different formats yields a single candidate.
+digit-only text. Grammar-level value dedup was removed in the recognition-
+homogeneity migration: the engine dedups contained matches by span and
+identical candidates by value.
 """
 
 from __future__ import annotations
-
-from collections.abc import Iterable
-
-from paxman.capabilities.Phone.notation import PhoneNotation
 
 # Digits are preserved; space, dash, dot, and parentheses are removed.
 _SEPARATORS = str.maketrans("", "", " ().-")
@@ -31,22 +28,3 @@ def strip_separators(value: str, *, plus: bool = False) -> str:
     if plus:
         return value.translate(_SEPARATORS_WITH_PLUS)
     return value.translate(_SEPARATORS)
-
-
-def dedup(notations: Iterable[PhoneNotation]) -> list[PhoneNotation]:
-    """Drop duplicate notations, preserving first-seen order.
-
-    Args:
-        notations: Notations produced by a grammar's matcher.
-
-    Returns:
-        The notations with duplicates (same ``as_list()`` tuple) removed.
-    """
-    results: list[PhoneNotation] = []
-    seen: set[tuple[str, ...]] = set()
-    for notation in notations:
-        key = tuple(notation.as_list())
-        if key not in seen:
-            seen.add(key)
-            results.append(notation)
-    return results

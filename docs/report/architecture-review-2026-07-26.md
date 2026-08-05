@@ -84,9 +84,11 @@ Parameterized `Grammar` and `Rule` ABCs with unbounded `TypeVar("NotationT")` â€
 ```python
 NotationT = TypeVar("NotationT")
 
+
 class Grammar(ABC, Generic[NotationT]):
     @abstractmethod
     def recognize(self, text: str) -> list[NotationT]: ...
+
 
 class Rule(ABC, Generic[NotationT]):
     @abstractmethod

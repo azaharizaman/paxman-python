@@ -98,6 +98,7 @@ The interface is declared as a Protocol for tooling:
 ```python
 class NumberValidationModule(Protocol):
     """Minimal interface for a number validation module."""
+
     def compact(self, number: str) -> str: ...
     def validate(self, number: str) -> str: ...
     def is_valid(self, number: str) -> bool: ...
@@ -111,7 +112,8 @@ A representative module (IMEI) shows the four-layer split:
 def compact(number: str) -> str:
     """Convert the IMEI number to the minimal representation. This strips the
     number of any valid separators and removes surrounding whitespace."""
-    return clean(number, ' -').strip().upper()
+    return clean(number, " -").strip().upper()
+
 
 def validate(number: str) -> str:
     """Check if the number provided is a valid IMEI (or IMEISV) number."""
@@ -124,13 +126,15 @@ def validate(number: str) -> str:
         raise InvalidLength()
     return number
 
+
 def is_valid(number: str) -> bool:
     try:
         return bool(validate(number))
     except ValidationError:
         return False
 
-def format(number: str, separator: str = '-', add_check_digit: bool = False) -> str:
+
+def format(number: str, separator: str = "-", add_check_digit: bool = False) -> str:
     """Reformat the number to the standard presentation format."""
     number = compact(number)
     ...
@@ -143,13 +147,13 @@ separator characters (and, in the full source, folds Unicode punctuation
 variants such as dash forms into their ASCII counterparts):
 
 ```python
-def clean(number: str, deletechars: str = '') -> str:
+def clean(number: str, deletechars: str = "") -> str:
     """Remove the specified characters from the supplied number.
     >>> clean('123-456:78 9', ' -:')
     '123456789'
     """
     number = _clean_chars(number)
-    return ''.join(x for x in number if x not in deletechars)
+    return "".join(x for x in number if x not in deletechars)
 ```
 
 ([stdnum/util.py](https://github.com/arthurdejong/python-stdnum/blob/7662137d48daddf3e6f0e79a69d24197c9761d1c/stdnum/util.py#L177-L197))
@@ -211,6 +215,7 @@ class PhoneNumberMatch(UnicodeMixin):
     >>> text[m.start:m.end]
     '+1 425 882-8080'
     """
+
     def __init__(self, start, raw_string, numobj):
         self.start = start
         self.raw_string = raw_string
@@ -229,8 +234,10 @@ def _find(self, index):
     match = _PATTERN.search(self.text, index)
     while self._max_tries > 0 and match is not None:
         start = match.start()
-        candidate = self.text[start:match.end()]
-        candidate = self._trim_after_first_match(_SECOND_NUMBER_START_PATTERN, candidate)
+        candidate = self.text[start : match.end()]
+        candidate = self._trim_after_first_match(
+            _SECOND_NUMBER_START_PATTERN, candidate
+        )
         candidate_len = len(candidate)
         if candidate_len >= self._min_candidate_length:
             match = self._extract_match(candidate, start)
@@ -257,7 +264,7 @@ def has_next(self):
         else:
             self._search_index = self._last_match.end
             self._state = PhoneNumberMatcher._READY
-    return (self._state == PhoneNumberMatcher._READY)
+    return self._state == PhoneNumberMatcher._READY
 ```
 
 ([python/phonenumbers/phonenumbermatcher.py](https://github.com/daviddrysdale/python-phonenumbers/blob/5fc931803851ba2bab06701a55ece3a698cf44a7/python/phonenumbers/phonenumbermatcher.py#L701-L711))
@@ -270,6 +277,7 @@ pattern check. The reason ladder is explicit:
 ```python
 class ValidationResult(object):
     """Possible outcomes when testing if a PhoneNumber is a possible number."""
+
     IS_POSSIBLE = 0
     INVALID_COUNTRY_CODE = 1
     TOO_SHORT = 2
@@ -356,7 +364,9 @@ Lark defines a strict, documented tie-break order for tokens, and implements it
 as a single deterministic sort:
 
 ```python
-terminals.sort(key=lambda x: (-x.priority, -x.pattern.max_width, -len(x.pattern.value), x.name))
+terminals.sort(
+    key=lambda x: (-x.priority, -x.pattern.max_width, -len(x.pattern.value), x.name)
+)
 ```
 
 ([lark/lexer.py](https://github.com/lark-parser/lark/blob/240d4bcd3e207c7ed1cebd9908be41150c3ea1ab/lark/lexer.py#L629))

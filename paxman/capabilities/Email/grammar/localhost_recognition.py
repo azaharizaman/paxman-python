@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Email.notation import EmailNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 _LOCALHOST_PATTERN = re.compile(
     r"\b([A-Za-z0-9._%+-]+)@localhost(?::\d+)?(?:(?=[\s,;()]|$)|\.(?=\s|$))",
@@ -18,9 +18,17 @@ class LocalhostEmailGrammar(Grammar[EmailNotation]):
 
     name = "localhost_recognition"
 
-    def recognize(self, text: str) -> list[EmailNotation]:
-        matches = _LOCALHOST_PATTERN.findall(text)
-        return [
-            EmailNotation(local_part=match, domain_part="localhost")
-            for match in matches
-        ]
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
+        matches: list[RecognitionMatch[EmailNotation]] = []
+        for match in _LOCALHOST_PATTERN.finditer(text):
+            matches.append(
+                RecognitionMatch(
+                    notation=EmailNotation(
+                        local_part=match.group(1), domain_part="localhost"
+                    ),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
+        return matches

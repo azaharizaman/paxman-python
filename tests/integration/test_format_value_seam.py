@@ -17,7 +17,14 @@ import pytest
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
 from paxman.core.discovery import register_capability, reset_registry
-from paxman.core.domain import Grammar, Provenance, Resolution, Rule, RuleStrategy
+from paxman.core.domain import (
+    Grammar,
+    Provenance,
+    RecognitionMatch,
+    Resolution,
+    Rule,
+    RuleStrategy,
+)
 from paxman.engine.orchestrator import run_capability
 
 
@@ -42,8 +49,15 @@ class _TokenGrammar(Grammar[_TokenNotation]):
 
     name = "token_grammar"
 
-    def recognize(self, text: str) -> list[_TokenNotation]:
-        return [_TokenNotation(token=text)]
+    def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
+        return [
+            RecognitionMatch(
+                notation=_TokenNotation(token=text),
+                start=0,
+                end=len(text),
+                raw_text=text,
+            )
+        ]
 
 
 class _TokenRule(Rule[_TokenNotation]):
@@ -134,8 +148,21 @@ class _DualTokenGrammar(Grammar[_TokenNotation]):
 
     name = "dual_token_grammar"
 
-    def recognize(self, text: str) -> list[_TokenNotation]:
-        return [_TokenNotation(token="alpha"), _TokenNotation(token="beta")]
+    def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
+        return [
+            RecognitionMatch(
+                notation=_TokenNotation(token="alpha"),
+                start=0,
+                end=5,
+                raw_text="alpha",
+            ),
+            RecognitionMatch(
+                notation=_TokenNotation(token="beta"),
+                start=5,
+                end=9,
+                raw_text="beta",
+            ),
+        ]
 
 
 class _DualTokenRule(Rule[_TokenNotation]):
@@ -263,7 +290,8 @@ class TestFormatValueSeam:
         register_capability(_DualFormattingCapability())
         contract = _DualFormattingContract()
 
-        result = run_capability("any input", contract)
+        # _DualTokenGrammar hardcodes spans for "alphabeta": (0, 5) and (5, 9).
+        result = run_capability("alphabeta", contract)
 
         assert result.status == Resolution.AMBIGUOUS
         assert result.canonicalized_value is None

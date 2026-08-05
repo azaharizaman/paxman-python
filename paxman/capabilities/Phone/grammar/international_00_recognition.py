@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import dedup, strip_separators
+from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # "00" followed by the international number digits (optional separators).
 # The leading digit of the number must be 1-9 (country codes never start
@@ -21,7 +21,12 @@ from paxman.core.domain import Grammar
 # The (?<![\w:.+]) lookbehind excludes word characters, ":", "." and "+"
 # so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes
 # and "+0044..." (contradictory input) is left to the e164 grammar.
-_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
+# The trailing (?<=\d) lookbehind forces the match to end on a digit, so
+# the trailing character class cannot swallow separators, whitespace, or
+# sentence punctuation after the number (mirrors _E164_PATTERN).
+_INTERNATIONAL_00_PATTERN = re.compile(
+    r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*(?<=\d)"
+)
 
 
 class International00Grammar(Grammar[PhoneNotation]):
@@ -33,21 +38,23 @@ class International00Grammar(Grammar[PhoneNotation]):
 
     name = "international_00_recognition"
 
-    def recognize(self, text: str) -> list[PhoneNotation]:
+    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract 00-prefixed international patterns from text.
 
-        Args:
-            text: Raw input text.
-
         Returns:
-            List of PhoneNotations with shape="e164". value is the digit-only
+            List of RecognitionMatches; notation.value is the digit-only
             number with the "00" prefix stripped (the E.164 number itself).
         """
-        return dedup(
-            PhoneNotation(
-                shape="e164",
-                # Strip the leading "00" before removing separators.
-                value=strip_separators(match.group(0)[2:]),
+        return [
+            RecognitionMatch(
+                notation=PhoneNotation(
+                    shape="e164",
+                    # Strip the leading "00" before removing separators.
+                    value=strip_separators(match.group(0)[2:]),
+                ),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
             )
             for match in _INTERNATIONAL_00_PATTERN.finditer(text)
-        )
+        ]

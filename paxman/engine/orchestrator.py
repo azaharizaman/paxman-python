@@ -16,6 +16,7 @@ from paxman.core.domain import (
     Candidate,
     GrammarRule,
     Provenance,
+    RecognitionMatch,
     RecognizedRep,
     Resolution,
     Rule,
@@ -75,29 +76,108 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
 def _recognize(
     text: str, capability: Capability[Any], contract: Contract
 ) -> list[RecognizedRep[Any]]:
-    """Run active grammars and return all recognitions."""
-    active_grammar_names = set(contract.active_grammars)
-    all_grammars = capability.get_grammars()
-    active_grammars = [g for g in all_grammars if g.name in active_grammar_names]
+    """Run active grammars, dedup contained matches per grammar, and order.
 
-    recognitions: list[RecognizedRep[Any]] = []
+    Every match is validated against the span contract (bounds within the
+    input, ``raw_text`` equal to the matched slice) before dedup; a grammar
+    returning a malformed match raises ``RecognitionError`` naming the
+    grammar. The engine owns all cross-match policy: containment dedup runs
+    strictly within a single grammar's output (never across grammars, so
+    cross-grammar ambiguity stays observable), and recognitions are emitted
+    in the total order (start, end, active_grammars index, grammar name)
+    where the index follows ``contract.active_grammars`` order.
+    """
+    all_grammars = capability.get_grammars()
+    supported_names = {g.name for g in all_grammars}
+    # Deduplicate contract names, keeping first occurrence: each supported
+    # grammar runs at most once and grammar_index stays aligned with
+    # active_grammars (a duplicate contract entry must not double-run it).
+    active_names = list(
+        dict.fromkeys(n for n in contract.active_grammars if n in supported_names)
+    )
+    grammar_index = {name: i for i, name in enumerate(active_names)}
+    by_name = {g.name: g for g in all_grammars}
+    active_grammars = [by_name[name] for name in active_names]
+
+    ordered: list[tuple[int, int, int, str, RecognitionMatch[Any]]] = []
     for grammar in active_grammars:
         try:
-            notations = grammar.recognize(text)
+            matches = grammar.recognize(text)
         except Exception as exc:
             raise RecognitionError(
                 rule=grammar.name,
                 message=f"Grammar failed: {exc}",
                 original_error=exc,
             ) from exc
-        grammar_ref = GrammarRule(
-            capability_name=capability.name, grammar_name=grammar.name
-        )
-        for notation in notations:
-            recognitions.append(
-                RecognizedRep(notation=notation, contract=contract, grammar=grammar_ref)
+        for match in matches:
+            if not 0 <= match.start <= match.end <= len(text):
+                raise RecognitionError(
+                    rule=grammar.name,
+                    message=(
+                        f"Grammar '{grammar.name}' returned a match with span "
+                        f"[{match.start}, {match.end}) outside the input "
+                        f"bounds [0, {len(text)}]"
+                    ),
+                )
+            if match.raw_text != text[match.start : match.end]:
+                raise RecognitionError(
+                    rule=grammar.name,
+                    message=(
+                        f"Grammar '{grammar.name}' returned a match whose "
+                        f"raw_text {match.raw_text!r} does not equal "
+                        f"text[{match.start}:{match.end}] = "
+                        f"{text[match.start : match.end]!r}"
+                    ),
+                )
+        for match in _dedup_spans(matches):
+            ordered.append(
+                (
+                    match.start,
+                    match.end,
+                    grammar_index[grammar.name],
+                    grammar.name,
+                    match,
+                )
             )
+
+    ordered.sort(key=lambda item: (item[0], item[1], item[2], item[3]))
+
+    recognitions: list[RecognizedRep[Any]] = []
+    for start, end, _index, grammar_name, match in ordered:
+        grammar_ref = GrammarRule(
+            capability_name=capability.name, grammar_name=grammar_name
+        )
+        recognitions.append(
+            RecognizedRep(
+                notation=match.notation,
+                contract=contract,
+                grammar=grammar_ref,
+                start=start,
+                end=end,
+                raw_text=match.raw_text,
+            )
+        )
     return recognitions
+
+
+def _dedup_spans(
+    matches: list[RecognitionMatch[Any]],
+) -> list[RecognitionMatch[Any]]:
+    """Drop matches fully contained in a longer match from the SAME grammar.
+
+    ``longer wins``: when two matches from one grammar overlap, the match
+    covering more of the input survives; an exact tie keeps the first.
+    Runs strictly within one grammar's output — overlapping matches from
+    different grammars are preserved so cross-grammar ambiguity stays
+    observable.
+    """
+    ordered = sorted(matches, key=lambda m: (m.start, -(m.end - m.start)))
+    kept: list[RecognitionMatch[Any]] = []
+    for match in ordered:
+        if any(other.start <= match.start and match.end <= other.end for other in kept):
+            continue
+        kept.append(match)
+    return kept
 
 
 def _filter_rules(all_rules: list[Rule[Any]], contract: Contract) -> list[Rule[Any]]:

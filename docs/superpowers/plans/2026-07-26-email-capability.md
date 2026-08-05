@@ -823,7 +823,11 @@ class TestExceptionHierarchy:
     @pytest.mark.unit
     def test_recognition_error_stores_rule(self):
         original = ValueError("bad regex")
-        err = RecognitionError(rule="standard_recognition", message="invalid pattern", original_error=original)
+        err = RecognitionError(
+            rule="standard_recognition",
+            message="invalid pattern",
+            original_error=original,
+        )
         assert err.rule == "standard_recognition"
         assert err.original_error is original
         assert "standard_recognition" in str(err)
@@ -831,7 +835,9 @@ class TestExceptionHierarchy:
     @pytest.mark.unit
     def test_validation_error_stores_rule(self):
         original = KeyError("missing")
-        err = ValidationError(rule="rfc_5322", message="lookup failed", original_error=original)
+        err = ValidationError(
+            rule="rfc_5322", message="lookup failed", original_error=original
+        )
         assert err.rule == "rfc_5322"
         assert err.original_error is original
         assert "rfc_5322" in str(err)
@@ -1295,9 +1301,7 @@ import re
 from paxman.capabilities.Email.capability import EmailNotation
 from paxman.core.domain import Grammar, Notation
 
-_STANDARD_PATTERN = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-)
+_STANDARD_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 
 
 class StandardEmailGrammar(Grammar):
@@ -1429,7 +1433,9 @@ class ObfuscatedEmailGrammar(Grammar):
         for match in _AT_ONLY_PATTERN.finditer(text):
             local_part = match.group(1)
             domain = match.group(2)
-            notation = EmailNotation(local_part=local_part, domain_part=domain).as_list()
+            notation = EmailNotation(
+                local_part=local_part, domain_part=domain
+            ).as_list()
             # Avoid duplicates from the dot pattern
             if notation not in results:
                 results.append(notation)
@@ -1499,9 +1505,7 @@ import re
 from paxman.capabilities.Email.capability import EmailNotation
 from paxman.core.domain import Grammar, Notation
 
-_LOCALHOST_PATTERN = re.compile(
-    r"\b([A-Za-z0-9._%+-]+)@localhost(?::\d+)?\b"
-)
+_LOCALHOST_PATTERN = re.compile(r"\b([A-Za-z0-9._%+-]+)@localhost(?::\d+)?\b")
 
 
 class LocalhostEmailGrammar(Grammar):
@@ -1991,9 +1995,7 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     )
 
 
-def _validate(
-    text: str, capability: Capability, contract: Contract
-) -> list[Candidate]:
+def _validate(text: str, capability: Capability, contract: Contract) -> list[Candidate]:
     """Run recognition then validation, returning all candidates."""
     active_grammar_names = set(contract.active_grammars)
     all_grammars = capability.get_grammars()
@@ -2169,6 +2171,7 @@ def _create_contract(
         excluded_rules=excluded_rules or [],
         year=year,
     )
+
 
 EmailCapability.create_contract = staticmethod(_create_contract)
 ```

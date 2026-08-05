@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.IP.notation import IPNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # Boundary: start/end of string, whitespace, or common punctuation
 _IPV6_BOUNDARY = r"(?:^|(?<=[\s,;([ ]))"
@@ -50,23 +50,33 @@ class IPv6Grammar(Grammar[IPNotation]):
 
     name = "ipv6_recognition"
 
-    def recognize(self, text: str) -> list[IPNotation]:
-        """Extract IPv6 address patterns from text."""
-        seen: set[str] = set()
-        results: list[IPNotation] = []
+    def recognize(self, text: str) -> list[RecognitionMatch[IPNotation]]:
+        """Extract IPv6 address patterns from text.
 
-        # Try full form first (8 groups)
+        The full and compressed patterns are structurally disjoint, so every
+        match emits a span-bearing RecognitionMatch; the engine dedups
+        contained spans and identical candidate values collapse at the
+        candidate stage.
+        """
+        matches: list[RecognitionMatch[IPNotation]] = []
         for match in _IPV6_FULL.finditer(text):
-            addr = match.group(1)
-            if addr not in seen:
-                seen.add(addr)
-                results.append(IPNotation(address=addr))
-
-        # Try compressed forms
+            matches.append(
+                RecognitionMatch(
+                    notation=IPNotation(address=match.group(1)),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(1),
+                )
+            )
         for match in _IPV6_COMPRESSED.finditer(text):
-            for group in match.groups():
-                if group is not None and group not in seen:
-                    seen.add(group)
-                    results.append(IPNotation(address=group))
-
-        return results
+            # Boundary assertions are zero-width and each alternation branch
+            # has one capture group, so the full match text IS the address.
+            matches.append(
+                RecognitionMatch(
+                    notation=IPNotation(address=match.group(0)),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
+        return matches

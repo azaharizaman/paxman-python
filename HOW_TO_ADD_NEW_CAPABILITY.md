@@ -82,6 +82,7 @@ Data files contain only module-level dictionaries and sets — no classes or fun
 # rules/your_rule.py
 from paxman.capabilities.YourDomain.rules.data.lookup_table import VALID_CODES
 
+
 class SectionYourRule(Rule[YourDomainNotation]):
     TABLE = VALID_CODES
 ```
@@ -133,55 +134,72 @@ This is optional. Use it when your notation will be instantiated many times (e.g
 
 ## Step 4: Create a Grammar
 
-Grammars are recognition rules that scan raw text and extract notations. Each grammar handles one specific pattern or format.
+Grammars are recognition rules that scan raw text and extract span-bearing notations. Each grammar handles one specific pattern or format.
 
 Create `paxman/capabilities/YourDomain/grammar/your_grammar.py`:
 
-1. Import `Grammar` from `paxman.core.domain`
+1. Import `Grammar` and `RecognitionMatch` from `paxman.core.domain`
 2. Import your `YourDomainNotation` from the notation module
 3. Define a class that extends `Grammar`
 4. Set the `name` class attribute to a snake_case identifier (this name is used by the contract to toggle grammars)
-5. Implement the `recognize(text: str) -> list[YourDomainNotation]` method
+5. Implement the `recognize(text: str) -> list[RecognitionMatch[YourDomainNotation]]` method
 
 **The `recognize` method must:**
 
 - Accept a single string parameter (the raw input text)
-- Return a list of typed notations (each notation is an instance of `YourDomainNotation`)
+- Return a list of `RecognitionMatch` objects — NOT bare notations. Every match carries the notation plus a half-open `[start, end)` span and the matched `raw_text`, so `len(raw_text) == end - start` always holds
 - Return an empty list if nothing matches
 - Never raise exceptions for normal input (use try/except for regex or parsing errors)
 - Handle edge cases gracefully (empty strings, partial matches, Unicode)
 
+Example:
+
+```python
+import re
+
+from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.capabilities.MyDomain.notation import MyDomainNotation
+
+# Compile reusable regexes once at module scope — never per call inside
+# recognize() (runs for every input).
+_PATTERN = re.compile(r"...")  # your pattern
+
+
+class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
+    """Standard recognition for the MyDomain capability."""
+
+    name = "standard_recognition"
+
+    def recognize(self, text: str) -> list[RecognitionMatch[MyDomainNotation]]:
+        """Extract span-bearing matches from raw text.
+
+        The engine dedups contained matches and orders recognitions; the
+        grammar only extracts and emits spans.
+        """
+        matches = []
+        for match in _PATTERN.finditer(text):
+            matches.append(
+                RecognitionMatch(
+                    notation=MyDomainNotation(...),  # parsed from groups
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
+        return matches
+```
+
 **Grammar design principles:**
 
 - Each grammar should handle one logical format (e.g., "obfuscated email", "IPv6 address")
-- A grammar may match multiple sub-patterns within that format (e.g., `user at domain dot tld` and `user at domain.tld`). When it does, use a `seen` set to deduplicate results:
-
-```python
-def recognize(self, text: str) -> list[YourDomainNotation]:
-    results: list[YourDomainNotation] = []
-    seen: set[tuple[str, ...]] = set()
-    for match in PATTERN_1.finditer(text):
-        notation = self._parse(match)
-        key = tuple(notation.as_list())
-        if key not in seen:
-            seen.add(key)
-            results.append(notation)
-    for match in PATTERN_2.finditer(text):
-        notation = self._parse(match)
-        key = tuple(notation.as_list())
-        if key not in seen:
-            seen.add(key)
-            results.append(notation)
-    return results
-```
-
-- Grammars do NOT validate — they only extract
-- A single grammar can return multiple notations if the input contains multiple matches
+- The grammar does syntax only — extraction and separator/case normalization. It does NOT de-duplicate, sort, or validate: the engine owns within-grammar containment dedup ("longer wins", with identical `[start, end)` spans keeping the first-emitted match) and the total recognition order, and rules own meaning
+- A single grammar can return multiple matches if the input contains multiple occurrences
 - Grammar names must be unique within the capability
+- Never import from `rules/` — a grammar that imports a rule would let semantics leak across the pipeline's separation boundary (enforced by the semantic purity gate)
 
 **Common grammar strategies:**
 
-- **Regex** — use compiled regex patterns with `re.findall()` or `re.finditer()`
+- **Regex** — use compiled regex patterns with `re.finditer()`
 - **String parsing** — split or scan text for delimiters
 - **Hybrid** — combine regex with string operations for complex patterns
 
@@ -271,6 +289,7 @@ Your rules receive the base `Contract` protocol type. To access capability-speci
 ```python
 from typing import cast
 from paxman.capabilities.YourDomain.contract import YourDomainContract
+
 
 class SectionYourRule(Rule[YourDomainNotation]):
     def normalize(self, notation: YourDomainNotation, contract: Contract) -> str:
@@ -369,8 +388,7 @@ def create_contract(
     year: int | None = None,
     output_format: str | None = None,
     include_extended: bool = False,  # capability-specific params follow
-) -> YourDomainContract:
-    ...
+) -> YourDomainContract: ...
 ```
 
 Capability-specific parameters come after the common block. Every capability satisfies the `ContractFactory` protocol in `paxman/core/capability.py`.
@@ -430,8 +448,8 @@ class YourDomainContract(CapabilityContract):
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"expanded"})
 
     capability_name: str = field(default="yourdomain", init=False)
-    include_obfuscated: bool = False    # toggles obfuscated_recognition grammar
-    include_ipv6: bool = True           # toggles ipv6_recognition grammar
+    include_obfuscated: bool = False  # toggles obfuscated_recognition grammar
+    include_ipv6: bool = True  # toggles ipv6_recognition grammar
 
     @property
     def active_grammars(self) -> list[str]:
@@ -525,7 +543,9 @@ Example wiring — inherited from `CapabilityContract`, you only set the class v
 @dataclass(frozen=True)
 class YourDomainContract(CapabilityContract):
     DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "alpha2"
-    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"alpha3", "numeric", "name"})
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset(
+        {"alpha3", "numeric", "name"}
+    )
     # ... your capability-specific fields ...
 ```
 
@@ -606,7 +626,10 @@ Create `paxman/capabilities/YourDomain/__init__.py`:
 Export the Capability class, Contract class, and Notation type:
 
 ```python
-from paxman.capabilities.YourDomain.capability import YourDomainCapability, YourDomainContract
+from paxman.capabilities.YourDomain.capability import (
+    YourDomainCapability,
+    YourDomainContract,
+)
 from paxman.capabilities.YourDomain.notation import YourDomainNotation
 
 __all__ = ["YourDomainCapability", "YourDomainContract", "YourDomainNotation"]
@@ -763,8 +786,7 @@ Use pytest markers to categorize tests. Place markers on either the class or ind
 ```python
 @pytest.mark.capability
 class TestYourGrammar:
-    def test_recognizes_valid_input(self):
-        ...
+    def test_recognizes_valid_input(self): ...
 ```
 
 **Per-method** (when methods have different markers):
@@ -772,12 +794,10 @@ class TestYourGrammar:
 ```python
 class TestYourGrammar:
     @pytest.mark.capability
-    def test_recognizes_valid_input(self):
-        ...
+    def test_recognizes_valid_input(self): ...
 
     @pytest.mark.unit
-    def test_regex_pattern_compiled(self):
-        ...
+    def test_regex_pattern_compiled(self): ...
 ```
 
 Both styles are acceptable. Be consistent within each test file.
@@ -806,11 +826,13 @@ Each integration test file registers the capability it tests. Do this inside tes
 ```python
 from paxman.core.discovery import register_capability, reset_registry
 
+
 @pytest.fixture(autouse=True)
 def _clean_registry():
     reset_registry()
     yield
     reset_registry()
+
 
 class TestYourCapabilityPipeline:
     def test_success(self):
@@ -992,7 +1014,7 @@ If your rule needs to read a capability-specific parameter (like `two_digit_base
 Use this checklist to verify your capability is complete:
 
 - [ ] Notation is a frozen dataclass with `as_list()` method
-- [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[YourDomainNotation]`
+- [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[RecognitionMatch[YourDomainNotation]]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
 - [ ] Each rule declares `target_grammars` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
 - [ ] Each rule file has a `PUBLICATION` provenance constant
@@ -1007,7 +1029,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Grammar data is key-only (no token-to-canonical mappings); rule data owns all authority-backed mappings (see The Grammar/Rule Boundary)
 - [ ] Recognition keys and rule tables live in separate files, with a consistency test covering every shipped recognition key
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`
-- [ ] If grammar handles multiple sub-patterns: implements dedup via `seen` set
+- [ ] Grammar emits span-bearing `RecognitionMatch` objects and does NOT deduplicate or order — the engine owns containment dedup ("longer wins") and document ordering
 - [ ] Package `__init__.py` files export the public API
 - [ ] Capability is registered in `paxman/capabilities/__init__.py`
 - [ ] Test markers are consistent within each file

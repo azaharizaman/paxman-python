@@ -161,6 +161,17 @@ Three cross-cutting non-homogeneities (from the grammar-comparison agent):
 regex-embedded semantic constraints (`[2-9]`, `(?=[1-9])`); redundant `text.strip()`
 in Country; Country name recognition-time resolution (documented layering deviation).
 
+**Resolved 2026-08-04 (recognition-homogeneity migration):** grammar
+recognition is now homogeneous across capabilities — every grammar emits
+span-bearing `RecognitionMatch` objects, the engine owns within-grammar
+containment dedup ("longer wins") and the total document order
+`(start, end, active_grammars index, grammar name)`, and grammars are
+restricted to syntax extraction/normalization (enforced by the semantic
+purity gate). Value-keyed dedup was removed from Phone (`common.dedup`),
+Email (`seen` set), and IP (`seen` set); Date's manual span-containment
+checks and per-grammar ordering were removed. Deferred: a shared
+stdnum-style `clean()` syntax seam and moving Country `.upper()` into it.
+
 ---
 
 ## Tier 3 — Rule layer divergences

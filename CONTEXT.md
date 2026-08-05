@@ -23,8 +23,8 @@ User-facing configuration object that:
 - **Pins rules** to run only specific validation rules (e.g., `pinned_rules=["Section 3.4.1-addr-spec"]`)
 - **Excludes rules** to skip specific validation rules (e.g., `excluded_rules=["Section 6.3-localhost"]`)
 - **Pins year** to filter validation rules by `publication_year`
-- **Passes parameters** to validation rules (e.g., `output_format=ISO`)
-  - Note: `two_digit_base_year` is a Date-specific parameter, not part of the base Contract
+- **Passes parameters** to validation rules (e.g., `two_digit_base_year`)
+  - Note: `output_format` is a *presentation* parameter consumed by the capability's `format_value()` seam — validation rules never read it
 - Does NOT define Notation (that's internal to Capability)
 
 When `pinned_rules` is set, `excluded_rules` is ignored — only the pinned rules run.
@@ -39,6 +39,7 @@ Capability-defined intermediate representation that Grammars must produce.
 ### Notation Type Example
 ```python
 from dataclasses import dataclass
+
 
 # Email Notation using frozen dataclass
 @dataclass(frozen=True)
@@ -58,16 +59,17 @@ class EmailNotation:
 ### Grammar (Recognition Rule)
 Syntactic extraction rules that:
 - Scan raw text for patterns
-- Produce **Notation** (capability-defined shape)
+- Produce **span-bearing `RecognitionMatch` objects** (notation + half-open `[start, end)` span + matched `raw_text`) — never bare notations
 - Live in `capabilities/<CapabilityName>/grammar/`
 - Are **filtered by the orchestrator** based on the contract's `active_grammars`
-- Do NOT validate — only recognize
+- Do NOT validate, de-duplicate, or order — the engine owns containment dedup and document ordering
+- Only recognize
 
 ### Validation Rule
 Semantic rules that:
 - Accept **Notation** (not raw input)
 - Are backed by **Provenance** (authority specification)
-- Use **Contract parameters** (e.g., `output_format`)
+- Use **Contract parameters** (e.g., `two_digit_base_year`) — never `output_format` (presentation lives in the capability's formatting seam)
 - Produce **Candidate** with canonical value
 - Live in `capabilities/<CapabilityName>/rules/`
 - Are filtered by **pinned_rules** (if set, only those rules run) or **excluded_rules**
@@ -92,21 +94,26 @@ PUBLICATION = Provenance(
     publication_year=2008,
 )
 
+# Patterns compiled once at module scope, not per match call.
+_LOCAL_PATTERN = re.compile(r"^[a-zA-Z0-9._%+-]+$")
+_DOMAIN_PATTERN = re.compile(r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+
+
 class Section341AddrSpec(Rule[EmailNotation]):
     """RFC 5322 Section 3.4.1 - addr-spec"""
-    
+
     name = "Section 3.4.1-addr-spec"
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"  # Human-readable citation
-    
+
     def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         """Check if notation matches addr-spec pattern."""
-        local_pattern = r"^[a-zA-Z0-9._%+-]+$"
-        domain_pattern = r"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-        return bool(re.match(local_pattern, notation.local_part) and 
-                    re.match(domain_pattern, notation.domain_part))
-    
+        return bool(
+            _LOCAL_PATTERN.match(notation.local_part)
+            and _DOMAIN_PATTERN.match(notation.domain_part)
+        )
+
     def normalize(self, notation: EmailNotation, contract: Contract) -> str:
         """Normalize to canonical email format."""
         return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"
@@ -159,16 +166,17 @@ class Section15StatusCodes(Rule[StatusCodeNotation]):
 ```python
 # capabilities/Date/rules/iso_8601_ed2019.py
 
+
 class Section431CalendarDate(Rule[DateNotation]):
     """ISO 8601 Section 4.3.1 - Calendar date"""
-    
+
     name = "Section 4.3.1-calendar-date"
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
-    
+
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
         """Try to parse as ISO 8601 date.
-        
+
         ISO grammar maps: N1=year, N2=month, N3=day
         """
         try:
@@ -177,7 +185,7 @@ class Section431CalendarDate(Rule[DateNotation]):
             return True
         except ValueError:
             return False
-    
+
     def normalize(self, notation: DateNotation, contract: Contract) -> str:
         """Normalize to ISO 8601 format."""
         year, month, day = int(notation.N1), int(notation.N2), int(notation.N3)
@@ -190,28 +198,40 @@ class Section431CalendarDate(Rule[DateNotation]):
 
 import re
 
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 from paxman.capabilities.Email.notation import EmailNotation
+
+# Pattern compiled once at module scope, not per recognize() call.
+_STANDARD_EMAIL_PATTERN = re.compile(
+    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
+)
+
 
 class StandardEmailGrammar(Grammar[EmailNotation]):
     """Standard email recognition: user@domain.tld"""
-    
+
     name = "standard_recognition"
-    
-    def recognize(self, text: str) -> list[EmailNotation]:
-        """Extract email patterns from text."""
-        pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-        matches = re.findall(pattern, text)
+
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
+        """Extract span-bearing email matches from text."""
         return [
-            EmailNotation(local_part=match.split("@")[0], domain_part=match.split("@")[1])
-            for match in matches
+            RecognitionMatch(
+                notation=EmailNotation(
+                    local_part=match.group(0).split("@")[0],
+                    domain_part=match.group(0).split("@")[1],
+                ),
+                start=match.start(),
+                end=match.end(),
+                raw_text=match.group(0),
+            )
+            for match in _STANDARD_EMAIL_PATTERN.finditer(text)
         ]
 ```
 
 ### Date Ambiguity Example
 ```python
 # Input: "01/02/2026"
-# Grammar outputs notation based on its own mapping:
+# Each grammar wraps its own notation mapping in a span-bearing RecognitionMatch:
 #   ISO grammar:    N1="2026", N2="01", N3="02"  (N1=year, N2=month, N3=day)
 #   US grammar:     N1="01",   N2="02", N3="2026" (N1=month, N2=day, N3=year)
 #   European grammar: N1="01", N2="02", N3="2026" (N1=day, N2=month, N3=year)
@@ -276,20 +296,24 @@ paxman.canonicalize("user@example.com", contract)
 
 # Pin + year filter — both apply
 contract = Email.create_contract(
-    pinned_rules=["Section 3.4.1-addr-spec", "Section 6.3-localhost"],
-    year=2010
+    pinned_rules=["Section 3.4.1-addr-spec", "Section 6.3-localhost"], year=2010
 )
 # Only rules matching both pinning and year filter are active
 ```
 
 ### RecognizedRep
-Data class carrying recognition output:
+Data class carrying recognition output. Produced by the engine from each
+span-bearing `RecognitionMatch` after recognition, so the producing span and
+raw text stay traceable end to end:
 ```python
 @dataclass(frozen=True)
 class RecognizedRep(Generic[NotationT]):
-    notation: NotationT           # capability-defined shape
-    contract: Contract           # contract configuration
-    grammar: GrammarRule         # which grammar produced this
+    notation: NotationT  # capability-defined shape
+    contract: Contract  # contract configuration
+    grammar: GrammarRule  # which grammar produced this
+    start: int  # half-open start offset of the producing match
+    end: int  # half-open end offset of the producing match
+    raw_text: str  # matched substring (len(raw_text) == end - start)
 ```
 
 ### Candidate
@@ -297,9 +321,9 @@ Data class carrying validation output:
 ```python
 @dataclass(frozen=True)
 class Candidate:
-    value: str                   # canonical value
-    recognition_rule: str        # which grammar produced notation
-    validation_rule: str         # which rule validated it
+    value: str  # canonical value
+    recognition_rule: str  # which grammar produced notation
+    validation_rule: str  # which rule validated it
     provenance: tuple[Provenance, ...]  # authorities backing this value
 ```
 
@@ -308,13 +332,13 @@ Authority citation for a validated value:
 ```python
 @dataclass(frozen=True)
 class Provenance:
-    authority: str               # "IETF", "ISO", "W3C"
-    specification_name: str      # "RFC 5322 §3.4.1"
-    kind: str                    # "specification" | "registry" | "policy"
-    reference_url: str           # "https://..."
-    version: str | None          # "2008" or None if not versioned
-    lifecycle: str               # "active" | "deprecated" | "superseded"
-    publication_year: int        # year this provenance came into effect
+    authority: str  # "IETF", "ISO", "W3C"
+    specification_name: str  # "RFC 5322 §3.4.1"
+    kind: str  # "specification" | "registry" | "policy"
+    reference_url: str  # "https://..."
+    version: str | None  # "2008" or None if not versioned
+    lifecycle: str  # "active" | "deprecated" | "superseded"
+    publication_year: int  # year this provenance came into effect
 ```
 
 ### GrammarRule
@@ -323,8 +347,9 @@ Reference to a grammar that produced a RecognizedRep:
 @dataclass(frozen=True)
 class GrammarRule:
     """Reference to a grammar that produced a RecognizedRep."""
+
     capability_name: str  # "email"
-    grammar_name: str     # "standard_recognition"
+    grammar_name: str  # "standard_recognition"
 ```
 
 **Naming Convention:**
@@ -338,8 +363,10 @@ Validation strategy for a rule:
 ```python
 from enum import Enum
 
+
 class RuleStrategy(Enum):
     """Validation strategy for a rule."""
+
     REGEX = "regex"
     LOOKUP_TABLE = "lookup_table"
     PARSER = "parser"
@@ -353,12 +380,14 @@ class RuleStrategy(Enum):
 ```python
 from enum import Enum
 
+
 class Resolution(Enum):
     """Status of the canonicalization execution."""
-    MISSING = "missing"       # No RecognizedReps produced (fails-fast at recognition)
-    INVALID = "invalid"       # Recognized, but no provenance validates
-    SUCCESS = "success"       # Single canonical value resolved
-    AMBIGUOUS = "ambiguous"   # Multiple conflicting canonical values
+
+    MISSING = "missing"  # No RecognizedReps produced (fails-fast at recognition)
+    INVALID = "invalid"  # Recognized, but no provenance validates
+    SUCCESS = "success"  # Single canonical value resolved
+    AMBIGUOUS = "ambiguous"  # Multiple conflicting canonical values
 ```
 
 ### ExecutionResult
@@ -367,7 +396,7 @@ Final output from `paxman.canonicalize()`. **Engine responsibility** — not cap
 ```python
 @dataclass(frozen=True)
 class ExecutionResult:
-    status: Resolution        # Enum status (computed by engine)
+    status: Resolution  # Enum status (computed by engine)
     canonicalized_value: str | None  # Extracted from candidates (if SUCCESS)
     candidates: tuple[Candidate, ...]  # Produced by capability validation rules
     contract: Contract  # Passed through from user
@@ -393,8 +422,8 @@ Replay integrity metadata:
 ```python
 @dataclass(frozen=True)
 class VersionStamp:
-    paxman_version: str          # library version
-    replay_hash: str             # SHA-256 of canonical bytes
+    paxman_version: str  # library version
+    replay_hash: str  # SHA-256 of canonical bytes
 ```
 
 ---
@@ -405,25 +434,34 @@ class VersionStamp:
 ```python
 class PaxmanError(Exception):
     """Base exception for all Paxman errors."""
+
     pass
+
 
 class ContractError(PaxmanError):
     """Raised when contract is malformed or invalid."""
+
     pass
+
 
 class CapabilityError(PaxmanError):
     """Raised when no capability can claim the process."""
+
     pass
+
 
 class RecognitionError(PaxmanError):
     """Raised when grammar fails to parse input (malformed regex, etc.)."""
+
     def __init__(self, rule: str, message: str, original_error: Exception):
         self.rule = rule
         self.original_error = original_error
         super().__init__(f"[{rule}] {message}")
 
+
 class ValidationError(PaxmanError):
     """Raised when validation rule encounters unexpected error."""
+
     def __init__(self, rule: str, message: str, original_error: Exception):
         self.rule = rule
         self.original_error = original_error
@@ -456,7 +494,9 @@ from paxman.core.discovery import register_capability
 register_capability(EmailCapability())
 
 # Canonicalize an email
-result = paxman.canonicalize("azahari at gmail dot com", EmailCapability.create_contract(include_obfuscated=True))
+result = paxman.canonicalize(
+    "azahari at gmail dot com", EmailCapability.create_contract(include_obfuscated=True)
+)
 
 if result.status == Resolution.SUCCESS:
     print(f"Canonical: {result.canonicalized_value}")
@@ -539,43 +579,44 @@ for candidate in result.candidates:
 from typing import Protocol, Any
 from collections.abc import Sequence
 
+
 class Contract(Protocol):
     """Base protocol for all capability contracts."""
-    
+
     @property
     def capability_name(self) -> str:
         """Name of the capability this contract configures."""
         ...
-    
+
     @property
     def active_grammars(self) -> Sequence[str]:
         """List of grammar names to activate."""
         ...
-    
+
     @property
     def excluded_rules(self) -> Sequence[str]:
         """List of rule names to exclude."""
         ...
-    
+
     @property
     def pinned_rules(self) -> Sequence[str] | None:
         """Pin to specific rules. If set, ONLY these rules run.
-        
+
         Mutually exclusive with excluded_rules. When pinned_rules is set,
         excluded_rules is ignored.
         """
         ...
-    
+
     @property
     def year(self) -> int | None:
         """Year for temporal filtering (publication_year ≤ year)."""
         ...
-    
+
     @property
     def output_format(self) -> str | None:
         """Output format for canonical values (e.g., 'ISO', 'US')."""
         ...
-    
+
     def as_dict(self) -> dict[str, Any]:
         """Serialize contract for replay_hash."""
         ...
@@ -685,21 +726,21 @@ tests/
 ```python
 import pytest
 
+
 @pytest.mark.unit
-def test_provenance_immutable():
-    ...
+def test_provenance_immutable(): ...
+
 
 @pytest.mark.capability
-def test_email_grammar_recognizes_standard():
-    ...
+def test_email_grammar_recognizes_standard(): ...
+
 
 @pytest.mark.integration
-def test_ambiguity_detection():
-    ...
+def test_ambiguity_detection(): ...
+
 
 @pytest.mark.e2e
-def test_canonicalize_email_success():
-    ...
+def test_canonicalize_email_success(): ...
 ```
 
 ---

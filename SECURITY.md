@@ -17,7 +17,7 @@ We will acknowledge reports within 72 hours and provide an estimated timeline fo
 
 Paxman incorporates several design principles that reduce attack surface:
 
-- **Immutable Domain Objects**: All core data structures (Provenance, Candidate, RecognizedRep, VersionStamp) are immutable. Once created, they cannot be modified, preventing state tampering.
+- **Immutable Domain Objects**: All core data structures (Provenance, Candidate, RecognitionMatch, RecognizedRep, VersionStamp) are immutable. Once created, they cannot be modified, preventing state tampering.
 
 - **Strict Type Checking**: The project enforces strict mode static type checking across all layers, catching type-related errors at development time rather than runtime.
 

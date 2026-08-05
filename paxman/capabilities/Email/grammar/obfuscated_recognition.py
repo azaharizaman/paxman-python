@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Email.notation import EmailNotation
-from paxman.core.domain import Grammar
+from paxman.core.domain import Grammar, RecognitionMatch
 
 # Matches: "user at domain dot tld"
 _OBFUSCATED_PATTERN = re.compile(
@@ -22,26 +22,37 @@ class ObfuscatedEmailGrammar(Grammar[EmailNotation]):
 
     name = "obfuscated_recognition"
 
-    def recognize(self, text: str) -> list[EmailNotation]:
-        seen: set[tuple[str, str]] = set()
-        results: list[EmailNotation] = []
+    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
+        """Extract obfuscated email patterns from text.
 
-        # Try "at ... dot ..." format first
+        Both patterns emit span-bearing matches; the engine merges, orders
+        (document order), and dedups contained matches, and identical
+        candidate values collapse at the candidate stage. The grammar does
+        not de-duplicate.
+        """
+        matches: list[RecognitionMatch[EmailNotation]] = []
         for match in _OBFUSCATED_PATTERN.finditer(text):
-            local_part = match.group(1)
-            domain = f"{match.group(2)}.{match.group(3)}"
-            key = (local_part, domain)
-            if key not in seen:
-                seen.add(key)
-                results.append(EmailNotation(local_part=local_part, domain_part=domain))
-
-        # Try "at domain.tld" format (no "dot")
+            matches.append(
+                RecognitionMatch(
+                    notation=EmailNotation(
+                        local_part=match.group(1),
+                        domain_part=f"{match.group(2)}.{match.group(3)}",
+                    ),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
         for match in _AT_ONLY_PATTERN.finditer(text):
-            local_part = match.group(1)
-            domain = match.group(2)
-            key = (local_part, domain)
-            if key not in seen:
-                seen.add(key)
-                results.append(EmailNotation(local_part=local_part, domain_part=domain))
-
-        return results
+            matches.append(
+                RecognitionMatch(
+                    notation=EmailNotation(
+                        local_part=match.group(1),
+                        domain_part=match.group(2),
+                    ),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
+        return matches

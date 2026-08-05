@@ -22,7 +22,7 @@ Unit tests verify the structural contracts of individual domain objects in isola
 These tests use no real capabilities, no pipeline, no engine. They construct objects directly and assert their behavior. Where a capability or grammar is needed as input, the tests use lightweight stubs (e.g., `FakeContract`, `StubCapability`, `StubGrammar`) that exist only within the test file.
 
 Key properties under test:
-- **Immutability.** Every domain object (`Provenance`, `Candidate`, `GrammarRule`, `VersionStamp`, `RecognizedRep`) raises `AttributeError` on attribute assignment. Tests confirm this explicitly.
+- **Immutability.** Every domain object (`Provenance`, `Candidate`, `RecognitionMatch`, `GrammarRule`, `VersionStamp`, `RecognizedRep`) raises `AttributeError` on attribute assignment. Tests confirm this explicitly.
 - **Value equality.** Objects with identical fields compare as equal; objects with different fields do not.
 - **Hashability.** Objects can be hashed, which makes them safe to use in sets and as dictionary keys.
 - **Protocol compliance.** The `Contract` protocol is runtime-checkable. Tests verify that classes satisfying the structural interface pass `isinstance` checks, while incomplete classes do not.

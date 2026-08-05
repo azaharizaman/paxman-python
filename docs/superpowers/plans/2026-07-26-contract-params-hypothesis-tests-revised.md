@@ -82,6 +82,7 @@ tests/unit/test_domain.py          # Remove (split into per-object files)
 
 import pytest
 
+
 def test_contract_has_output_format_property():
     """Contract protocol defines output_format property."""
     assert hasattr(Contract, "output_format")
@@ -210,6 +211,7 @@ class EmailContract:
 ```python
 # paxman/capabilities/Email/capability.py - update create_contract()
 
+
 @staticmethod
 def create_contract(
     include_obfuscated: bool = False,
@@ -256,6 +258,7 @@ git commit -m "feat: add output_format to Contract protocol"
 ```python
 # tests/unit/test_domain.py - add these tests
 
+
 def test_rule_matches_accepts_contract():
     """Rule.matches() accepts notation and contract parameters."""
     from paxman.capabilities.Email.notation import EmailNotation
@@ -290,6 +293,7 @@ Expected: FAIL with "matches() takes 2 positional arguments but 3 were given"
 ```python
 # paxman/core/domain.py - update Rule class
 
+
 class Rule(ABC, Generic[NotationT]):
     """Base class for validation rules."""
 
@@ -309,6 +313,7 @@ class Rule(ABC, Generic[NotationT]):
 
 ```python
 # paxman/capabilities/Email/rules/rfc_5322_ed2008.py
+
 
 class Section341AddrSpec(Rule[EmailNotation]):
     """RFC 5322 Section 3.4.1 — addr-spec."""
@@ -331,6 +336,7 @@ class Section341AddrSpec(Rule[EmailNotation]):
 ```python
 # paxman/capabilities/Email/rules/rfc_6761_ed2012.py
 
+
 class Section63localhost(Rule[EmailNotation]):
     """RFC 6761 Section 6.3 — localhost."""
 
@@ -351,6 +357,7 @@ class Section63localhost(Rule[EmailNotation]):
 ```python
 # paxman/engine/orchestrator.py - update _collect_candidates()
 
+
 def _collect_candidates(
     recognitions: list[RecognizedRep[Any]], rules: list[Rule[Any]]
 ) -> list[Candidate]:
@@ -360,7 +367,9 @@ def _collect_candidates(
         for rule in rules:
             try:
                 if rule.matches(recognition.notation, recognition.contract):
-                    canonical = rule.normalize(recognition.notation, recognition.contract)
+                    canonical = rule.normalize(
+                        recognition.notation, recognition.contract
+                    )
                     candidates.append(
                         Candidate(
                             value=canonical,
@@ -470,7 +479,7 @@ _ISO8601_PATTERN = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 
 class ISO8601DateGrammar(Grammar[DateNotation]):
     """ISO 8601 date recognition: YYYY-MM-DD.
-    
+
     Notation mapping:
     - N1 = year (YYYY)
     - N2 = month (MM)
@@ -482,10 +491,7 @@ class ISO8601DateGrammar(Grammar[DateNotation]):
     def recognize(self, text: str) -> list[DateNotation]:
         """Extract ISO 8601 date patterns from text."""
         matches = _ISO8601_PATTERN.findall(text)
-        return [
-            DateNotation(N1=year, N2=month, N3=day)
-            for year, month, day in matches
-        ]
+        return [DateNotation(N1=year, N2=month, N3=day) for year, month, day in matches]
 ```
 
 - [ ] **Step 3: Create US date grammar**
@@ -511,7 +517,7 @@ _US_DATE_PATTERN_2DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{2})")
 
 class USDateGrammar(Grammar[DateNotation]):
     """US date recognition: MM/DD/YYYY and MM/DD/YY.
-    
+
     Notation mapping:
     - N1 = month (MM)
     - N2 = day (DD)
@@ -523,18 +529,20 @@ class USDateGrammar(Grammar[DateNotation]):
     def recognize(self, text: str) -> list[DateNotation]:
         """Extract US date patterns from text."""
         results: list[DateNotation] = []
-        
+
         # Match 4-digit years first
         for month, day, year in _US_DATE_PATTERN_4DIGIT.findall(text):
             results.append(DateNotation(N1=month, N2=day, N3=year))
-        
+
         # Match 2-digit years
         for month, day, year in _US_DATE_PATTERN_2DIGIT.findall(text):
             # Avoid duplicates if already matched as 4-digit
             full_year = f"20{year}" if len(year) == 2 else year
-            if not any(r.N1 == month and r.N2 == day and r.N3 == full_year for r in results):
+            if not any(
+                r.N1 == month and r.N2 == day and r.N3 == full_year for r in results
+            ):
                 results.append(DateNotation(N1=month, N2=day, N3=year))
-        
+
         return results
 ```
 
@@ -561,7 +569,7 @@ _EUROPEAN_DATE_PATTERN_2DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{2})")
 
 class EuropeanDateGrammar(Grammar[DateNotation]):
     """European date recognition: DD/MM/YYYY and DD/MM/YY.
-    
+
     Notation mapping:
     - N1 = day (DD)
     - N2 = month (MM)
@@ -573,18 +581,20 @@ class EuropeanDateGrammar(Grammar[DateNotation]):
     def recognize(self, text: str) -> list[DateNotation]:
         """Extract European date patterns from text."""
         results: list[DateNotation] = []
-        
+
         # Match 4-digit years first
         for day, month, year in _EUROPEAN_DATE_PATTERN_4DIGIT.findall(text):
             results.append(DateNotation(N1=day, N2=month, N3=year))
-        
+
         # Match 2-digit years
         for day, month, year in _EUROPEAN_DATE_PATTERN_2DIGIT.findall(text):
             # Avoid duplicates if already matched as 4-digit
             full_year = f"20{year}" if len(year) == 2 else year
-            if not any(r.N1 == day and r.N2 == month and r.N3 == full_year for r in results):
+            if not any(
+                r.N1 == day and r.N2 == month and r.N3 == full_year for r in results
+            ):
                 results.append(DateNotation(N1=day, N2=month, N3=year))
-        
+
         return results
 ```
 
@@ -1358,12 +1368,16 @@ from paxman.capabilities.Date.grammar.us_recognition import USDateGrammar
 
 @given(
     local_part=st.text(
-        alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="._%+-"),
+        alphabet=st.characters(
+            whitelist_categories=("L", "N"), whitelist_characters="._%+-"
+        ),
         min_size=1,
         max_size=64,
     ),
     domain_part=st.text(
-        alphabet=st.characters(whitelist_categories=("L", "N"), whitelist_characters="-."),
+        alphabet=st.characters(
+            whitelist_categories=("L", "N"), whitelist_characters="-."
+        ),
         min_size=3,
         max_size=253,
     ),
@@ -1722,7 +1736,9 @@ class TestRecognizedRep:
     def test_creates_with_fields(self):
         notation = EmailNotation(local_part="user", domain_part="example.com")
         contract = EmailContract()
-        grammar = GrammarRule(capability_name="email", grammar_name="standard_recognition")
+        grammar = GrammarRule(
+            capability_name="email", grammar_name="standard_recognition"
+        )
         rep = RecognizedRep(notation=notation, contract=contract, grammar=grammar)
         assert rep.notation == notation
         assert rep.contract == contract
@@ -1731,7 +1747,9 @@ class TestRecognizedRep:
     def test_is_frozen(self):
         notation = EmailNotation(local_part="user", domain_part="example.com")
         contract = EmailContract()
-        grammar = GrammarRule(capability_name="email", grammar_name="standard_recognition")
+        grammar = GrammarRule(
+            capability_name="email", grammar_name="standard_recognition"
+        )
         rep = RecognizedRep(notation=notation, contract=contract, grammar=grammar)
         with pytest.raises(AttributeError):
             rep.notation = "changed"  # type: ignore[misc]
@@ -1739,7 +1757,9 @@ class TestRecognizedRep:
     def test_hashable(self):
         notation = EmailNotation(local_part="user", domain_part="example.com")
         contract = EmailContract()
-        grammar = GrammarRule(capability_name="email", grammar_name="standard_recognition")
+        grammar = GrammarRule(
+            capability_name="email", grammar_name="standard_recognition"
+        )
         rep = RecognizedRep(notation=notation, contract=contract, grammar=grammar)
         assert hash(rep) is not None
 ```

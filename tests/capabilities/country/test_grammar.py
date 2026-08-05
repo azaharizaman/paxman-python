@@ -18,26 +18,26 @@ class TestAlpha2Grammar:
         """Happy path: grammar finds alpha2 pattern."""
         results = self.grammar.recognize("US")
         assert len(results) == 1
-        assert results[0].shape == "alpha2"
-        assert results[0].value == "US"
+        assert results[0].notation.shape == "alpha2"
+        assert results[0].notation.value == "US"
 
     def test_recognizes_lowercase(self) -> None:
         """Edge case: lowercase input is uppercased."""
         results = self.grammar.recognize("gb")
         assert len(results) == 1
-        assert results[0].value == "GB"
+        assert results[0].notation.value == "GB"
 
     def test_recognizes_mixed_case(self) -> None:
         """Edge case: mixed case input is uppercased."""
         results = self.grammar.recognize("Us")
         assert len(results) == 1
-        assert results[0].value == "US"
+        assert results[0].notation.value == "US"
 
     def test_recognizes_with_whitespace(self) -> None:
         """Edge case: whitespace is trimmed."""
         results = self.grammar.recognize("  US  ")
         assert len(results) == 1
-        assert results[0].value == "US"
+        assert results[0].notation.value == "US"
 
     def test_recognizes_multiple(self) -> None:
         """Input contains multiple alpha2 matches."""
@@ -73,6 +73,14 @@ class TestAlpha2Grammar:
         """Verify grammar name."""
         assert self.grammar.name == "alpha2_recognition"
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("  US  ")
+        assert len(results) == 1
+        assert results[0].start == 2
+        assert results[0].end == 4
+        assert results[0].raw_text == "US"
+        assert results[0].notation == CountryNotation(shape="alpha2", value="US")
+
 
 class TestAlpha3Grammar:
     """Tests for Alpha3Grammar."""
@@ -84,20 +92,20 @@ class TestAlpha3Grammar:
         """Happy path: grammar finds alpha3 pattern."""
         results = self.grammar.recognize("USA")
         assert len(results) == 1
-        assert results[0].shape == "alpha3"
-        assert results[0].value == "USA"
+        assert results[0].notation.shape == "alpha3"
+        assert results[0].notation.value == "USA"
 
     def test_recognizes_lowercase(self) -> None:
         """Edge case: lowercase input is uppercased."""
         results = self.grammar.recognize("gbr")
         assert len(results) == 1
-        assert results[0].value == "GBR"
+        assert results[0].notation.value == "GBR"
 
     def test_recognizes_with_whitespace(self) -> None:
         """Edge case: whitespace is trimmed."""
         results = self.grammar.recognize("  USA  ")
         assert len(results) == 1
-        assert results[0].value == "USA"
+        assert results[0].notation.value == "USA"
 
     def test_recognizes_multiple(self) -> None:
         """Input contains multiple alpha3 matches."""
@@ -128,6 +136,14 @@ class TestAlpha3Grammar:
         """Verify grammar name."""
         assert self.grammar.name == "alpha3_recognition"
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("  USA  ")
+        assert len(results) == 1
+        assert results[0].start == 2
+        assert results[0].end == 5
+        assert results[0].raw_text == "USA"
+        assert results[0].notation == CountryNotation(shape="alpha3", value="USA")
+
 
 class TestNumericGrammar:
     """Tests for NumericGrammar."""
@@ -139,32 +155,32 @@ class TestNumericGrammar:
         """Happy path: grammar finds numeric pattern."""
         results = self.grammar.recognize("840")
         assert len(results) == 1
-        assert results[0].shape == "numeric"
-        assert results[0].value == "840"
+        assert results[0].notation.shape == "numeric"
+        assert results[0].notation.value == "840"
 
     def test_recognizes_single_digit(self) -> None:
         """Edge case: single digit."""
         results = self.grammar.recognize("4")
         assert len(results) == 1
-        assert results[0].value == "4"
+        assert results[0].notation.value == "4"
 
     def test_recognizes_two_digits(self) -> None:
         """Edge case: two digits."""
         results = self.grammar.recognize("82")
         assert len(results) == 1
-        assert results[0].value == "82"
+        assert results[0].notation.value == "82"
 
     def test_recognizes_with_whitespace(self) -> None:
         """Edge case: whitespace is trimmed."""
         results = self.grammar.recognize("  840  ")
         assert len(results) == 1
-        assert results[0].value == "840"
+        assert results[0].notation.value == "840"
 
     def test_preserves_leading_zeros(self) -> None:
         """Edge case: leading zeros are preserved."""
         results = self.grammar.recognize("004")
         assert len(results) == 1
-        assert results[0].value == "004"
+        assert results[0].notation.value == "004"
 
     def test_rejects_four_digits(self) -> None:
         """Grammar does not match 4+ digits."""
@@ -190,6 +206,14 @@ class TestNumericGrammar:
         """Verify grammar name."""
         assert self.grammar.name == "numeric_recognition"
 
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("  840  ")
+        assert len(results) == 1
+        assert results[0].start == 2
+        assert results[0].end == 5
+        assert results[0].raw_text == "840"
+        assert results[0].notation == CountryNotation(shape="numeric", value="840")
+
 
 class TestNameGrammar:
     """Tests for NameGrammar (lookup-table-based recognition)."""
@@ -201,107 +225,107 @@ class TestNameGrammar:
         """Happy path: grammar recognizes full ISO English name, token preserved."""
         results = self.grammar.recognize("United States")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "United States"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "United States"
 
     def test_recognizes_variant(self) -> None:
         """Variant names are recognized, trimmed input token preserved."""
         results = self.grammar.recognize("USA")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "USA"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "USA"
 
     def test_recognizes_alpha2_as_name(self) -> None:
         """Alpha-2-like name 'US' is recognized, trimmed input token preserved."""
         results = self.grammar.recognize("US")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "US"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "US"
 
     def test_recognizes_lowercase(self) -> None:
         """Lowercase input still recognized, trimmed input token preserved."""
         results = self.grammar.recognize("canada")
         assert len(results) == 1
-        assert results[0].value == "canada"
+        assert results[0].notation.value == "canada"
 
     def test_recognizes_mixed_case(self) -> None:
         """Mixed case input recognized, trimmed input token preserved."""
         results = self.grammar.recognize("fRAnce")
         assert len(results) == 1
-        assert results[0].value == "fRAnce"
+        assert results[0].notation.value == "fRAnce"
 
     def test_recognizes_with_whitespace(self) -> None:
         """Outer whitespace is trimmed, internal spacing preserved."""
         results = self.grammar.recognize("  United   Kingdom  ")
         assert len(results) == 1
-        assert results[0].value == "United   Kingdom"
+        assert results[0].notation.value == "United   Kingdom"
 
     def test_recognizes_with_accents(self) -> None:
         """Accented input is recognized, trimmed input token preserved."""
         results = self.grammar.recognize("Côte d'Ivoire")
         assert len(results) == 1
-        assert results[0].value == "Côte d'Ivoire"
+        assert results[0].notation.value == "Côte d'Ivoire"
 
     def test_recognizes_chinese_name(self) -> None:
         """Chinese names are recognized, trimmed input token preserved."""
         results = self.grammar.recognize("马来西亚")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "马来西亚"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "马来西亚"
 
     def test_recognizes_chinese_name_simple(self) -> None:
         """Chinese name '中国' recognized, trimmed input token preserved."""
         results = self.grammar.recognize("中国")
         assert len(results) == 1
-        assert results[0].value == "中国"
+        assert results[0].notation.value == "中国"
 
     def test_recognizes_historical_name(self) -> None:
         """Historical name recognized, trimmed input token preserved."""
         results = self.grammar.recognize("Burma")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "Burma"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "Burma"
 
     def test_recognizes_spanish_name(self) -> None:
         """Spanish (CLDR) name recognized, trimmed input token preserved."""
         results = self.grammar.recognize("Alemania")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "Alemania"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "Alemania"
 
     def test_recognizes_french_name(self) -> None:
         """French (CLDR) name recognized, trimmed input token preserved."""
         results = self.grammar.recognize("Allemagne")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "Allemagne"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "Allemagne"
 
     def test_recognizes_accented_localized_name(self) -> None:
         """Accented Spanish (CLDR) name recognized, trimmed token preserved."""
         results = self.grammar.recognize("États-Unis")
         assert len(results) == 1
-        assert results[0].shape == "name"
-        assert results[0].value == "États-Unis"
+        assert results[0].notation.shape == "name"
+        assert results[0].notation.value == "États-Unis"
 
     def test_recognizes_historical_ussr(self) -> None:
         """Historical name 'USSR' recognized, trimmed input token preserved."""
         results = self.grammar.recognize("USSR")
         assert len(results) == 1
-        assert results[0].value == "USSR"
+        assert results[0].notation.value == "USSR"
 
     def test_recognizes_synonym_via_english_table(self) -> None:
         """Synonym 'Holland' recognized, trimmed input token preserved."""
         results = self.grammar.recognize("Holland")
         assert len(results) == 1
-        assert results[0].value == "Holland"
+        assert results[0].notation.value == "Holland"
 
     def test_recognizes_hyphenated_official_names(self) -> None:
         """Official hyphenated names (Guinea-Bissau, Timor-Leste) are recognized."""
         for text in ("Guinea-Bissau", "Timor-Leste"):
             results = self.grammar.recognize(text)
             assert len(results) == 1
-            assert results[0].shape == "name"
-            assert results[0].value == text
+            assert results[0].notation.shape == "name"
+            assert results[0].notation.value == text
 
     def test_recognizes_separator_variants(self) -> None:
         """Hyphen, space, en dash, and slash variants share one recognition key."""
@@ -315,27 +339,27 @@ class TestNameGrammar:
         ):
             results = self.grammar.recognize(text)
             assert len(results) == 1, text
-            assert results[0].shape == "name"
+            assert results[0].notation.shape == "name"
 
     def test_recognizes_france_metropolitan_official_form(self) -> None:
         """Official ISO 3166-3 spelling 'France, Metropolitan' is recognized."""
         results = self.grammar.recognize("France, Metropolitan")
         assert len(results) == 1
-        assert results[0].value == "France, Metropolitan"
+        assert results[0].notation.value == "France, Metropolitan"
 
     def test_recognizes_viet_nam_democratic_republic_official_form(self) -> None:
         """Official ISO 3166-3 spelling is recognized, token preserved."""
         text = "Viet-Nam, Democratic Republic of"
         results = self.grammar.recognize(text)
         assert len(results) == 1
-        assert results[0].value == text
+        assert results[0].notation.value == text
 
     def test_recognizes_yemen_democratic_official_form(self) -> None:
         """Official ISO 3166-3 spelling is recognized, token preserved."""
         text = "Yemen, Democratic"
         results = self.grammar.recognize(text)
         assert len(results) == 1
-        assert results[0].value == text
+        assert results[0].notation.value == text
 
     def test_rejects_numeric(self) -> None:
         """Numeric input is not a name pattern."""
@@ -371,32 +395,60 @@ class TestNameGrammar:
         """Punctuation is stripped for membership, raw token preserved."""
         results = self.grammar.recognize("U.S.A.")
         assert len(results) == 1
-        assert results[0].value == "U.S.A."
+        assert results[0].notation.value == "U.S.A."
 
     def test_strips_apostrophes(self) -> None:
         """Apostrophes are stripped for membership, raw token preserved."""
         results = self.grammar.recognize("Cote d'Ivoire")
         assert len(results) == 1
-        assert results[0].value == "Cote d'Ivoire"
+        assert results[0].notation.value == "Cote d'Ivoire"
 
     def test_preserves_english_alias_token(self) -> None:
         """Grammar preserves the trimmed input token for English aliases."""
         results = self.grammar.recognize("USA")
-        assert results == [CountryNotation(shape="name", value="USA")]
+        assert len(results) == 1
+        assert results[0].notation == CountryNotation(shape="name", value="USA")
 
     def test_preserves_localized_token(self) -> None:
         """Grammar preserves the trimmed input token for localized names."""
         results = self.grammar.recognize("马来西亚")
-        assert results == [CountryNotation(shape="name", value="马来西亚")]
+        assert len(results) == 1
+        assert results[0].notation == CountryNotation(shape="name", value="马来西亚")
 
     def test_normalizes_only_for_membership(self) -> None:
         """Normalization decides membership; the trimmed token survives."""
         results = self.grammar.recognize("  Côte d'Ivoire  ")
-        assert results == [CountryNotation(shape="name", value="Côte d'Ivoire")]
+        assert len(results) == 1
+        assert results[0].notation == CountryNotation(
+            shape="name", value="Côte d'Ivoire"
+        )
 
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "name_recognition"
+
+    def test_emits_spans(self) -> None:
+        results = self.grammar.recognize("  United States  ")
+        assert len(results) == 1
+        assert results[0].start == 2
+        assert results[0].end == 15
+        assert results[0].raw_text == "United States"
+        assert results[0].notation == CountryNotation(
+            shape="name", value="United States"
+        )
+
+    def test_span_invariant_with_outer_whitespace(self) -> None:
+        """Leading/trailing whitespace is trimmed from the span.
+
+        The invariant ``text[start:end] == raw_text`` must hold for
+        whitespace-padded input: the match starts after the leading
+        whitespace and ends before the trailing whitespace.
+        """
+        results = self.grammar.recognize("  United States  ")
+        assert len(results) == 1
+        assert "  United States  "[results[0].start : results[0].end] == (
+            results[0].raw_text
+        )
 
 
 class TestNormalizeName:

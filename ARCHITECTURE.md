@@ -23,6 +23,28 @@ Paxman strictly separates the act of finding values in text (recognition) from t
 
 This separation means that a single input can be recognized by multiple grammars and validated by multiple rules, enabling ambiguity detection when different authoritative sources disagree.
 
+### Recognition Pipeline Contract
+
+Every grammar implements `recognize(text) -> list[RecognitionMatch]`, where
+`RecognitionMatch` carries the notation plus a half-open `[start, end)` span
+and the matched `raw_text`. The grammar produces positions; the engine owns
+all cross-match policy:
+
+- **Containment dedup (per grammar):** a match fully contained in a longer
+  match from the SAME grammar is dropped ("longer wins"). Matches from the
+  same grammar with identical `[start, end)` spans keep the first-emitted
+  match. Dedup never runs across grammars, so two grammars agreeing on the
+  same span (e.g. US vs European date reading of `01/02/2026`) are both
+  preserved and ambiguity stays observable.
+- **Ordering:** recognitions are emitted in the total order
+  `(start, end, active_grammars index, grammar name)`, i.e. document order.
+- **Candidate dedup** (`value, recognition_rule, validation_rule`) runs
+  after validation as a stability net.
+
+Grammars perform syntax-level extraction and normalization only; rules own
+semantic validation with provenance. This contract applies identically to
+every capability, built-in or future.
+
 ### Capability Isolation
 
 Each domain (Email, Date, Country, etc.) is encapsulated as a **Capability** — an independent module that defines its own intermediate representation, recognition rules, and validation rules. Capabilities cannot import from each other. The engine and core domain provide the orchestration layer; capabilities provide the domain expertise.
@@ -64,7 +86,7 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 
 1. Freezes the capability registry
 2. Looks up the requested capability by name
-3. Runs the recognition phase — iterating over active grammars to extract notations
+3. Runs the recognition phase — iterating over active grammars to extract span-bearing recognition matches
 4. Runs the validation phase — testing each notation against active rules, which normalize to each capability's default canonical form and never inspect `output_format`
 5. Formats each validated value through the capability's `format_value()` seam — immediately after normalization and before deduplication, status determination, and replay hashing
 6. Deduplicates identical candidates
@@ -72,7 +94,7 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 8. Computes a deterministic replay hash for integrity verification
 9. Assembles the final execution result
 
-The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce notations and rules produce candidates.
+The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce span-bearing recognition matches and rules produce candidates.
 
 ### Public API
 

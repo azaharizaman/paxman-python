@@ -60,9 +60,11 @@ def test_preserves_english_alias_token(self) -> None:
     results = self.grammar.recognize("USA")
     assert results == [CountryNotation(shape="name", value="USA")]
 
+
 def test_preserves_localized_token(self) -> None:
     results = self.grammar.recognize("马来西亚")
     assert results == [CountryNotation(shape="name", value="马来西亚")]
+
 
 def test_normalizes_only_for_membership(self) -> None:
     results = self.grammar.recognize("  Côte d'Ivoire  ")
@@ -83,6 +85,7 @@ def test_localized_name_disabled_is_invalid_without_iso_provenance(self) -> None
     assert result.status == Resolution.INVALID
     assert result.candidates == ()
 
+
 def test_localized_name_enabled_uses_unicode_provenance(self) -> None:
     register_capability(CountryCapability())
     contract = CountryCapability.create_contract(include_localized=True)
@@ -90,9 +93,7 @@ def test_localized_name_enabled_uses_unicode_provenance(self) -> None:
 
     assert result.status == Resolution.SUCCESS
     assert result.canonicalized_value == "MY"
-    assert {p.authority for c in result.candidates for p in c.provenance} == {
-        "Unicode"
-    }
+    assert {p.authority for c in result.candidates for p in c.provenance} == {"Unicode"}
 ```
 
 Use the existing autouse registry fixture. The first test intentionally locks the selected F2 behavior: recognized localized notation plus filtered authority rule means `INVALID`.
@@ -287,17 +288,15 @@ Expected: PASS with no rule method raising for a notation that `matches()` accep
 Import all three grammar key sets and all name-based rule maps. Normalize rule keys before comparison and assert:
 
 ```python
-    grammar_keys = (
-        ENGLISH_NAME_KEYS | HISTORICAL_NAME_KEYS | CHINESE_NAME_KEYS
-    )
-    rule_keys = (
-        {normalize_name(key) for key in NAME_TO_ALPHA2}
-        | {normalize_name(key) for key in SYNONYM_TO_ALPHA2}
-        | {normalize_name(key) for key in FORMER_NAME_TO_ALPHA2}
-        | {normalize_name(key) for key in LOCALIZED_TO_ALPHA2}
-    )
+grammar_keys = ENGLISH_NAME_KEYS | HISTORICAL_NAME_KEYS | CHINESE_NAME_KEYS
+rule_keys = (
+    {normalize_name(key) for key in NAME_TO_ALPHA2}
+    | {normalize_name(key) for key in SYNONYM_TO_ALPHA2}
+    | {normalize_name(key) for key in FORMER_NAME_TO_ALPHA2}
+    | {normalize_name(key) for key in LOCALIZED_TO_ALPHA2}
+)
 
-    assert grammar_keys <= rule_keys
+assert grammar_keys <= rule_keys
 ```
 
 Run it before completing the data migration and confirm it identifies any omitted grammar representation.

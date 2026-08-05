@@ -21,7 +21,7 @@ class TestISO8601DateGrammar:
         grammar = ISO8601DateGrammar()
         result = grammar.recognize("2026-07-26")
         assert len(result) == 1
-        assert result[0].as_list() == ["2026", "07", "26"]
+        assert result[0].notation.as_list() == ["2026", "07", "26"]
 
     def test_recognizes_multiple(self) -> None:
         grammar = ISO8601DateGrammar()
@@ -42,6 +42,18 @@ class TestISO8601DateGrammar:
         grammar = ISO8601DateGrammar()
         assert grammar.name == "iso8601_recognition"
 
+    def test_emits_spans(self) -> None:
+        result = self.grammar.recognize("x 2026-07-26 y")
+        assert len(result) == 1
+        assert result[0].start == 2
+        assert result[0].end == 12
+        assert result[0].raw_text == "2026-07-26"
+        assert result[0].notation.as_list() == ["2026", "07", "26"]
+
+    @property
+    def grammar(self) -> ISO8601DateGrammar:
+        return ISO8601DateGrammar()
+
 
 @pytest.mark.capability
 class TestUSDateGrammar:
@@ -51,13 +63,13 @@ class TestUSDateGrammar:
         grammar = USDateGrammar()
         result = grammar.recognize("07/26/2026")
         assert len(result) == 1
-        assert result[0].as_list() == ["07", "26", "2026"]
+        assert result[0].notation.as_list() == ["07", "26", "2026"]
 
     def test_recognizes_2digit_year(self) -> None:
         grammar = USDateGrammar()
         result = grammar.recognize("07/26/26")
         assert len(result) == 1
-        assert result[0].as_list() == ["07", "26", "26"]
+        assert result[0].notation.as_list() == ["07", "26", "26"]
 
     def test_recognizes_variant_input(self) -> None:
         grammar = USDateGrammar()
@@ -73,6 +85,18 @@ class TestUSDateGrammar:
         grammar = USDateGrammar()
         assert grammar.name == "us_recognition"
 
+    def test_emits_spans(self) -> None:
+        result = self.grammar.recognize("x 07/26/2026 y")
+        assert len(result) == 1
+        assert result[0].start == 2
+        assert result[0].end == 12
+        assert result[0].raw_text == "07/26/2026"
+        assert result[0].notation.as_list() == ["07", "26", "2026"]
+
+    @property
+    def grammar(self) -> USDateGrammar:
+        return USDateGrammar()
+
 
 @pytest.mark.capability
 class TestEuropeanDateGrammar:
@@ -82,13 +106,13 @@ class TestEuropeanDateGrammar:
         grammar = EuropeanDateGrammar()
         result = grammar.recognize("26/07/2026")
         assert len(result) == 1
-        assert result[0].as_list() == ["26", "07", "2026"]
+        assert result[0].notation.as_list() == ["26", "07", "2026"]
 
     def test_recognizes_2digit_year(self) -> None:
         grammar = EuropeanDateGrammar()
         result = grammar.recognize("26/07/26")
         assert len(result) == 1
-        assert result[0].as_list() == ["26", "07", "26"]
+        assert result[0].notation.as_list() == ["26", "07", "26"]
 
     def test_recognizes_variant_input(self) -> None:
         grammar = EuropeanDateGrammar()
@@ -98,3 +122,15 @@ class TestEuropeanDateGrammar:
     def test_grammar_name(self) -> None:
         grammar = EuropeanDateGrammar()
         assert grammar.name == "european_recognition"
+
+    def test_emits_spans(self) -> None:
+        result = self.grammar.recognize("x 26/07/2026 y")
+        assert len(result) == 1
+        assert result[0].start == 2
+        assert result[0].end == 12
+        assert result[0].raw_text == "26/07/2026"
+        assert result[0].notation.as_list() == ["26", "07", "2026"]
+
+    @property
+    def grammar(self) -> EuropeanDateGrammar:
+        return EuropeanDateGrammar()

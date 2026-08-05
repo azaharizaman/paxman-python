@@ -248,9 +248,7 @@ def test_localized_name_uses_current_format_mapping(
 
     assert result.status == Resolution.SUCCESS
     assert result.canonicalized_value == expected
-    assert {p.authority for c in result.candidates for p in c.provenance} == {
-        "Unicode"
-    }
+    assert {p.authority for c in result.candidates for p in c.provenance} == {"Unicode"}
 ```
 
 Add a parametrized historical case for `"USSR"` with `include_historical=True` and each of `alpha3`, `numeric`, and `name`; assert `Resolution.SUCCESS`, `canonicalized_value == "SU"`, and ISO 3166-3 provenance for every format. This explicitly locks historical passthrough while proving localized names use the centralized current-code formatter.
