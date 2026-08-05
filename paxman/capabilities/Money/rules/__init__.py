@@ -1,0 +1,1 @@
+"""Money validation rules."""
