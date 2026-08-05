@@ -67,10 +67,23 @@ class TestSection42Gs1Prefix:
         self.contract = ISBNContract()
 
     def test_gs1_prefix_rule(self) -> None:
-        """978/979 prefixes match; other prefixes rejected; normalize passthrough."""
+        """978/979 prefixes match only with a valid check digit; other
+        prefixes rejected; normalize passthrough."""
         assert (
             self.rule.matches(
                 ISBNNotation(shape="isbn13", digits="9780306406157"), self.contract
+            )
+            is True
+        )
+        assert (
+            self.rule.matches(
+                ISBNNotation(shape="isbn13", digits="9780306406158"), self.contract
+            )
+            is False
+        )
+        assert (
+            self.rule.matches(
+                ISBNNotation(shape="isbn13", digits="9789990000009"), self.contract
             )
             is True
         )

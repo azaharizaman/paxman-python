@@ -54,7 +54,11 @@ class Section42Gs1Prefix(Rule[ISBNNotation]):
     requires_features = frozenset()
 
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:
-        return notation.shape == "isbn13" and notation.digits[:3] in _GS1_PREFIXES
+        if notation.shape != "isbn13" or len(notation.digits) != 13:
+            return False
+        if notation.digits[:3] not in _GS1_PREFIXES:
+            return False
+        return _isbn13_check_digit(notation.digits)
 
     def normalize(self, notation: ISBNNotation, contract: Contract) -> str:
         return notation.digits
