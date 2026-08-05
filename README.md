@@ -193,7 +193,7 @@ result = paxman.canonicalize("9780110002224", contract)
 # Enable registrant-range provenance (ISBN Range Message authority)
 contract = ISBN.create_contract(include_range_validation=True)
 result = paxman.canonicalize("9780110002224", contract)
-# → SUCCESS with Section 4-registrant-range provenance
+# → Status: SUCCESS (Section 4-registrant-range provenance)
 
 # Disable ISBN-10 recognition
 contract = ISBN.create_contract(include_isbn10=False)
