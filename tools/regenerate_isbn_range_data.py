@@ -29,10 +29,27 @@ def _collect_rules(parent: ET.Element) -> list[tuple[str, str, int]]:
 
 
 def _emit_rule_table(entries: list[tuple[str, list[tuple[str, str, int]]]]) -> str:
+    """Emit a dict literal with ruff-format-compliant line lengths.
+
+    Single-line when the whole entry fits within 88 columns;
+    otherwise multiline (one element per line, magic trailing comma).
+    """
+
     blocks: list[str] = []
     for key, rules in entries:
         if not rules:
             blocks.append(f'    "{key}": (),')
+            continue
+        elements = ", ".join(
+            f'("{start}", "{end}", {length})' for start, end, length in rules
+        )
+        if len(rules) == 1:
+            # Keep the outer parens a real 1-tuple of tuples, matching the
+            # magic-trailing-comma form ruff itself would emit on collapse.
+            elements += ","
+        one_line = f'    "{key}": ({elements}),'
+        if len(one_line) <= 88:
+            blocks.append(one_line)
             continue
         tuples = ",\n        ".join(
             f'("{start}", "{end}", {length})' for start, end, length in rules
