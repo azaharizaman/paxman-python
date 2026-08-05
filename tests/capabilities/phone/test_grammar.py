@@ -218,6 +218,23 @@ class TestInternational00Grammar:
         assert results[0].end == 18
         assert results[0].raw_text == "00 44 20 7946 0958"
 
+    def test_does_not_swallow_sentence_punctuation(self) -> None:
+        """Trailing sentence punctuation is not part of the match.
+
+        The trailing (?<=\\d) lookbehind forces the match to end on a digit,
+        so the sentence-ending period is excluded from span and raw_text.
+        """
+        results = self.grammar.recognize("00 44 20 7946 0958.")
+        assert len(results) == 1
+        assert results[0].notation.value == "442079460958"
+        assert results[0].start == 0
+        assert results[0].end == 18
+        assert results[0].raw_text == "00 44 20 7946 0958"
+        assert (
+            results[0].raw_text
+            == "00 44 20 7946 0958."[results[0].start : results[0].end]
+        )
+
     def test_name(self) -> None:
         """Verify grammar name."""
         assert self.grammar.name == "international_00_recognition"

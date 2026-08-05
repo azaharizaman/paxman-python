@@ -69,14 +69,14 @@ class IPv6Grammar(Grammar[IPNotation]):
                 )
             )
         for match in _IPV6_COMPRESSED.finditer(text):
-            for group in match.groups():
-                if group is not None:
-                    matches.append(
-                        RecognitionMatch(
-                            notation=IPNotation(address=group),
-                            start=match.start(),
-                            end=match.end(),
-                            raw_text=group,
-                        )
-                    )
+            # Boundary assertions are zero-width and each alternation branch
+            # has one capture group, so the full match text IS the address.
+            matches.append(
+                RecognitionMatch(
+                    notation=IPNotation(address=match.group(0)),
+                    start=match.start(),
+                    end=match.end(),
+                    raw_text=match.group(0),
+                )
+            )
         return matches

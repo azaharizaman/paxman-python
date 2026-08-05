@@ -437,6 +437,19 @@ class TestNameGrammar:
             shape="name", value="United States"
         )
 
+    def test_span_invariant_with_outer_whitespace(self) -> None:
+        """Leading/trailing whitespace is trimmed from the span.
+
+        The invariant ``text[start:end] == raw_text`` must hold for
+        whitespace-padded input: the match starts after the leading
+        whitespace and ends before the trailing whitespace.
+        """
+        results = self.grammar.recognize("  United States  ")
+        assert len(results) == 1
+        assert "  United States  "[results[0].start : results[0].end] == (
+            results[0].raw_text
+        )
+
 
 class TestNormalizeName:
     """Tests for the shared Country name normalizer."""

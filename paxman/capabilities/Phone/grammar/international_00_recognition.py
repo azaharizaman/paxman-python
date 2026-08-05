@@ -21,7 +21,12 @@ from paxman.core.domain import Grammar, RecognitionMatch
 # The (?<![\w:.+]) lookbehind excludes word characters, ":", "." and "+"
 # so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes
 # and "+0044..." (contradictory input) is left to the e164 grammar.
-_INTERNATIONAL_00_PATTERN = re.compile(r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*")
+# The trailing (?<=\d) lookbehind forces the match to end on a digit, so
+# the trailing character class cannot swallow separators, whitespace, or
+# sentence punctuation after the number (mirrors _E164_PATTERN).
+_INTERNATIONAL_00_PATTERN = re.compile(
+    r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*(?<=\d)"
+)
 
 
 class International00Grammar(Grammar[PhoneNotation]):
