@@ -4,7 +4,9 @@ Each property locks a mathematical invariant of recognition, hyphenation, or
 check-digit conversion using an independently derived expectation:
 
 - a grammar-recognized ISBN-13 that the ISO 2108 §5.3 rule accepts always
-  carries the check digit independently recomputed from the first 12 digits;
+  carries the check digit independently recomputed from the first 12 digits,
+  while a recognized ISBN-13 whose final digit was mutated is rejected by the
+  rule — recognition is shape-only and never validates the check digit;
 - hyphenation is presentation only: stripping separators never alters the
   digit content of a 13-digit ISBN;
 - the ISBN-10 rule's 978-folded ISBN-13 conversion agrees with the
@@ -54,8 +56,10 @@ def _check_digit_isbn10(first9: str) -> str:
     prefix=st.sampled_from(("978", "979")),
     core=st.text(alphabet=string.digits, min_size=9, max_size=9),
 )
-def test_isbn13_grammar_recognized_implies_check_digit(prefix: str, core: str) -> None:
-    """A valid ISBN-13 is recognized and rule-validated with a correct check digit.
+def test_isbn13_correct_check_digit_recognized_and_rule_accepted(
+    prefix: str, core: str
+) -> None:
+    """Positive acceptance: a valid ISBN-13 is recognized and rule-validated.
 
     For every ISBN-13 built from a GS1 prefix, nine digits, and the
     independently derived check digit, the grammar must recognize it and the
@@ -71,6 +75,31 @@ def test_isbn13_grammar_recognized_implies_check_digit(prefix: str, core: str) -
     notation = ISBNNotation(shape="isbn13", digits=value)
     assert rule.matches(notation, contract) is True
     assert value[-1] == _check_digit_isbn13(value[:12])
+
+
+@pytest.mark.property
+@given(
+    prefix=st.sampled_from(("978", "979")),
+    core=st.text(alphabet=string.digits, min_size=9, max_size=9),
+)
+def test_isbn13_mutated_check_digit_recognized_but_rule_rejected(
+    prefix: str, core: str
+) -> None:
+    """Recognition is shape-only: a mutated check digit is still recognized.
+
+    The grammar matches 13-digit structure regardless of check-digit validity,
+    so an ISBN-13 with a wrong final digit is recognized but the ISO 2108 §5.3
+    rule must reject it — recognition and validation stay decoupled.
+    """
+    value = prefix + core + _check_digit_isbn13(prefix + core)
+    mutated = value[:-1] + str((int(value[-1]) + 1) % 10)
+    grammar = ISBN13RecognitionGrammar()
+    rule = Section53Isbn13CheckDigit()
+    contract = ISBNContract()
+    matches = [m for m in grammar.recognize(mutated) if m.notation.digits == mutated]
+    assert matches
+    notation = ISBNNotation(shape="isbn13", digits=mutated)
+    assert rule.matches(notation, contract) is False
 
 
 @pytest.mark.property
