@@ -113,3 +113,28 @@ class TestFormatAmount:
     def test_round_pads_to_minor_units(self) -> None:
         """Round quantizes to the exact minor-unit scale."""
         assert format_amount(ParsedAmount("500", "5"), 2, "round") == "500.50"
+
+    def test_round_large_integer_does_not_raise(self) -> None:
+        """A 28-digit integer rounding up to 29 digits must not raise.
+
+        The default Decimal context (prec=28) makes arithmetic composition
+        raise InvalidOperation here; Decimal string construction is
+        context-independent and quantize runs under a raised local context.
+        """
+        assert format_amount(ParsedAmount("9" * 28, "5"), 0, "round") == "1" + "0" * 28
+
+    def test_round_large_integer_27_digit_boundary(self) -> None:
+        """The 27-digit boundary: 28 result digits fit the default context."""
+        assert format_amount(ParsedAmount("9" * 27, "5"), 0, "round") == "1" + "0" * 27
+
+    def test_round_long_fraction_keeps_full_precision(self) -> None:
+        """A 30-digit fraction rounds by its exact value, not a 28-digit view.
+
+        500.500...001 (29 zeros then a 1) is not a tie and must round up to
+        501; truncating the fraction to 28 significant digits turns it into
+        an exact 500.5 tie that rounds half-to-even down to 500.
+        """
+        assert (
+            format_amount(ParsedAmount("500", "5" + "0" * 28 + "1"), 0, "round")
+            == "501"
+        )

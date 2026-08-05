@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from decimal import ROUND_HALF_EVEN, Decimal
+from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from typing import Literal
 
 
@@ -99,11 +99,15 @@ def format_amount(
         digits (e.g. "500.00", or "500" when minor_units == 0).
     """
     if precision == "round":
-        value = Decimal(parsed.integer or "0") + Decimal(parsed.fraction or "0") / (
-            Decimal(10) ** len(parsed.fraction)
+        value = Decimal(
+            f"{parsed.integer or '0'}.{parsed.fraction}"
+            if parsed.fraction
+            else parsed.integer or "0"
         )
         quantum = Decimal(1).scaleb(-minor_units)
-        return format(value.quantize(quantum, rounding=ROUND_HALF_EVEN), "f")
+        with localcontext() as ctx:
+            ctx.prec = max(len(parsed.integer) + minor_units + 5, 28)
+            return format(value.quantize(quantum, rounding=ROUND_HALF_EVEN), "f")
     if precision == "truncate":
         fraction = parsed.fraction[:minor_units].ljust(minor_units, "0")
     else:  # strict — rules guarantee decimal_digits() <= minor_units
