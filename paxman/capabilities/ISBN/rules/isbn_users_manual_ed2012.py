@@ -37,6 +37,8 @@ class Section6Isbn10CheckDigit(Rule[ISBNNotation]):
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:
         if notation.shape != "isbn10" or len(notation.digits) != 10:
             return False
+        if not notation.digits.isascii():
+            return False
         if not notation.digits[:9].isdigit():
             return False
         return _isbn10_check_digit(notation.digits)

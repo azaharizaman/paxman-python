@@ -6,6 +6,7 @@
 Core owns the domain vocabulary (pipeline value objects + `Rule`/`Grammar` ABCs), the contract surface (`Contract` protocol, `CapabilityContract` base, `output_format` policy), the capability registry, and the error hierarchy. Everything `paxman.api` and `paxman.engine` shuffle through the pipeline is defined here.
 
 ## WHERE TO LOOK
+
 | Task | Location |
 |------|----------|
 | Add a pipeline value object | `paxman/core/domain.py` |

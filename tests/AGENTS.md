@@ -4,7 +4,7 @@
 Tests are layered by scope; each layer maps to a pytest marker defined in pyproject `[tool.pytest.ini_options]`. The directory IS the marker: a test's location decides which `-m` flag runs it, CI runs the union. 5 layers, 6 capability packages.
 
 ## STRUCTURE
-```
+```text
 tests/
 ├── conftest.py       # loads hypothesis "ci" profile
 ├── unit/             # -m unit        core domain, registry, contracts, purity scans
@@ -13,7 +13,6 @@ tests/
 ├── property/         # -m property    hypothesis property tests
 └── e2e/              # -m e2e         canonicalize() end-to-end
 ```
-tests/ root has NO `__init__.py` (only `conftest.py`); every subdirectory IS a package (`__init__.py`).
 
 ## WHERE TO LOOK
 | Task | Location |

@@ -4,7 +4,7 @@
 The deepest directory in the repo (87 py files): 6 self-contained capability packages (Country, Date, Email, IP, ISBN, Phone), each an independent recognize→validate→resolve mini-system wired into the shared pipeline via `paxman.core`. Most work landing here is: add a capability, tweak recognition/validation for one, or regenerate data.
 
 ## STRUCTURE
-```
+```text
 paxman/capabilities/
 ├── __init__.py          # registration imports + __all__ (see NOTES)
 ├── <Name>/              # one per capability (Country, Date, Email, IP, ISBN, Phone)

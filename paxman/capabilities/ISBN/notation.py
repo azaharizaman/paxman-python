@@ -1,6 +1,7 @@
 """ISBN notation: shape discriminator + normalized digit string."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,7 +12,7 @@ class ISBNNotation:
     ``X`` is allowed only as the final char of an "isbn10" shape.
     """
 
-    shape: str
+    shape: Literal["isbn10", "isbn13"]
     digits: str
 
     def as_list(self) -> list[str]:

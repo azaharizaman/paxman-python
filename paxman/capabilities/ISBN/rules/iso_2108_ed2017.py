@@ -35,6 +35,8 @@ class Section53Isbn13CheckDigit(Rule[ISBNNotation]):
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:
         if notation.shape != "isbn13" or len(notation.digits) != 13:
             return False
+        if not notation.digits.isascii():
+            return False
         if notation.digits[:3] not in _GS1_PREFIXES:  # ISO 2108 §4.2 structure
             return False
         return _isbn13_check_digit(notation.digits)

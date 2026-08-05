@@ -215,8 +215,8 @@ the authority for hyphen placement and for issued-ISBN validation.
 
 - Page: <https://www.isbn-international.org/range_file_generation>
 - Live XML: <https://www.isbn-international.org/export_rangemessage.xml>
-  (fetched 2026-08-05; `MessageSerialNumber` 6ae30b93-…, `MessageDate`
-  "Wed, 5 Aug 2026 08:13:31 BST")
+  (fetched 2026-08-05; `MessageSerialNumber` 6f6063f3-6f2a-4619-8bd9-116a3addc690,
+  `MessageDate` "Wed, 5 Aug 2026 08:25:28 BST")
 
 ### 4.2 XML structure (two sections)
 
@@ -237,15 +237,15 @@ the authority for hyphen placement and for issued-ISBN validation.
     <Prefix>978-0</Prefix>
     <Agency>English language</Agency>
     <Rules>
-      <Rule><Range>000000-199999</Range><Length>2</Length></Rule>
-      <Rule><Range>200000-227999</Range><Length>3</Length></Rule>
+      <Rule><Range>0000000-1999999</Range><Length>2</Length></Rule>
+      <Rule><Range>2000000-2279999</Range><Length>3</Length></Rule>
       <!-- ... -->
     </Rules>
   </Group>
 </RegistrationGroups>
 ```
 
-- Ranges are zero-padded (7 digits for prefix rules, 6 for registrant rules).
+- Ranges are zero-padded (7 digits for both prefix and registrant rules).
 - `Length` is the number of digits of the element; `Length 0` = range not
   allocated.
 - The `<Group><Prefix>` is `EAN.UCC prefix + registration group` (e.g. `978-0`).
@@ -525,7 +525,8 @@ adds no provenance, and cannot affect status.
 - **Property tests** (hypothesis): generate valid ISBN-13s from the algorithm
   → canonicalize round-trips; random 13-digit strings → INVALID with high
   probability; ISBN-10→13→10 round-trip for `978` prefixes; hyphenated vs
-  bare input → identical canonical value and replay hash.
+  bare input → identical canonical value (replay hashes differ — the hash
+  covers the original input, so separators are not normalized away).
 - **Consistency test** (grammar/rule boundary): every recognition shape is
   covered by at least one rule's `target_grammars`; range-message data covers
   the shipped prefixes.

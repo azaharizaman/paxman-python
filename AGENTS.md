@@ -8,7 +8,7 @@
 Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first, replay-safe. 6 capabilities (Country, Date, Email, IP, ISBN, Phone). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
 
 ## STRUCTURE
-```
+```text
 paxman/
 ├── api/            # canonicalize() — sole public entry
 ├── engine/         # run_capability() pipeline orchestrator

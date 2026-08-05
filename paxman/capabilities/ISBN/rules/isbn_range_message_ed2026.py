@@ -56,7 +56,8 @@ class Section4RegistrantRange(Rule[ISBNNotation]):
 
     def normalize(self, notation: ISBNNotation, contract: Contract) -> str:
         digits = self._to_isbn13(notation)
-        assert digits is not None
+        if digits is None:
+            return notation.digits
         return digits
 
     @staticmethod
@@ -64,6 +65,8 @@ class Section4RegistrantRange(Rule[ISBNNotation]):
         if notation.shape == "isbn13":
             return notation.digits
         if notation.shape == "isbn10" and len(notation.digits) == 10:
+            if not notation.digits[:9].isdigit():
+                return None
             base = "978" + notation.digits[:9]
             weighted = sum(
                 int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(base)

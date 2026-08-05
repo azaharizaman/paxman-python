@@ -20,7 +20,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from paxman.capabilities.ISBN.capability import hyphenate
+from paxman.capabilities.ISBN.capability import ISBNCapability
 from paxman.capabilities.ISBN.contract import ISBNContract
 from paxman.capabilities.ISBN.grammar.isbn13_recognition import (
     ISBN13RecognitionGrammar,
@@ -50,30 +50,37 @@ def _check_digit_isbn10(first9: str) -> str:
 
 
 @pytest.mark.property
-@given(text=st.text(min_size=0, max_size=200))
-def test_isbn13_grammar_recognized_implies_check_digit(text: str) -> None:
-    """A rule-validated, grammar-recognized ISBN-13 has a valid check digit.
+@given(
+    prefix=st.sampled_from(("978", "979")),
+    core=st.text(alphabet=string.digits, min_size=9, max_size=9),
+)
+def test_isbn13_grammar_recognized_implies_check_digit(prefix: str, core: str) -> None:
+    """A valid ISBN-13 is recognized and rule-validated with a correct check digit.
 
-    Whenever the ISO 2108 §5.3 rule accepts an ISBN-13 recognized by the
-    grammar, the final digit must agree with the independently derived check
-    digit over the first 12 digits — the rule and the independent derivation
-    can never disagree.
+    For every ISBN-13 built from a GS1 prefix, nine digits, and the
+    independently derived check digit, the grammar must recognize it and the
+    ISO 2108 §5.3 rule must accept it — recognition, validation, and the
+    independent derivation can never disagree.
     """
+    value = prefix + core + _check_digit_isbn13(prefix + core)
     grammar = ISBN13RecognitionGrammar()
     rule = Section53Isbn13CheckDigit()
     contract = ISBNContract()
-    for match in grammar.recognize(text):
-        digits = match.notation.digits
-        notation = ISBNNotation(shape="isbn13", digits=digits)
-        if rule.matches(notation, contract):
-            assert digits[-1] == _check_digit_isbn13(digits[:12])
+    matches = [m for m in grammar.recognize(value) if m.notation.digits == value]
+    assert matches
+    notation = ISBNNotation(shape="isbn13", digits=value)
+    assert rule.matches(notation, contract) is True
+    assert value[-1] == _check_digit_isbn13(value[:12])
 
 
 @pytest.mark.property
 @given(value=st.text(alphabet=string.digits, min_size=13, max_size=13))
 def test_hyphenate_round_trips_digits(value: str) -> None:
     """Hyphenation never alters the digit content of a 13-digit ISBN."""
-    assert "".join(c for c in hyphenate(value) if c.isdigit()) == value
+    cap = ISBNCapability()
+    notation = ISBNNotation(shape="isbn13", digits=value)
+    hyphenated = cap.format_value(value, "hyphenated", notation)
+    assert "".join(c for c in hyphenated if c.isdigit()) == value
 
 
 @pytest.mark.property

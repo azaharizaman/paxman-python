@@ -41,7 +41,7 @@ def _find_length(rules: tuple[tuple[str, str, int], ...], digits: str) -> int | 
     return None
 
 
-def hyphenate(value: str) -> str:
+def _hyphenate(value: str) -> str:
     """Render a 13-digit ISBN with Range Message hyphens (memo §4.3).
 
     Unregistered prefixes/groups/registrants pass through unchanged (bare
@@ -124,5 +124,5 @@ class ISBNCapability(Capability[ISBNNotation]):
         candidate identity or provenance.
         """
         if output_format == "hyphenated":
-            return hyphenate(value)
+            return _hyphenate(value)
         return value

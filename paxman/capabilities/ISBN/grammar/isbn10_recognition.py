@@ -22,16 +22,14 @@ class ISBN10RecognitionGrammar(Grammar[ISBNNotation]):
     def recognize(self, text: str) -> list[RecognitionMatch[ISBNNotation]]:
         matches: list[RecognitionMatch[ISBNNotation]] = []
         for m in _ISBN10_PATTERN.finditer(text):
-            cleaned = "".join(
-                ch for ch in m.group(1) if ch.isdigit() or ch in "xX"
-            ).upper()
-            if len(cleaned) != 10:
+            digits = "".join(ch for ch in m.group(1) if ch in "0123456789Xx").upper()
+            if len(digits) != 10:
                 continue
             matches.append(
                 RecognitionMatch(
                     notation=ISBNNotation(
                         shape="isbn10",
-                        digits=cleaned,
+                        digits=digits,
                     ),
                     start=m.start(),
                     end=m.end(),

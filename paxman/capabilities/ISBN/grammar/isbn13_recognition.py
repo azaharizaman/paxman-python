@@ -21,7 +21,7 @@ class ISBN13RecognitionGrammar(Grammar[ISBNNotation]):
     def recognize(self, text: str) -> list[RecognitionMatch[ISBNNotation]]:
         matches: list[RecognitionMatch[ISBNNotation]] = []
         for m in _ISBN13_PATTERN.finditer(text):
-            digits = "".join(ch for ch in m.group(1) if ch.isdigit())
+            digits = "".join(ch for ch in m.group(1) if ch in "0123456789")
             if len(digits) != 13:
                 continue
             matches.append(

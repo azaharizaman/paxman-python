@@ -94,7 +94,7 @@ Key rules:
 
 ## File Structure
 
-```
+```text
 paxman/capabilities/ISBN/
 ├── __init__.py
 ├── capability.py
@@ -352,7 +352,7 @@ print(len(root.findall('.//Rule')))
 
 Expected output (STOP and confirm with the user if anything differs):
 
-```
+```text
 ISBNRangeMessage
 6f6063f3-6f2a-4619-8bd9-116a3addc690
 Wed, 5 Aug 2026 08:25:28 BST
@@ -694,7 +694,8 @@ class Section4RegistrantRange(Rule[ISBNNotation]):
 
     def normalize(self, notation: ISBNNotation, contract: Contract) -> str:
         digits = self._to_isbn13(notation)
-        assert digits is not None
+        if digits is None:
+            return notation.digits
         return digits
 
     @staticmethod
@@ -702,6 +703,8 @@ class Section4RegistrantRange(Rule[ISBNNotation]):
         if notation.shape == "isbn13":
             return notation.digits
         if notation.shape == "isbn10" and len(notation.digits) == 10:
+            if not notation.digits[:9].isdigit():
+                return None
             base = "978" + notation.digits[:9]
             weighted = sum(int(d) * (1 if i % 2 == 0 else 3) for i, d in enumerate(base))
             return base + str((10 - weighted % 10) % 10)
@@ -861,9 +864,9 @@ The wiring mirrors `paxman/capabilities/Country/capability.py` exactly: module `
 
 - `test_capability_name_version` — `ISBNCapability.name == "isbn"`, `.version == "1.0.0"`.
 - `test_get_grammars` — `len(cap.get_grammars()) == 2`; names `{"isbn13_recognition", "isbn10_recognition"}`.
-- `test_get_rules` — `len(cap.get_rules()) == 4`; names in order: `["Section 5.3-isbn-13-check-digit", "Section 4.2-gs1-prefix", "Section 6-isbn-10-check-digit", "Section 4-registrant-range"]`.
-- `test_create_contract_defaults` — `c = ISBNCapability.create_contract()`; `c.include_isbn10 is True`; `c.include_range_validation is False`; `c.output_format is None`; `c.active_grammars == ("isbn13_recognition", "isbn10_recognition")`.
-- `test_create_contract_feature_flags` — `create_contract(include_isbn10=False, include_range_validation=True)` → `include_isbn10 is False`, `include_range_validation is True`, `active_grammars == ("isbn13_recognition",)`.
+- `test_get_rules` — `len(cap.get_rules()) == 4`; names in order: `["Section 5.3-isbn13-check-digit", "Section 4.2-gs1-prefix", "Section 6-isbn10-check-digit", "Section 4-registrant-range"]`.
+- `test_create_contract_defaults` — `c = ISBNCapability.create_contract()`; `c.include_isbn10 is True`; `c.include_range_validation is False`; `c.output_format == "isbn13"` (resolved by `CapabilityContract.__post_init__`); `c.active_grammars == ["isbn13_recognition", "isbn10_recognition"]`.
+- `test_create_contract_feature_flags` — `create_contract(include_isbn10=False, include_range_validation=True)` → `include_isbn10 is False`, `include_range_validation is True`, `active_grammars == ["isbn13_recognition"]`.
 - `test_create_contract_output_format` — `create_contract(output_format="hyphenated")` → `c.output_format == "hyphenated"`.
 - `test_format_value_identity` — default `"isbn13"` and `None` both return the input unchanged: `format_value("9780306406157", "isbn13", notation) == "9780306406157"`, `format_value("9780306406157", None, notation) == "9780306406157"`.
 - `test_format_value_hyphenated` — `format_value("9780110002224", "hyphenated", notation) == "978-0-11-000222-4"` (the Task 4 allocation vector — first `978-0` registrant range `00-19` → registrant `11`).
@@ -1196,7 +1199,7 @@ Run `uv run pytest tests/integration/test_default_replay_hashes.py -k isbn` — 
 
 - [ ] **Step 2: GREEN — capture and pin the literal**
 
-Replace `"isbn": ""` with the `<64-hex-hash>` reported by the failure. The case asserts `status == Resolution.SUCCESS` and `replay_hash == BASELINE_HASHES["isbn"]` — the canonical value is `"9780306406157"` with provenance from all four rules that validate it.
+Replace `"isbn": ""` with the `<64-hex-hash>` reported by the failure. The case asserts `status == Resolution.SUCCESS` and `replay_hash == BASELINE_HASHES["isbn"]` — the canonical value is `"9780306406157"` with provenance from the two ISO 2108:2017 rules that validate it (Section 5.3-isbn13-check-digit and Section 4.2-gs1-prefix); the ISBN Users' Manual rule targets the isbn10 grammar only and the range rule is gated behind `include_range_validation` (off by default).
 
 - [ ] **Step 3: Verify**
 
@@ -1222,7 +1225,7 @@ Commit: `feat(isbn): pin ISBN replay-hash baseline`.
 
 Add a row to the capabilities table (alphabetical, between IP and Phone):
 
-```
+```text
 | **ISBN** | ISBN numbers | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 ```
 
