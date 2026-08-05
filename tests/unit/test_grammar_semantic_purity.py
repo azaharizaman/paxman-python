@@ -58,7 +58,11 @@ def _forbidden_imports(path: Path, forbidden: str) -> list[str]:
                     if alias.name != "*":
                         record([*base, alias.name], ast.unparse(node))
                 if node.module:
-                    record([*base, node.module], ast.unparse(node))
+                    # Split on dots like the absolute branch above, so a
+                    # dotted relative import ("from ..rules.email_rule import
+                    # Rule") records "rules" as its own component and the
+                    # forbidden-package check fires.
+                    record([*base, *node.module.split(".")], ast.unparse(node))
     return violations
 
 
