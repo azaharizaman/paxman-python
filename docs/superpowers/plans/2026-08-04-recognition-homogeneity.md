@@ -526,7 +526,9 @@ def _recognize(
     """
     all_grammars = capability.get_grammars()
     supported_names = {g.name for g in all_grammars}
-    active_names = [n for n in contract.active_grammars if n in supported_names]
+    active_names = list(
+        dict.fromkeys(n for n in contract.active_grammars if n in supported_names)
+    )
     by_name = {g.name: g for g in all_grammars}
     active_grammars = [by_name[n] for n in active_names]
     grammar_index = {name: i for i, name in enumerate(active_names)}
@@ -612,6 +614,16 @@ def _dedup_spans(
 ```
 
 `_collect_candidates`, `_dedup_candidates`, `_determine_status`, and `_compute_replay_hash` are UNCHANGED.
+
+> **Post-hoc correction (2026-08-05, CodeRabbit round 2):** `active_names` is
+> deduplicated (first occurrence wins) before `grammar_index` and
+> `active_grammars` are built — a duplicate entry in
+> `contract.active_grammars` previously double-ran the grammar and desynced
+> the dict index (last-write-wins) from the run list. Locked by
+> `test_engine_runs_each_grammar_once_despite_duplicate_contract_names`;
+> `test_grammar_emits_span_bearing_matches` now asserts the full ordered
+> match list (AAAA(2,6) plus both contained AA runs at (2,4)/(4,6)) instead
+> of length + first element only.
 
 ### Step 4 (GREEN) — `paxman/core/__init__.py`
 
