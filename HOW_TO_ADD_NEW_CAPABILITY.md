@@ -196,12 +196,48 @@ class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
 - A single grammar can return multiple matches if the input contains multiple occurrences
 - Grammar names must be unique within the capability
 - Never import from `rules/` — a grammar that imports a rule would let semantics leak across the pipeline's separation boundary (enforced by the semantic purity gate)
+- Cross-grammar containment is expected and resolves through normalization: an ISBN-10 sub-run inside an ISBN-13 match is a contained span, and both shapes normalize to the same canonical value, so the resolution succeeds rather than ambiguating
 
-**Common grammar strategies:**
+**Choose a recognition strategy before writing the grammar.** Every grammar in the codebase follows one of two strategies, and the choice follows directly from the representation you are recognizing. Decide this in Step 1, alongside your notation design — it determines whether you write a pattern or a key set.
 
-- **Regex** — use compiled regex patterns with `re.finditer()`
-- **String parsing** — split or scan text for delimiters
-- **Hybrid** — combine regex with string operations for complex patterns
+**Strategy 1 — Regex (structural pattern matching)**
+
+Recognize by syntactic *shape*: fixed widths, delimiters, or character classes. Compile the pattern at module scope, iterate with `re.finditer()`, map capture groups to notation fields, and sanitize the raw token (strip separators, case-fold, length-guard) before storing it in the notation. Recognition is shape-only — rules own semantic validity.
+
+Choose Regex when the representation has a distinctive, enumerable shape. All Date, Email, IP, ISBN, and Phone grammars, plus Country's `alpha2`/`alpha3`/`numeric` grammars, are Regex grammars. Three recurring sub-patterns:
+
+- **Compile once, iterate with `finditer()`** — never compile inside `recognize()` (it runs for every input).
+- **Sanitize the matched token** — the notation value is a *cleaned* raw token, never a canonical value. Phone strips separators (`strip_separators` in `Phone/grammar/common.py`), Country uppercases, ISBN strips separators and guards length. `raw_text` is always the original span, so `len(raw_text) == end - start` keeps holding.
+- **Guard boundaries against sibling grammars** — when two grammars could claim the same span, use lookbehind/lookahead so each claims only its own representation. See Phone's `national_recognition` (four stacked lookbehinds rejecting `+1…` and `tel:+…` prefixes) and `e164_recognition` (a `(?<![\w:.])` lookbehind rejecting email plus-tags and `tel:+…`).
+
+**Strategy 2 — Lexicon (key-set membership)**
+
+Recognize by membership in a known vocabulary, not by shape. Normalize the input (case-fold, Unicode decomposition, separator folding), test membership in a key-only table under `grammar/data/`, and emit the trimmed input token as the notation value (with a `shape` discriminator when rules route by format). Keys are syntax-normalized forms only — no token maps to a canonical value; rules own every token-to-meaning decision.
+
+Choose Lexicon when the representation is free-form text whose recognizability *is* the vocabulary — no regex shape separates "United States" from "XYZ". Country's `name_recognition` is the exemplar: it normalizes with `normalize_name()`, tests `_KNOWN_NAME_KEYS` (the union of per-locale key sets in `grammar/data/`), and returns the trimmed token with `shape="name"`. See its `grammar/data/` modules for the key-only table pattern.
+
+**Decision guidance:**
+
+| Your representation… | Strategy |
+|---|---|
+| Has a distinctive syntactic shape (delimiters, fixed widths, character classes) | **Regex** |
+| Is a finite vocabulary of free-form tokens (names, spelled-out forms) | **Lexicon** |
+| Both (e.g., codes *and* names) | One grammar per strategy |
+
+The strategies are not interchangeable: a regex shape cannot enumerate a vocabulary, and a key set cannot recognize an open-ended shape. A capability commonly mixes them — Country ships three Regex grammars and one Lexicon grammar.
+
+**Beyond the core: additional strategies the architecture supports**
+
+The two strategies above cover every grammar shipped today, but the `Grammar` contract — scan free text, emit span-bearing `RecognitionMatch` objects, never validate — is deliberately broad enough to host other recognition techniques. They are documented here so a contributor knows what the architecture can absorb before forcing a representation into a regex that fights it:
+
+| Strategy | Recognizes by | Producing spans | Example in the wild | Reach for it when |
+|---|---|---|---|---|
+| **Hand-written scanner** (state machine / recursive descent) | Context and structure regex cannot express: balanced delimiters, escapes, lookahead-dependent tokenization | Track position as you walk the text | stdlib `ipaddress`, `tomllib`, `email`; `dateutil`'s `_timelex` char-state tokenizer | Your pattern becomes an unreadable regex — a scanner stays readable and linear |
+| **Format-candidate matching** | A small set of formally specified strict formats; recognition = first format that accepts | From the accepted parse — anchor per candidate substring found by a leading regex scan | stdlib `strptime` format loops; the `parse` library (compiles scanf-style formats to regexes, exposes match spans via `search()`/`findall()`) | The spec enumerates exact formats (ISO variants, `strptime`-style patterns) rather than one loose shape |
+| **Parser combinators** (pyparsing) | Composing small recognizers into one grammar | `scan_string()` yields `(tokens, start, end)` triplets — the exact `RecognitionMatch` span shape; zero dependencies, deterministic (ordered choice) | pyparsing's own `urlExtractor.py` scans HTML free text for every URL; pgmpy extracts variable names with `scan_string` | The format decomposes into small orthogonal pieces (URIs, addresses); note pyparsing matches in tab-expanded coordinates unless configured otherwise |
+| **Parser generator** (lark) | An EBNF grammar compiled to a parser | `Lark.scan()` yields `ScanMatch(range=(start, end), value)` — LALR only, silently skips non-matches, O(n·m) worst case; tree nodes carry `start_pos`/`end_pos` with `propagate_positions` | lark's own recipe scans prose for dates; `examples/advanced/scan_json.py` extracts JSON from log lines | Truly recursive or ambiguous-by-design syntax; heavier conceptual model, zero runtime dependencies |
+| **Unicode-property matching** | Open character classes: any currency symbol (`\p{Sc}`), any Han letter (`\p{Script=Han}`) | stdlib `re` has no `\p{…}` (a long-open CPython request) — use the third-party `regex` module, or generate character-range tables at build time exactly like `tools/regenerate_isbn_range_data.py` | CleverCSV (`\p{Sc}` for currency); python-textile (falls back to hand-rolled ranges); TensorFlow Text (`\p{Sm}`, `\P{L}`) | A Unicode property defines the class; but keep curated vocabularies on Lexicon — `\p{Emoji}` is too broad for "is an emoji", so the `emoji` library uses key-set tables instead |
+| **Multi-key automaton** (Aho–Corasick) | Many literal keys in a single pass — a prefilter when regex alternation over a large vocabulary degenerates | Match positions come straight from the automaton | `pyahocorasick`; eyecite prefilters legal-citation text; Zulip alert words | A large literal vocabulary (units, codes, stopwords) where `(key1|key2|…)` becomes slow or unwieldy |
 
 ### The Grammar/Rule Boundary (hard rule)
 
@@ -241,6 +277,16 @@ Create a class that extends `Rule`:
    - `REGEX` — for pattern matching rules
    - `LOOKUP_TABLE` — for table-based validation (e.g., status codes, country codes)
    - `PARSER` — for rules that parse and validate structured input
+
+**Match the rule strategy to your grammar strategy.** The grammar decides how input becomes a notation; the rule strategy decides how the notation becomes meaning:
+
+| Grammar strategy (Step 4) | Natural rule strategies | Why |
+|---|---|---|
+| Regex (shape) | `REGEX` (validate the exact shape), `LOOKUP_TABLE` (validate the extracted token against authority data), or `PARSER` (validate structure the regex left loose — check digits, octet ranges, lengths) | The grammar extracts cheaply; rules own the strict, authoritative check |
+| Lexicon (vocabulary) | `LOOKUP_TABLE` | The rule maps the recognized token to its canonical value with provenance — the grammar's key set must never do that |
+
+Codebase examples: IP's IPv4 grammar is a loose regex (`\d{1,3}` octets) and `rfc_791_ed1981` is a `PARSER` rule enforcing the 0–255 range; ISBN's grammars strip separators and `iso_2108_ed2017` is a `PARSER` rule computing the check digit; Country's `name_recognition` (Lexicon) feeds the `LOOKUP_TABLE` ISO 3166 and CLDR rules that own token→country meaning.
+
 3. Set `provenance` to the `PUBLICATION` constant defined above
 4. Set `citation` to a human-readable citation (e.g., "Section 3.4.1 (addr-spec)")
 5. Set `target_grammars` to the `frozenset[str]` of grammar names whose notations this rule validates (e.g., `frozenset({"standard_recognition"})`)
@@ -907,6 +953,10 @@ Rules access notation fields by name (e.g., `notation.field_name`), not by list 
 
 Compile regex patterns at module level, not inside the `recognize` method. Recompiling on every call is wasteful and can cause subtle bugs with cached groups.
 
+### Pitfall: Matching the Strategy to the Representation
+
+Choose the recognition strategy from the representation, not from habit (see Step 4). A finite vocabulary of free-form tokens with no syntactic shape (country names, spelled-out words) cannot be recognized by regex — use the Lexicon strategy with a key-only table. A distinctive shape (fixed widths, delimiters, character classes) is over-engineering as a lexicon — use Regex and let rules own validity. Country demonstrates both in one capability: `alpha2`/`alpha3`/`numeric` are Regex grammars, `name_recognition` is a Lexicon grammar. If the representation fits neither strategy (nested structure, enumerated formats, open Unicode classes), read the additional strategies at the end of Step 4 before forcing it into a regex that fights it.
+
 ### Pitfall: Rule Methods Must Never Raise
 
 The `matches` method must return `False` for any invalid input, never raise. The `normalize` method is only called after `matches` returns `True`, but it must also never raise — not `ValidationError`, `RecognitionError`, `ContractError`, or `ValueError`. Handle edge cases defensively: best-effort returns, and unreachable branches return the input unchanged. Contract misconfigurations are caught in the contract's `__post_init__`, not in rule methods.
@@ -1030,6 +1080,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Recognition keys and rule tables live in separate files, with a consistency test covering every shipped recognition key
 - [ ] If rules access capability-specific contract fields: uses `typing.cast`
 - [ ] Grammar emits span-bearing `RecognitionMatch` objects and does NOT deduplicate or order — the engine owns containment dedup ("longer wins") and document ordering
+- [ ] Each grammar implements one of the documented recognition strategies (Regex or Lexicon) for its representation — see Step 4
 - [ ] Package `__init__.py` files export the public API
 - [ ] Capability is registered in `paxman/capabilities/__init__.py`
 - [ ] Test markers are consistent within each file
