@@ -41,9 +41,7 @@ def test_active_grammars_default() -> None:
 
 def test_active_grammars_isbn10_disabled() -> None:
     """Disabling isbn10 leaves only the isbn13 grammar active."""
-    assert ISBNContract(include_isbn10=False).active_grammars == [
-        "isbn13_recognition"
-    ]
+    assert ISBNContract(include_isbn10=False).active_grammars == ["isbn13_recognition"]
 
 
 def test_frozen() -> None:
