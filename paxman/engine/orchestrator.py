@@ -89,7 +89,12 @@ def _recognize(
     """
     all_grammars = capability.get_grammars()
     supported_names = {g.name for g in all_grammars}
-    active_names = [n for n in contract.active_grammars if n in supported_names]
+    # Deduplicate contract names, keeping first occurrence: each supported
+    # grammar runs at most once and grammar_index stays aligned with
+    # active_grammars (a duplicate contract entry must not double-run it).
+    active_names = list(
+        dict.fromkeys(n for n in contract.active_grammars if n in supported_names)
+    )
     grammar_index = {name: i for i, name in enumerate(active_names)}
     by_name = {g.name: g for g in all_grammars}
     active_grammars = [by_name[name] for name in active_names]

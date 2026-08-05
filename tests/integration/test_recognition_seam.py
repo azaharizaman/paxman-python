@@ -275,10 +275,52 @@ class TestRecognitionSeam:
         # The grammar emits every match with its span: AAAA(2,6) plus the
         # two contained AA runs (2,4) and (4,6) from its second pattern.
         # Engine dedup of these is covered by the first test above.
-        assert len(matches) == 3
-        assert matches[0] == RecognitionMatch(
-            notation=_ProbeNotation("AAAA"),
-            start=2,
-            end=6,
-            raw_text="AAAA",
-        )
+        assert matches == [
+            RecognitionMatch(
+                notation=_ProbeNotation("AAAA"),
+                start=2,
+                end=6,
+                raw_text="AAAA",
+            ),
+            RecognitionMatch(
+                notation=_ProbeNotation("AA"),
+                start=2,
+                end=4,
+                raw_text="AA",
+            ),
+            RecognitionMatch(
+                notation=_ProbeNotation("AA"),
+                start=4,
+                end=6,
+                raw_text="AA",
+            ),
+        ]
+
+    @pytest.mark.integration
+    def test_engine_runs_each_grammar_once_despite_duplicate_contract_names(
+        self,
+    ) -> None:
+        """Duplicate names in contract.active_grammars must not double-run.
+
+        The engine dedupes the contract's active grammar list (keeping the
+        first occurrence) before building grammar_index and the run list,
+        so each supported grammar runs at most once and the two structures
+        stay aligned.
+        """
+        calls: list[str] = []
+
+        class _CountingLongGrammar(_ProbeLongGrammar):
+            def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
+                calls.append(self.name)
+                return super().recognize(text)
+
+        class _CountingCapability(_ProbeCapability):
+            def get_grammars(self) -> list[Grammar[_ProbeNotation]]:
+                return [_CountingLongGrammar(), _ProbeShortGrammar()]
+
+        register_capability(_CountingCapability())
+        result = run_capability("AAAA", _ProbeContract(["probe_long", "probe_long"]))
+
+        assert calls == ["probe_long"]
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "L:AAAA"
