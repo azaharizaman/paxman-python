@@ -92,3 +92,19 @@ def test_format_value_hyphenated_unknown_prefix() -> None:
     cap = ISBNCapability()
     notation = ISBNNotation(shape="isbn13", digits="1234567890123")
     assert cap.format_value("1234567890123", "hyphenated", notation) == "1234567890123"
+
+
+def test_format_value_hyphenated_too_short() -> None:
+    """Too-short input passes through unchanged (no crash)."""
+    cap = ISBNCapability()
+    notation = ISBNNotation(shape="isbn13", digits="9780")
+    assert cap.format_value("9780", "hyphenated", notation) == "9780"
+
+
+def test_format_value_hyphenated_too_long() -> None:
+    """Too-long input passes through unchanged (no truncation)."""
+    cap = ISBNCapability()
+    notation = ISBNNotation(shape="isbn13", digits="97801100022241")
+    assert (
+        cap.format_value("97801100022241", "hyphenated", notation) == "97801100022241"
+    )

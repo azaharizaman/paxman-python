@@ -47,6 +47,8 @@ def hyphenate(value: str) -> str:
     Unregistered prefixes/groups/registrants pass through unchanged (bare
     digits) — hyphenation is presentation, never a validity signal.
     """
+    if len(value) != 13:
+        return value
     prefix = value[:3]
     rest = value[3:]
     prefix_rules = EAN_PREFIX_RULES.get(prefix)
