@@ -50,11 +50,10 @@ class TestSection53Isbn13CheckDigit:
         )
 
     def test_check_digit_rejects_non_gs1_prefix(self) -> None:
-        """Non-GS1-prefixed EAN-13s fail the check-digit rule.
+        """Non-GS1 EAN-13 is rejected even when it would otherwise pass.
 
-        The rule enforces prefix in {978, 979} (ISO 2108 §4.2 structure), so a
-        valid-check-digit non-GS1 EAN-13 like 1234567890123 resolves INVALID,
-        not SUCCESS.
+        The check-digit rule enforces prefix in {978, 979} (ISO 2108 §4.2
+        structure), so non-GS1 EAN-13s resolve INVALID, not SUCCESS.
         """
         notation = ISBNNotation(shape="isbn13", digits="1234567890123")
         assert self.rule.matches(notation, self.contract) is False
