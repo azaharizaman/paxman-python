@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from paxman.capabilities import Email, ISBN, Phone
+from paxman.capabilities import ISBN, Email, Phone
 
 
 class TestCapabilityExports:
