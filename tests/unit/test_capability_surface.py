@@ -1,7 +1,7 @@
 """Guard tests for the unanimous capability contract & rule surface.
 
 These tests lock the homogeneity mandate so it cannot regress: every one of
-the five built-in capabilities (Email, Date, Country, IP, Phone) must
+the six built-in capabilities (Email, Date, Country, IP, Money, Phone) must
 
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),
@@ -35,6 +35,9 @@ from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.IP.capability import IPCapability
 from paxman.capabilities.IP.contract import IPContract
 from paxman.capabilities.IP.notation import IPNotation
+from paxman.capabilities.Money.capability import MoneyCapability
+from paxman.capabilities.Money.contract import MoneyContract
+from paxman.capabilities.Money.notation import MoneyNotation
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
@@ -51,6 +54,7 @@ _EMAIL_KEYS = _STANDARD_KEYS | {"include_obfuscated", "include_localhost"}
 _DATE_KEYS = _STANDARD_KEYS | {"two_digit_base_year"}
 _COUNTRY_KEYS = _STANDARD_KEYS | {"include_localized", "include_historical"}
 _IP_KEYS = _STANDARD_KEYS | {"include_ipv6"}
+_MONEY_KEYS = _STANDARD_KEYS | {"precision", "dollar_sign_currency"}
 _PHONE_KEYS = _STANDARD_KEYS | {"default_country"}
 
 _CAPABILITY_SURFACES = [
@@ -81,6 +85,13 @@ _CAPABILITY_SURFACES = [
         "ip",
         _IP_KEYS,
         id="ip",
+    ),
+    pytest.param(
+        MoneyCapability,
+        MoneyContract,
+        "code_amount",
+        _MONEY_KEYS,
+        id="money",
     ),
     pytest.param(
         PhoneCapability,
@@ -249,6 +260,18 @@ _FORMAT_SURFACES = [
         id="ip",
     ),
     pytest.param(
+        MoneyCapability,
+        MoneyContract,
+        "USD 500.00",
+        MoneyNotation(
+            currency_part="USD",
+            amount_part="500",
+            currency_shape="code",
+            amount_shape="integer",
+        ),
+        id="money",
+    ),
+    pytest.param(
         PhoneCapability,
         PhoneContract,
         "+15551234567",
@@ -275,6 +298,19 @@ _FORMATTED_EXPECTATIONS = [
         CountryNotation(shape="alpha2", value="DE"),
         {"alpha3": "DEU", "numeric": "276", "name": "GERMANY"},
         id="country",
+    ),
+    pytest.param(
+        MoneyCapability,
+        MoneyContract,
+        "USD 500.00",
+        MoneyNotation(
+            currency_part="USD",
+            amount_part="500",
+            currency_shape="code",
+            amount_shape="integer",
+        ),
+        {"compact": "USD500.00"},
+        id="money",
     ),
     pytest.param(
         PhoneCapability,

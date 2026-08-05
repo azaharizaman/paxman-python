@@ -34,6 +34,7 @@ markers = [
     "property: property-based tests (Hypothesis)",
     "country: country capability tests",
     "isbn: isbn capability tests",
+    "money: money capability tests",
 ]
 testpaths = ["tests"]
 

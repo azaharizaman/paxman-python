@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from paxman.capabilities import IP, ISBN, Email, Phone
+from paxman.capabilities import (
+    IP,
+    ISBN,
+    Country,
+    Date,
+    Email,
+    Money,
+    Phone,
+)
 
 
 class TestCapabilityExports:
@@ -17,6 +25,30 @@ class TestCapabilityExports:
     def test_email_capability_name(self) -> None:
         """Email capability has correct name."""
         assert Email.name == "email"
+
+
+class TestCountryCapabilityExports:
+    @pytest.mark.unit
+    def test_country_capability_importable(self) -> None:
+        """Country capability is importable from paxman.capabilities."""
+        assert Country is not None
+
+    @pytest.mark.unit
+    def test_country_capability_name(self) -> None:
+        """Country capability has correct name."""
+        assert Country.name == "country"
+
+
+class TestDateCapabilityExports:
+    @pytest.mark.unit
+    def test_date_capability_importable(self) -> None:
+        """Date capability is importable from paxman.capabilities."""
+        assert Date is not None
+
+    @pytest.mark.unit
+    def test_date_capability_name(self) -> None:
+        """Date capability has correct name."""
+        assert Date.name == "date"
 
 
 class TestPhoneCapabilityExports:
@@ -53,3 +85,15 @@ class TestIPCapabilityExports:
     def test_ip_capability_name(self) -> None:
         """IP capability has correct name."""
         assert IP.name == "ip"
+
+
+class TestMoneyCapabilityExports:
+    @pytest.mark.unit
+    def test_money_capability_importable(self) -> None:
+        """Money capability is importable from paxman.capabilities."""
+        assert Money is not None
+
+    @pytest.mark.unit
+    def test_money_capability_name(self) -> None:
+        """Money capability has correct name."""
+        assert Money.name == "money"
