@@ -257,6 +257,57 @@ class TestSectionSymbols:
         """Never gate on dollar_sign_currency: bare $ yields INVALID, not MISSING."""
         assert self.rule.requires_features == frozenset()
 
+    @pytest.mark.parametrize(
+        "symbol",
+        ["L", "Rs", "kr"],
+    )
+    def test_qualified_multi_candidate_symbol_default_contract_invalid(
+        self, symbol: str
+    ) -> None:
+        """A letter-like multi-candidate symbol (L/Rs/kr) in qualified shape
+        must not silently resolve to the alphabetically-first code under the
+        default contract: it is ambiguous, so matches() is False (D3).
+        """
+        contract = MoneyContract()
+        notation = _notation(symbol, "500", "qualified_symbol")
+        assert self.rule.matches(notation, contract) is False
+
+    @pytest.mark.parametrize(
+        ("symbol", "code", "expected"),
+        [
+            ("kr", "SEK", "SEK 500.00"),
+            ("L", "RON", "RON 500.00"),
+        ],
+    )
+    def test_qualified_multi_candidate_symbol_dollar_sign_currency(
+        self, symbol: str, code: str, expected: str
+    ) -> None:
+        """A letter-like multi-candidate symbol resolves only via the opt-in
+        dollar_sign_currency (D3).
+        """
+        contract = MoneyContract(dollar_sign_currency=code)
+        notation = _notation(symbol, "500", "qualified_symbol")
+        assert self.rule.matches(notation, contract) is True
+        assert self.rule.normalize(notation, contract) == expected
+
+    def test_multi_candidate_symbol_bad_dollar_sign_currency_guard(self) -> None:
+        """A bare multi-candidate symbol with a shape-valid but unknown
+        dollar_sign_currency (ZZZ) is INVALID and never raises (the
+        MINOR_UNITS guard in _amount_matches).
+        """
+        contract = MoneyContract(dollar_sign_currency="ZZZ")
+        notation = _notation("$", "500", "symbol")
+        assert self.rule.matches(notation, contract) is False
+
+    def test_bare_symbol_dollar_sign_currency_non_candidate_override(self) -> None:
+        """dollar_sign_currency overrides unconditionally: $ with EUR (not in
+        the $ candidate tuple) resolves to EUR (D3).
+        """
+        contract = MoneyContract(dollar_sign_currency="EUR")
+        notation = _notation("$", "500", "symbol")
+        assert self.rule.matches(notation, contract) is True
+        assert self.rule.normalize(notation, contract) == "EUR 500.00"
+
 
 class TestSectionNames:
     """Tests for SectionNames rule."""

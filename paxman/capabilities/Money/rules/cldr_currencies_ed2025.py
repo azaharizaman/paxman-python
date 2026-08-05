@@ -42,13 +42,13 @@ def _resolve_symbol_code(
 ) -> str | None:
     """Resolve a symbol/qualified_symbol notation to an ISO 4217 code.
 
-    Qualified symbols (e.g. "US$") map definitively to one code and are
-    never remapped. Bare symbols map to their code only when the table has
-    exactly one candidate; multi-candidate symbols (e.g. "$", the yen sign)
-    resolve via the opt-in ``contract.dollar_sign_currency`` (default None).
-    A bare multi-candidate symbol with ``dollar_sign_currency=None``
-    resolves to None, which makes matches() return False (INVALID, never
-    silently dropped).
+    The matches() shape check has already gated acceptance, so definitiveness
+    is decided purely by the mapping: a token with exactly one candidate
+    resolves to it; a multi-candidate token (e.g. "$", the yen sign, or the
+    letter-like "kr"/"L"/"Rs") resolves via the opt-in
+    ``contract.dollar_sign_currency`` (default None). A multi-candidate
+    symbol with ``dollar_sign_currency=None`` resolves to None, which makes
+    matches() return False (INVALID, never silently dropped).
 
     Args:
         notation: Money notation to resolve.
@@ -60,8 +60,6 @@ def _resolve_symbol_code(
     codes = SYMBOL_TO_CODES.get(notation.currency_part)
     if codes is None:
         return None
-    if notation.currency_shape == "qualified_symbol":
-        return codes[0]
     if len(codes) == 1:
         return codes[0]
     return contract.dollar_sign_currency
