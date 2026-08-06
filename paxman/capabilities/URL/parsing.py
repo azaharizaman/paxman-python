@@ -40,6 +40,12 @@ _FORBIDDEN_HOST: frozenset[str] = frozenset(
     + "".join(chr(code) for code in range(0x7F, 0xA0))
 )
 
+# WHATWG percent-encode sets (§4.2): the ASCII members each state encodes.
+_PATH_ENCODE: frozenset[str] = frozenset('"<>^`{}')
+_QUERY_ENCODE: frozenset[str] = frozenset('"<>')
+_FRAGMENT_ENCODE: frozenset[str] = frozenset('"<>`')
+_USERINFO_ENCODE: frozenset[str] = frozenset('"#<>?^`{}/:;=@[\\]|')
+
 
 def _utf8_percent_encode(char: str) -> str:
     """Percent-encode one code point's UTF-8 bytes with uppercase hex."""
@@ -161,8 +167,11 @@ def _parse_ipv6_literal(host: str) -> str | None:
 def _parse_ipv4_number(part: str) -> int | None:
     """Parse one IPv4 part in its base (hex/octal/decimal), else None."""
     if part.startswith(("0x", "0X")):
+        hex_digits = part[2:]
+        if hex_digits == "":
+            return 0
         try:
-            return int(part[2:], 16)
+            return int(hex_digits, 16)
         except ValueError:
             return None
     if len(part) > 1 and part.startswith("0"):
@@ -175,20 +184,54 @@ def _parse_ipv4_number(part: str) -> int | None:
     return int(part, 10)
 
 
-def _try_ipv4(host: str) -> str | None:
-    """Canonicalize a dotted-decimal IPv4 host, or None if it is a domain."""
+def _ends_in_number(ascii_domain: str) -> bool:
+    """True when the last dot-separated label is numeric (WHATWG check).
+
+    A trailing dot is stripped first; a label counts when it is all ASCII
+    digits or ``0x``/``0X`` followed by zero or more ASCII hex digits.
+    """
+    parts = ascii_domain.split(".")
+    if parts[-1] == "":
+        parts.pop()
+    if not parts:
+        return False
+    last = parts[-1]
+    if last.isascii() and last.isdigit():
+        return True
+    return last.startswith(("0x", "0X")) and all(
+        char in _HEX_DIGITS for char in last[2:]
+    )
+
+
+def _parse_ipv4(host: str) -> str | None:
+    """Canonicalize a dotted IPv4 host per WHATWG, or None if invalid.
+
+    Parts parse in their base (hex/octal/decimal), a trailing dot is
+    stripped, and the parts combine into one 32-bit value serialized as
+    a dotted quad.
+    """
     parts = host.split(".")
+    if parts[-1] == "":
+        if len(parts) > 1:
+            parts.pop()
+        else:
+            return None
     if len(parts) > 4:
         return None
     numbers: list[int] = []
     for part in parts:
         value = _parse_ipv4_number(part)
-        if value is None or value > 255:
+        if value is None:
             return None
         numbers.append(value)
-    if not numbers:
+    if any(number > 255 for number in numbers[:-1]):
         return None
-    octets = numbers[:-1] + [0] * (4 - len(numbers)) + numbers[-1:]
+    if numbers[-1] >= 256 ** (5 - len(numbers)):
+        return None
+    combined = numbers[-1]
+    for index, number in enumerate(numbers[:-1]):
+        combined += number * 256 ** (3 - index)
+    octets = [(combined >> shift) & 0xFF for shift in (24, 16, 8, 0)]
     return ".".join(str(octet) for octet in octets)
 
 
@@ -198,9 +241,6 @@ def _parse_host(host: str, special: bool) -> str | None:
         return _parse_ipv6_literal(host)
     if any(char in _FORBIDDEN_HOST for char in host):
         return None
-    ipv4 = _try_ipv4(host)
-    if ipv4 is not None:
-        return ipv4
     if not special:
         return host
     decoded = _percent_decode(host)
@@ -209,7 +249,15 @@ def _parse_host(host: str, special: bool) -> str | None:
     mapped = _idna_map(decoded)
     if mapped is None:
         return None
-    return _domain_to_ascii(mapped)
+    ascii_domain = _domain_to_ascii(mapped)
+    if ascii_domain is None:
+        return None
+    if _ends_in_number(ascii_domain):
+        ipv4 = _parse_ipv4(ascii_domain)
+        if ipv4 is None:
+            return None
+        return ipv4
+    return ascii_domain
 
 
 class _Parsed:
@@ -255,7 +303,12 @@ def _encode_userinfo(text: str) -> str:
     out: list[str] = []
     for char in text:
         code = ord(char)
-        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F or char in '"<>`{}?#':
+        if (
+            code == 0x20
+            or code < 0x20
+            or 0x7F <= code <= 0x9F
+            or char in _USERINFO_ENCODE
+        ):
             out.append(f"%{code:02X}")
         elif code > 0x7F:
             out.append(_utf8_percent_encode(char))
@@ -293,7 +346,9 @@ def _build_authority(scheme: str, authority: str) -> _Parsed | None:
     return parsed
 
 
-def _parse_query_fragment(source: str, start: int, stop_char: str | None) -> str:
+def _parse_query_fragment(
+    source: str, start: int, stop_char: str | None, encode_set: frozenset[str]
+) -> str:
     """Collect query/fragment text until ``stop_char`` or EOF, encoding chars."""
     out: list[str] = []
     length = len(source)
@@ -303,7 +358,7 @@ def _parse_query_fragment(source: str, start: int, stop_char: str | None) -> str
         if stop_char is not None and char == stop_char:
             break
         code = ord(char)
-        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F or char in '"<>`':
+        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F or char in encode_set:
             out.append(f"%{code:02X}")
         elif code > 0x7F:
             out.append(_utf8_percent_encode(char))
@@ -351,20 +406,24 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
                 append_segment("".join(buffer))
             elif pending_separator:
                 append_segment("")
-            parsed.query = _parse_query_fragment(source, pos + 1, "#")
+            parsed.query = _parse_query_fragment(source, pos + 1, "#", _QUERY_ENCODE)
             hash_pos = source.find("#", pos + 1)
             if hash_pos >= 0:
-                parsed.fragment = _parse_query_fragment(source, hash_pos + 1, None)
+                parsed.fragment = _parse_query_fragment(
+                    source, hash_pos + 1, None, _FRAGMENT_ENCODE
+                )
             break
         if char == "#":
             if buffer:
                 append_segment("".join(buffer))
             elif pending_separator:
                 append_segment("")
-            parsed.fragment = _parse_query_fragment(source, pos + 1, None)
+            parsed.fragment = _parse_query_fragment(
+                source, pos + 1, None, _FRAGMENT_ENCODE
+            )
             break
         code = ord(char)
-        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F:
+        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F or char in _PATH_ENCODE:
             buffer.append(f"%{code:02X}")
         elif code > 0x7F:
             buffer.append(_utf8_percent_encode(char))
@@ -384,16 +443,23 @@ def _parse_opaque(parsed: _Parsed, source: str, start: int) -> None:
         char = source[index]
         if char == "?":
             parsed.path = ["".join(out)]
-            parsed.query = _parse_query_fragment(source, index + 1, "#")
+            parsed.query = _parse_query_fragment(source, index + 1, "#", _QUERY_ENCODE)
             hash_pos = source.find("#", index + 1)
             if hash_pos >= 0:
-                parsed.fragment = _parse_query_fragment(source, hash_pos + 1, None)
+                parsed.fragment = _parse_query_fragment(
+                    source, hash_pos + 1, None, _FRAGMENT_ENCODE
+                )
             return
         if char == "#":
             parsed.path = ["".join(out)]
-            parsed.fragment = _parse_query_fragment(source, index + 1, None)
+            parsed.fragment = _parse_query_fragment(
+                source, index + 1, None, _FRAGMENT_ENCODE
+            )
             return
-        if ord(char) > 0x7F:
+        code = ord(char)
+        if code < 0x20 or 0x7F <= code <= 0x9F:
+            out.append(f"%{code:02X}")
+        elif code > 0x7F:
             out.append(_utf8_percent_encode(char))
         else:
             out.append(char)
