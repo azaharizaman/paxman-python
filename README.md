@@ -263,6 +263,31 @@ result = paxman.canonicalize("+15551234567", contract)
 # → "tel:+15551234567"
 ```
 
+### URL Capability
+
+Recognizes absolute URIs and IRIs, canonicalizing them per the WHATWG URL Standard (lowercased scheme/host, default-port removal, dot-segment resolution, UTS #46 IDNA for internationalized hosts, byte-preserving percent-encoding).
+
+```python
+from paxman.capabilities import URL
+
+register_capability(URL())
+
+# Absolute URI canonicalization (milestone)
+contract = URL.create_contract()
+result = paxman.canonicalize("HTTPS://Example.COM:443/path/../other", contract)
+# → "https://example.com/other"
+
+# Opaque (non-special) scheme — verbatim
+contract = URL.create_contract()
+result = paxman.canonicalize("mailto:user@example.com", contract)
+# → "mailto:user@example.com"
+
+# IDN host canonicalizes via UTS #46 (IDNA)
+contract = URL.create_contract()
+result = paxman.canonicalize("http://münchen.de", contract)
+# → "http://xn--mnchen-3ya.de/"
+```
+
 ---
 
 ## Contract Configuration
