@@ -38,7 +38,12 @@ class TestParsedAmount:
 
 
 class TestParseAmount:
-    """The locked 'last separator wins' algorithm table."""
+    """The locked 'last separator wins' algorithm table.
+
+    Trailing-fraction rule: an all-zero fraction collapses to empty
+    ("1,00" -> ("1", "")), while a nonzero fraction keeps its digits
+    verbatim, leading zeros included ("0,05" -> ("0", "05")).
+    """
 
     @pytest.mark.parametrize(
         ("raw", "expected"),
