@@ -50,6 +50,13 @@ class AbsoluteUriRecognition(Grammar[URLNotation]):
             # (more ")" than "(" in the span); repeat while unbalanced.
             while raw_span.endswith(")") and raw_span.count(")") > raw_span.count("("):
                 raw_span = raw_span[:-1]
+            # D16: the pattern guarantees at least one body character after
+            # the colon, and stripping only removes trailing ")" — so a span
+            # reduced to the bare scheme has lost its body and must not be
+            # emitted as an absolute-URI match.
+            scheme_end = raw_span.find(":")
+            if len(raw_span) <= scheme_end + 1:
+                continue
             start = match.start()
             end = start + len(raw_span)
             results.append(

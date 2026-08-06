@@ -72,6 +72,16 @@ class TestAbsoluteUriRecognition:
         assert len(results) == 1
         assert results[0].raw_text == "http://99999/"
 
+    def test_paren_strip_preserves_body(self) -> None:
+        grammar = AbsoluteUriRecognition()
+        # ")" is body-legal, so an all-paren body would strip down to the
+        # bare scheme; D16 requires at least one body character after the
+        # colon, so no empty-body match may be emitted.
+        assert grammar.recognize("https:))))") == []
+        results = grammar.recognize("https://example.com))")
+        assert len(results) == 1
+        assert results[0].raw_text == "https://example.com"
+
     def test_span_invariant(self) -> None:
         grammar = AbsoluteUriRecognition()
         prose = [
