@@ -18,11 +18,13 @@ from paxman.capabilities.Money.notation import MoneyNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
 _WORD_ALTERNATION = "|".join(re.escape(token) for token in WORD_TOKENS)
+# Sign characters ('-', U+2212, '+') are outside the amount grammar; the
+# boundary guards reject sign-adjacent tokens so the sign is never dropped.
 _WORD_PATTERN = re.compile(
-    rf"(?<!\w)(?:(?P<prefix_word>{_WORD_ALTERNATION})"
+    rf"(?<![\w\-+\u2212])(?:(?P<prefix_word>{_WORD_ALTERNATION})"
     rf" ?(?P<prefix_amount>{AMOUNT_PATTERN})"
     rf"|(?P<suffix_amount>{AMOUNT_PATTERN}) ?(?P<suffix_word>{_WORD_ALTERNATION}))"
-    rf"(?!\w)",
+    rf"(?![\w\-+\u2212])",
     re.IGNORECASE,
 )
 

@@ -14,10 +14,13 @@ from paxman.capabilities.Money.grammar import AMOUNT_PATTERN, classify_amount_sh
 from paxman.capabilities.Money.notation import MoneyNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
+# Sign characters ('-', U+2212, '+') are outside the amount grammar; the
+# boundary guards reject sign-adjacent tokens so the sign is never dropped.
 _CODE_PATTERN = re.compile(
-    rf"(?<!\w)(?:(?P<prefix_code>[A-Z]{{3}}) ?(?P<prefix_amount>{AMOUNT_PATTERN})"
+    rf"(?<![\w\-+\u2212])"
+    rf"(?:(?P<prefix_code>[A-Z]{{3}}) ?(?P<prefix_amount>{AMOUNT_PATTERN})"
     rf"|(?P<suffix_amount>{AMOUNT_PATTERN}) ?(?P<suffix_code>[A-Z]{{3}}))"
-    rf"(?!\w)"
+    rf"(?![\w\-+\u2212])"
 )
 
 

@@ -115,6 +115,23 @@ class TestCodeRecognition:
         """No match inside a longer token: USD500x."""
         assert self.grammar.recognize("USD500x") == []
 
+    def test_rejects_sign_prefixed_amount(self) -> None:
+        """A '-' or U+2212 before the amount is not a money token.
+
+        Sign characters are outside the documented amount grammar; a
+        sign-adjacent token must not silently drop the sign.
+        """
+        assert self.grammar.recognize("-500 USD") == []
+        assert self.grammar.recognize("\u2212500 USD") == []
+
+    def test_rejects_sign_prefixed_code(self) -> None:
+        """A '-' before the code is not a money token."""
+        assert self.grammar.recognize("-USD 500") == []
+
+    def test_rejects_sign_suffixed_code(self) -> None:
+        """A '-' after the code is not a money token."""
+        assert self.grammar.recognize("500 USD-") == []
+
     def test_returns_empty_for_empty_input(self) -> None:
         """Empty/whitespace-only input returns an empty list."""
         assert self.grammar.recognize("") == []
@@ -195,6 +212,14 @@ class TestSymbolRecognition:
         """No match inside a longer token: $500x."""
         assert self.grammar.recognize("$500x") == []
 
+    def test_rejects_sign_prefixed_amount(self) -> None:
+        """A '-' before the amount is not a money token."""
+        assert self.grammar.recognize("-500 \u20ac") == []
+
+    def test_rejects_sign_suffixed_symbol(self) -> None:
+        """A '-' after the symbol is not a money token."""
+        assert self.grammar.recognize("500 \u20ac-") == []
+
     def test_returns_empty_for_empty_input(self) -> None:
         """Empty input returns an empty list."""
         assert self.grammar.recognize("") == []
@@ -264,6 +289,14 @@ class TestWordRecognition:
     def test_rejects_plural(self) -> None:
         """'500 Dollars' — 'Dollar' inside a longer word does not match."""
         assert self.grammar.recognize("500 Dollars") == []
+
+    def test_rejects_sign_prefixed_amount(self) -> None:
+        """A '-' before the amount is not a money token."""
+        assert self.grammar.recognize("-500 Dollar") == []
+
+    def test_rejects_sign_suffixed_word(self) -> None:
+        """A '-' after the word is not a money token."""
+        assert self.grammar.recognize("500 Dollar-") == []
 
     def test_returns_empty_for_empty_input(self) -> None:
         """Empty input returns an empty list."""

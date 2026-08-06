@@ -178,6 +178,20 @@ class TestMoneyPipeline:
         assert result.status == Resolution.MISSING
 
     @pytest.mark.integration
+    def test_sign_adjacent_forms_missing(self) -> None:
+        """Sign-adjacent tokens are MISSING: the sign must not be dropped.
+
+        A '-' (or Unicode minus, U+2212) adjacent to the code, amount, or
+        symbol is outside the money grammar; recognizing it would silently
+        canonicalize the positive amount and lose the sign.
+        """
+        register_capability(MoneyCapability())
+        contract = MoneyCapability.create_contract()
+        for text in ("-500 USD", "\u2212500 USD", "-USD 500", "500 USD-"):
+            result = run_capability(text, contract)
+            assert result.status == Resolution.MISSING, text
+
+    @pytest.mark.integration
     def test_cross_grammar_ambiguous(self) -> None:
         """A symbol and a word claiming the same amount are AMBIGUOUS.
 

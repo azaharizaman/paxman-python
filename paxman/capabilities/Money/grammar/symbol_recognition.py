@@ -20,12 +20,14 @@ from paxman.core.domain import Grammar, RecognitionMatch
 _SYMBOL_ALTERNATION = "|".join(re.escape(token) for token in SYMBOL_TOKENS)
 # Lookarounds, not \b: pure-symbol tokens ("$", "€") are non-word
 # characters that \b would reject at string start, and the lookarounds
-# still block matches inside a longer token.
+# still block matches inside a longer token. Sign characters ('-',
+# U+2212, '+') are also rejected at the boundary so a sign-adjacent
+# token never matches (the sign would otherwise be silently dropped).
 _SYMBOL_PATTERN = re.compile(
-    rf"(?<!\w)(?:(?P<prefix_symbol>{_SYMBOL_ALTERNATION})"
+    rf"(?<![\w\-+\u2212])(?:(?P<prefix_symbol>{_SYMBOL_ALTERNATION})"
     rf" ?(?P<prefix_amount>{AMOUNT_PATTERN})"
     rf"|(?P<suffix_amount>{AMOUNT_PATTERN}) ?(?P<suffix_symbol>{_SYMBOL_ALTERNATION}))"
-    rf"(?!\w)"
+    rf"(?![\w\-+\u2212])"
 )
 
 
