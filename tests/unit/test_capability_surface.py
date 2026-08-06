@@ -1,8 +1,8 @@
 """Guard tests for the unanimous capability contract & rule surface.
 
 These tests lock the homogeneity mandate so it cannot regress: every one of
-the seven built-in capabilities (Email, Date, Country, IP, ISBN, Money,
-Phone) must
+the eight built-in capabilities (Email, Date, Country, IP, ISBN, Money,
+Phone, URL) must
 
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),
@@ -45,6 +45,9 @@ from paxman.capabilities.Money.notation import MoneyNotation
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.capabilities.URL.capability import URLCapability
+from paxman.capabilities.URL.contract import URLCapabilityContract
+from paxman.capabilities.URL.notation import URLNotation
 from paxman.core.capability import ContractFactory
 from paxman.core.capability_contract import CapabilityContract
 
@@ -61,6 +64,7 @@ _IP_KEYS = _STANDARD_KEYS | {"include_ipv6"}
 _ISBN_KEYS = _STANDARD_KEYS | {"include_isbn10", "include_range_validation"}
 _MONEY_KEYS = _STANDARD_KEYS | {"precision", "dollar_sign_currency"}
 _PHONE_KEYS = _STANDARD_KEYS | {"default_country"}
+_URL_KEYS = _STANDARD_KEYS
 
 _CAPABILITY_SURFACES = [
     pytest.param(
@@ -111,6 +115,13 @@ _CAPABILITY_SURFACES = [
         "e164",
         _PHONE_KEYS,
         id="phone",
+    ),
+    pytest.param(
+        URLCapability,
+        URLCapabilityContract,
+        "url",
+        _URL_KEYS,
+        id="url",
     ),
 ]
 
@@ -315,6 +326,13 @@ _FORMAT_SURFACES = [
         PhoneNotation(shape="e164", value="15551234567"),
         id="phone",
     ),
+    pytest.param(
+        URLCapability,
+        URLCapabilityContract,
+        "https://example.com/a%20b",
+        URLNotation(text="https://example.com/a%20b"),
+        id="url",
+    ),
 ]
 
 # Capabilities with non-empty OFFERED_OUTPUT_FORMATS, and the independent
@@ -383,6 +401,13 @@ _IDENTITY_SURFACES = [
         "192.0.2.1",
         IPNotation(address="192.0.2.1"),
         id="ip",
+    ),
+    pytest.param(
+        URLCapability,
+        URLCapabilityContract,
+        "https://example.com/a%20b",
+        URLNotation(text="https://example.com/a%20b"),
+        id="url",
     ),
 ]
 
