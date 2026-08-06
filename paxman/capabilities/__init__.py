@@ -5,6 +5,7 @@ from paxman.capabilities.Date.capability import DateCapability as Date
 from paxman.capabilities.Email.capability import EmailCapability as Email
 from paxman.capabilities.IP.capability import IPCapability as IP
 from paxman.capabilities.ISBN.capability import ISBNCapability as ISBN
+from paxman.capabilities.Money.capability import MoneyCapability as Money
 from paxman.capabilities.Phone.capability import PhoneCapability as Phone
 
-__all__ = ["Country", "Date", "Email", "IP", "ISBN", "Phone"]
+__all__ = ["Country", "Date", "Email", "IP", "ISBN", "Money", "Phone"]

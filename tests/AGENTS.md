@@ -1,14 +1,14 @@
 # TESTS KNOWLEDGE BASE
 
 ## OVERVIEW
-Tests are layered by scope; each layer maps to a pytest marker defined in pyproject `[tool.pytest.ini_options]`. The directory IS the marker: a test's location decides which `-m` flag runs it, CI runs the union. 5 layers, 6 capability packages.
+Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers, 7 capability packages.
 
 ## STRUCTURE
 ```text
 tests/
 ├── conftest.py       # loads hypothesis "ci" profile
 ├── unit/             # -m unit        core domain, registry, contracts, purity scans
-├── capabilities/     # -m capability  per-capability, lowercase dirs (country, date, email, ip, isbn, phone)
+├── capabilities/     # -m capability  per-capability, lowercase dirs (country, date, email, ip, isbn, money, phone)
 ├── integration/      # -m integration pipeline, ambiguity, temporal, replay hashes, feature gating, format_value seam
 ├── property/         # -m property    hypothesis property tests
 └── e2e/              # -m e2e         canonicalize() end-to-end
@@ -33,14 +33,14 @@ tests/
 ## CONVENTIONS
 - One layer per directory. New test placement: `unit/` for core-only behavior, `capabilities/<cap>/` for one capability's grammar/rules/capability, `integration/` for pipeline + cross-capability flows, `property/` for hypothesis, `e2e/` for full `canonicalize()`.
 - Capability dirs are lowercase (`isbn`, not `ISBN`). Each holds `test_grammar.py`, `test_rules.py`, `test_capability.py`, plus `test_notation.py` / `test_contract.py` where the capability has them, plus `test_data.py` for generated data.
-- Run one capability's suite directly: `uv run pytest tests/capabilities/isbn` (marker `-m isbn` also exists for country/isbn).
+- Run one capability's suite directly: `uv run pytest tests/capabilities/isbn` (per-capability markers `-m country`, `-m isbn`, `-m money` are registered; they select only the modules that carry them).
 - `tests/conftest.py` loads the hypothesis "ci" profile: `max_examples=100`, `deadline=None`, `too_slow` suppressed. Property tests assume this profile; don't override per test.
-- Registry hygiene: integration + e2e suites use an autouse `_clean_registry` fixture calling `reset_registry()`; `test_discovery.py` resets it per test. Property tests never touch the registry (they drive grammars/rules/`format_value` directly).
+- Registry hygiene: integration + e2e suites use an autouse `_clean_registry` fixture calling `reset_registry()`; `test_discovery.py` resets it per test. Property tests never touch the registry (they drive grammars/rules/`format_value` directly) — the sole exception is `test_money_properties.py`, which locks full-pipeline invariants with a local `_fresh_registry` fixture (documented in its module docstring).
 - TDD: failing test first; no skipped tests without justification.
 
 ## ANTI-PATTERNS
 - No test may depend on registry state left by another test — reset via fixture, never by execution order.
 - No new test in the purity-scan family outside `tests/unit/`; scans are a unit-layer concern.
-- Property tests must stay off the registry and the frozen pipeline; keep them on grammar/rule/`format_value` inputs.
+- Property tests must stay off the registry and the frozen pipeline; keep them on grammar/rule/`format_value` inputs. (Money's full-pipeline property suite is the documented exception — see CONVENTIONS.)
 - Don't weaken the hypothesis "ci" profile inside a single test.
 - `# type: ignore[misc]` only for frozen-dataclass immutability assertions, in any layer — nothing else (see root AGENTS.md for the source ban).

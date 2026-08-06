@@ -1,11 +1,11 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-08-05
-**Commit:** 1f9989a
-**Branch:** refactor/streamline-recognition
+**Generated:** 2026-08-06
+**Commit:** 7a4017c
+**Branch:** feature/CURRENCY-capability
 
 ## OVERVIEW
-Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first, replay-safe. 6 capabilities (Country, Date, Email, IP, ISBN, Phone). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
+Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first, replay-safe. 7 capabilities (Country, Date, Email, IP, ISBN, Money, Phone). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
 
 ## STRUCTURE
 ```text
@@ -13,7 +13,7 @@ paxman/
 ├── api/            # canonicalize() — sole public entry
 ├── engine/         # run_capability() pipeline orchestrator
 ├── core/           # domain objects, Contract protocol, registry, errors
-└── capabilities/   # 6 self-contained capability packages
+└── capabilities/   # 7 self-contained capability packages
 tests/              # unit / capabilities/<cap> / integration / property / e2e
 tools/              # regenerate_isbn_range_data.py (only script)
 docs/               # adr/, report/, research/, superpowers/plans+specs
@@ -27,7 +27,7 @@ docs/               # adr/, report/, research/, superpowers/plans+specs
 | Contract protocol | `paxman/core/contract.py`, `paxman/core/capability_contract.py` |
 | Capability registration | `paxman/core/discovery.py` (explicit, never auto) |
 | Error hierarchy | `paxman/core/errors.py` |
-| Add a capability | `HOW_TO_ADD_NEW_CAPABILITY.md` (54KB spec — read first) |
+| Add a capability | `HOW_TO_ADD_NEW_CAPABILITY.md` (62KB spec — read first) |
 | Recognition (per cap) | `paxman/capabilities/<Name>/grammar/` |
 | Validation (per cap) | `paxman/capabilities/<Name>/rules/` |
 | Presentation seam | `paxman/capabilities/<Name>/capability.py` → `format_value()` |
@@ -77,7 +77,7 @@ uv run ruff format --check paxman/ tests/             # format check
 uv run pyright                                        # strict typecheck
 uv run import-linter lint                             # layer boundaries
 uv run pytest                                         # all tests
-uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, isbn)
+uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, isbn, money)
 uv run pytest --cov=paxman --cov-report=term-missing --tb=short -q
 uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fail-under=95
 uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data module
@@ -85,9 +85,9 @@ uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data mod
 Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-linter lint && pytest`
 
 ## NOTES
-- `paxman/capabilities/__init__.py` exports all six capabilities (Country, Date, Email, IP, ISBN, Phone); export completeness is enforced by `tests/unit/test_capability_exports.py`.
-- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Phone.
+- `paxman/capabilities/__init__.py` exports all seven capabilities (Country, Date, Email, IP, ISBN, Money, Phone); export completeness is enforced by `tests/unit/test_capability_exports.py`.
+- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Money, Phone.
 - No `pyrightconfig.json` — pyright config is inline `[tool.pyright]` in pyproject.toml. No `.editorconfig`.
-- Generated data modules live under `rules/data/` (Country, Phone, ISBN); ISBN keeps an XML source snapshot next to the generated `.py`.
+- Data modules live under `rules/data/` (Country, Money, Phone, ISBN) and `grammar/data/` (Country, Money) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
 - Library only — no CLI, no `__main__.py`, no `[project.scripts]`. Version 0.2.0.
 - Coverage: global `fail_under = 95` + per-package 95% gates in CI.

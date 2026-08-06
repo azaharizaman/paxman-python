@@ -50,7 +50,7 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with six built-in capabilities:
+Paxman ships with seven built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
@@ -59,6 +59,7 @@ Paxman ships with six built-in capabilities:
 | **Country** | Country codes/names | 4 (alpha-2, alpha-3, numeric, name) | 6 | ISO 3166, CLDR |
 | **IP** | IP addresses | 2 (IPv4, IPv6) | 2 | RFC 791, RFC 5952 |
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
+| **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
 
 ### Email Capability
@@ -201,6 +202,41 @@ result = paxman.canonicalize("0306406152", contract)
 # → Status: MISSING
 ```
 
+### Money Capability
+
+Recognizes ISO 4217 codes, CLDR currency symbols, and CLDR currency names adjacent to amounts, canonicalizing to `CODE + amount` padded to ISO 4217 minor units.
+
+```python
+from paxman.capabilities import Money
+
+register_capability(Money())
+
+# Code + amount
+contract = Money.create_contract()
+result = paxman.canonicalize("USD500", contract)
+# → "USD 500.00"
+
+# Bare $ is unresolved by default: INVALID (recognized, no authority)
+contract = Money.create_contract()
+result = paxman.canonicalize("$500", contract)
+# → Status: INVALID
+
+# Opt in: bare $ resolves via dollar_sign_currency
+contract = Money.create_contract(dollar_sign_currency="MYR")
+result = paxman.canonicalize("$500", contract)
+# → "MYR 500.00"
+
+# European comma-decimal: last separator is the decimal point
+contract = Money.create_contract()
+result = paxman.canonicalize("1.000,50 EUR", contract)
+# → "EUR 1000.50"
+
+# Compact rendering removes the code/amount separator space
+contract = Money.create_contract(output_format="compact")
+result = paxman.canonicalize("USD500", contract)
+# → "USD500.00"
+```
+
 ### Phone Capability
 
 Recognizes international (E.164, 00-prefix), tel-URI, and NANP national phone numbers.
@@ -254,6 +290,9 @@ Every capability provides a `create_contract()` factory method with common and c
 | ISBN | `include_isbn10` | `bool` | Enable ISBN-10 recognition (default: `True`) |
 | ISBN | `include_range_validation` | `bool` | Enable ISBN Range Message registrant-range provenance |
 | ISBN | `output_format` | `str` | Output format (`"isbn13"` default, `"hyphenated"`) |
+| Money | `precision` | `str` | Over-precision amount handling: `"strict"` (reject), `"truncate"`, `"round"` (default: `"strict"`) |
+| Money | `dollar_sign_currency` | `str` \| `None` | ISO 4217 alpha-3 code resolving bare/shared symbols (opt-in); `None` (default) makes bare symbols INVALID |
+| Money | `output_format` | `str` | Output format (`"code_amount"` default, `"compact"`) |
 | Phone | `default_country` | `str` | ISO 3166-1 alpha-2 country code to resolve national numbers (e.g., `"US"`) |
 | Phone | `output_format` | `str` | Output format (`"e164"` default, `"rfc3966"`, `"national"`) |
 

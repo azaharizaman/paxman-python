@@ -1,7 +1,8 @@
 """Guard tests for the unanimous capability contract & rule surface.
 
 These tests lock the homogeneity mandate so it cannot regress: every one of
-the five built-in capabilities (Email, Date, Country, IP, Phone) must
+the seven built-in capabilities (Email, Date, Country, IP, ISBN, Money,
+Phone) must
 
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),
@@ -35,6 +36,12 @@ from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.IP.capability import IPCapability
 from paxman.capabilities.IP.contract import IPContract
 from paxman.capabilities.IP.notation import IPNotation
+from paxman.capabilities.ISBN.capability import ISBNCapability
+from paxman.capabilities.ISBN.contract import ISBNContract
+from paxman.capabilities.ISBN.notation import ISBNNotation
+from paxman.capabilities.Money.capability import MoneyCapability
+from paxman.capabilities.Money.contract import MoneyContract
+from paxman.capabilities.Money.notation import MoneyNotation
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
@@ -51,6 +58,8 @@ _EMAIL_KEYS = _STANDARD_KEYS | {"include_obfuscated", "include_localhost"}
 _DATE_KEYS = _STANDARD_KEYS | {"two_digit_base_year"}
 _COUNTRY_KEYS = _STANDARD_KEYS | {"include_localized", "include_historical"}
 _IP_KEYS = _STANDARD_KEYS | {"include_ipv6"}
+_ISBN_KEYS = _STANDARD_KEYS | {"include_isbn10", "include_range_validation"}
+_MONEY_KEYS = _STANDARD_KEYS | {"precision", "dollar_sign_currency"}
 _PHONE_KEYS = _STANDARD_KEYS | {"default_country"}
 
 _CAPABILITY_SURFACES = [
@@ -81,6 +90,20 @@ _CAPABILITY_SURFACES = [
         "ip",
         _IP_KEYS,
         id="ip",
+    ),
+    pytest.param(
+        ISBNCapability,
+        ISBNContract,
+        "isbn13",
+        _ISBN_KEYS,
+        id="isbn",
+    ),
+    pytest.param(
+        MoneyCapability,
+        MoneyContract,
+        "code_amount",
+        _MONEY_KEYS,
+        id="money",
     ),
     pytest.param(
         PhoneCapability,
@@ -211,6 +234,24 @@ class TestContractHomogeneity:
         """Capability-specific as_dict() keys never shadow the standard keys."""
         assert not (set(_contract_class()._extra_dict_fields()) & _STANDARD_KEYS)
 
+    @pytest.mark.unit
+    def test_surface_covers_every_exported_capability(self) -> None:
+        """The surface guard tracks the package's registration surface.
+
+        ``paxman.capabilities.__all__`` is the registration surface: every
+        capability exported there must appear in ``_CAPABILITY_SURFACES``,
+        and every guarded capability must be exported. This prevents a
+        registered capability from silently narrowing the homogeneity
+        mandate (ISBN slipped through PR #12 this way).
+        """
+        import paxman.capabilities as capabilities
+
+        surface_names = {param.values[0].name for param in _CAPABILITY_SURFACES}
+        exported_names = {
+            getattr(capabilities, name).name for name in capabilities.__all__
+        }
+        assert surface_names == exported_names
+
 
 # ---------------------------------------------------------------------------
 # format_value surface: one formatter per capability, offered formats handled
@@ -249,6 +290,25 @@ _FORMAT_SURFACES = [
         id="ip",
     ),
     pytest.param(
+        ISBNCapability,
+        ISBNContract,
+        "9780306406157",
+        ISBNNotation(shape="isbn13", digits="9780306406157"),
+        id="isbn",
+    ),
+    pytest.param(
+        MoneyCapability,
+        MoneyContract,
+        "USD 500.00",
+        MoneyNotation(
+            currency_part="USD",
+            amount_part="500",
+            currency_shape="code",
+            amount_shape="integer",
+        ),
+        id="money",
+    ),
+    pytest.param(
         PhoneCapability,
         PhoneContract,
         "+15551234567",
@@ -275,6 +335,27 @@ _FORMATTED_EXPECTATIONS = [
         CountryNotation(shape="alpha2", value="DE"),
         {"alpha3": "DEU", "numeric": "276", "name": "GERMANY"},
         id="country",
+    ),
+    pytest.param(
+        ISBNCapability,
+        ISBNContract,
+        "9780306406157",
+        ISBNNotation(shape="isbn13", digits="9780306406157"),
+        {"hyphenated": "978-0-306-40615-7"},
+        id="isbn",
+    ),
+    pytest.param(
+        MoneyCapability,
+        MoneyContract,
+        "USD 500.00",
+        MoneyNotation(
+            currency_part="USD",
+            amount_part="500",
+            currency_shape="code",
+            amount_shape="integer",
+        ),
+        {"compact": "USD500.00"},
+        id="money",
     ),
     pytest.param(
         PhoneCapability,
