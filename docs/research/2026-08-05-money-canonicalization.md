@@ -66,16 +66,20 @@ Key findings that shape the design:
    currency code and supplies the canonical code + minor-unit precision
    (provenance: ISO 4217:2015); `cldr_currencies_ed2025.py` resolves symbols
    and word names to their currency code (provenance: Unicode CLDR v48).
-   `$` alone resolves to a contract-configurable `default_currency`
-   (recommended `"USD"`, the CLDR `en` behavior), mirroring Phone's
-   `default_country` rule parameter pattern.
-4. **`$` ambiguity is a `default_currency` decision, not a grammar decision.**
-   CLDR's per-locale data is the authoritative answer: in `en`, USD → `$` and
-   everything else is qualified (`CAD` → `CA$`, `AUD` → `A$`, `MXN` → `MX$`);
-   in `es`, USD itself is `US$`. Bare `$` + `default_currency="USD"` is
-   `SUCCESS` (the CLDR-`en`-consistent result), not `AMBIGUOUS`; only genuinely
-   competing interpretations (e.g., separator-shape clashes on the amount)
-   produce `AMBIGUOUS`, like Date.
+   `$` alone is a multi-candidate token (29 currencies) resolved by the rule
+   via the contract's opt-in `dollar_sign_currency` — default `None`, so bare
+   `$` is `INVALID` unless the caller asserts a currency. This mirrors Phone's
+   `default_country` rule parameter pattern but is default-off: the library
+   never guesses the CLDR-`en` default.
+4. **`$` ambiguity is a `dollar_sign_currency` decision, not a grammar
+   decision.** CLDR's per-locale data is the authoritative answer: in `en`, USD
+   → `$` and everything else is qualified (`CAD` → `CA$`, `AUD` → `A$`, `MXN`
+   → `MX$`); in `es`, USD itself is `US$`. A bare `$` names 29 currencies, so
+   the rule resolves it only through the opt-in `dollar_sign_currency`; the
+   default `None` makes bare `$` `INVALID` (recognized, but no authority
+   validates it) — never a guessed `SUCCESS` and never `AMBIGUOUS`. Only
+   genuinely competing interpretations (e.g., separator-shape clashes on the
+   amount) produce `AMBIGUOUS`, like Date.
 5. **Minor-unit-aware amount parsing is a rule concern.** ISO List One's
    `CcyMnrUnts` column is authoritative: 7 currencies have 3 decimal places
    (BHD, IQD, JOD, KWD, LYD, OMR, TND), 2 have 4 (CLF, UYW), 16 have 0 (JPY,
@@ -97,7 +101,7 @@ Key findings that shape the design:
 
 Recommended file layout, rule set, notation, contract, and data modules are
 specified in §7. Open decisions (exact canonical string shape, whether to pad
-amounts to minor-unit precision, `default_currency` semantics, symbol-grammar
+amounts to minor-unit precision, `dollar_sign_currency` semantics, symbol-grammar
 mechanism) are flagged in §9 with a recommendation for each.
 
 ---
@@ -132,9 +136,9 @@ code. The answers for Money:
 The canonical form is *unambiguous by construction* (unlike Date, where
 `01/02/2026` legitimately means two things): a money token that names its
 currency unambiguously has exactly one canonical value. Genuine ambiguity
-arises only from ambiguous *amount* shapes (`1.000,50`) or an unspecified
-`$` with no `default_currency` — both resolve through the existing status
-model.
+arises only from ambiguous *amount* shapes (`1.000,50`) or a bare `$` with no
+`dollar_sign_currency` opt-in — both resolve through the existing status
+model (the bare-`$` case is `INVALID`, not `AMBIGUOUS`).
 
 ---
 
@@ -230,9 +234,11 @@ is US$."* ([CLDR currency names](https://cldr.unicode.org/translation/currency-n
 `get_currency_symbol('USD', locale='en_US')` → `'$'`;
 `Locale('es','CO').currency_symbols['USD']` → `'US$'`
 ([babel/core.py](https://github.com/python-babel/babel/blob/master/babel/core.py)).
-**For Paxman (English-first), `$` alone → USD is the CLDR-`en`-consistent
-default**, exposed as a contract field so callers can flip it (e.g.
-`default_currency="AUD"`).
+**For Paxman, bare `$` is not silently defaulted to USD.** The bare symbol is
+shared by 29 currencies, and this library never guesses: the contract exposes
+an opt-in `dollar_sign_currency` so callers assert a context explicitly (e.g.
+`dollar_sign_currency="AUD"`), defaulting to `None` — bare `$` is `INVALID`
+unless opted in.
 
 **C. Country-prefix conventions in prose/finance.** The Canadian Translation
 Bureau recommends `US$25.99` and `Can$`, noting finance texts use the ISO code
@@ -250,9 +256,9 @@ systems; ISO 4217 itself recommends the `USD 100` form
 
 **Parsing implication:** a money symbol grammar must match **qualified
 prefixes** (`US$`, `CA$`, `A$`, `S$`, `MX$`, `RM`, `NT$`, `CN¥`) with priority
-over the bare ambiguous symbol, then fall back to bare `$` → `default_currency`.
-The qualified-prefix table can be generated from CLDR's per-locale `symbol`
-fields.
+over the bare ambiguous symbol, then fall back to bare `$` → the rule's opt-in
+`dollar_sign_currency`. The qualified-prefix table can be generated from
+CLDR's per-locale `symbol` fields.
 
 ---
 
@@ -480,7 +486,8 @@ exactly here as a fourth grammar, e.g. `localized_word_recognition`.
 **Symbol grammar mechanism (recommended):** compile the alternation at module
 scope from the key-only table with qualified symbols first
 (`(?:US\$|CA\$|A\$|RM|…|\$)`) so the longest/qualified form wins per span;
-bare `$` remains a key the **rule** resolves via `default_currency`. (The
+bare `$` remains a key the **rule** resolves via the opt-in
+`dollar_sign_currency`. (The
 guide's alternative of `\p{Sc}` Unicode-property matching is explicitly
 discouraged there for curated vocabularies: "\p{Emoji} is too broad… use
 key-set tables" — the same reasoning applies to currency symbols.)
@@ -537,7 +544,7 @@ PUBLICATION = Provenance(
   frozenset({"symbol_recognition"})`. `matches()`: the symbol/qualified symbol
   is in the CLDR-derived symbol table. `normalize()`: resolves symbol →
   code via the authority table; bare `$` resolves via the contract's
-  `default_currency` (cast, Phone's `default_country` pattern).
+  `dollar_sign_currency` (cast, Phone's `default_country` pattern).
 - `SectionCurrencyWords` — strategy `LOOKUP_TABLE`; `target_grammars =
   frozenset({"word_recognition"})`. `matches()`: the word is in the
   CLDR-derived name table. `normalize()`: word → code.
@@ -576,23 +583,23 @@ class MoneyContract(CapabilityContract):
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"symbol"})
 
     capability_name: str = field(default="money", init=False)
-    default_currency: str | None = "USD"   # bare "$" resolution (CLDR-en default)
+    dollar_sign_currency: str | None = None  # bare "$" resolution (opt-in)
 
     @property
     def active_grammars(self) -> list[str]:
         return ["code_recognition", "symbol_recognition", "word_recognition"]
 
     def _extra_dict_fields(self) -> dict[str, object]:
-        return {"default_currency": self.default_currency}
+        return {"dollar_sign_currency": self.dollar_sign_currency}
 ```
 
-`default_currency` is a rule *parameter* (read via `typing.cast` in the symbol
-rule, like Phone's `default_country`), not a feature-toggle flag — it affects
-validity/resolution, and no `requires_features` entry is needed for it.
-`output_format` is inherited (`str | None = None`, resolved in base
+`dollar_sign_currency` is a rule *parameter* (read via `typing.cast` in the
+symbol rule, like Phone's `default_country`), not a feature-toggle flag — it
+affects validity/resolution, and no `requires_features` entry is needed for
+it. `output_format` is inherited (`str | None = None`, resolved in base
 `__post_init__` via `resolve_output_format`); the `"symbol"` offered format
 renders `$500.00` but cannot change candidates — the presentational-only
-invariant. `_extra_dict_fields()` includes `default_currency` so the replay
+invariant. `_extra_dict_fields()` includes `dollar_sign_currency` so the replay
 hash reflects the resolution policy.
 
 ### 7.5 Registration and exports (Steps 8–9)
@@ -730,11 +737,14 @@ architecture without touching existing files' contracts.
 - **D2b — `precision` default is `"strict"`** (reject over-precision input unless the caller
   opts into `"truncate"`/`"round"`). Aligns with the codebase's conservative `include_*`
   default-off posture: rounding/truncation silently change the value, so they are explicit opt-ins.
-- **D3 — `default_currency: str | None = "USD"`**: bare `$500` → `USD 500.00` (`SUCCESS`) —
-  the CLDR-`en` meaning of `$`; caller may override (e.g. `"MYR"`) to assert a context for
-  bare/shared symbols (Phone `default_country` precedent); the override never remaps symbols
-  with a definitive `en` meaning (`¥` → JPY stays, `RM` is MYR's own symbol). `None` →
-  bare `$` is `INVALID` (recognized, but no authority validates it).
+- **D3 — `dollar_sign_currency: str | None = None`**: bare `$500` is `INVALID` by default
+  (recognized, but no authority validates a 29-way-ambiguous symbol — never a guessed
+  `SUCCESS`, never `AMBIGUOUS`); the caller opts in with an ISO 4217 alpha-3 code
+  (`dollar_sign_currency="MYR"` → `MYR 500.00` (`SUCCESS`)) to assert a context for
+  bare/shared symbols (Phone `default_country` precedent, but default-off); the override
+  never remaps symbols with a definitive `en` meaning (`¥` → JPY stays, `RM` is MYR's own
+  symbol). This supersedes the research draft's `default_currency="USD"` (CLDR-`en` default):
+  Paxman does not guess, so the CLDR-`en` bias became an explicit opt-in.
 - **D4 — Symbol grammar mechanism: key-table regex alternation**, compiled once at module
   scope from generated data tables (`SYMBOL_TO_CODE`, `QUALIFIED_TO_CODE`), every token
   `re.escape()`d, longest-first alternation (qualified `CA$`/`A$`/`CN¥` before bare `$`).
@@ -757,7 +767,7 @@ architecture without touching existing files' contracts.
   dedicated append-ISO grammar ships in v1; `1,432.00 USD` is covered by `code_recognition`.
 - **D7 — No `include_localized` gate in v1.** `Money.create_contract()` takes only
   `excluded_rules`, `pinned_rules`, `year`, `output_format`, `precision`,
-  `default_currency`. The gate arrives *with* the localized grammar later as a
+  `dollar_sign_currency`. The gate arrives *with* the localized grammar later as a
   non-breaking additive change (Phone `default_country`, ISBN `include_range_validation`
   precedent). No dead configuration knob: Country's gate exists only because its CLDR rule
   exists.
@@ -773,7 +783,7 @@ Money.create_contract(
                                            # "compact" → offered format
     precision: str | None = None,          # None/"strict" → "strict"
                                            # "truncate" / "round" → opt-in leniency
-    default_currency: str | None = "USD",  # None → bare $ is INVALID
+    dollar_sign_currency: str | None = None,  # None → bare $ is INVALID
 )
 ```
 
