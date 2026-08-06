@@ -77,7 +77,7 @@ uv run ruff format --check paxman/ tests/             # format check
 uv run pyright                                        # strict typecheck
 uv run import-linter lint                             # layer boundaries
 uv run pytest                                         # all tests
-uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, isbn)
+uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, isbn, money)
 uv run pytest --cov=paxman --cov-report=term-missing --tb=short -q
 uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fail-under=95
 uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data module
@@ -86,8 +86,8 @@ Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-li
 
 ## NOTES
 - `paxman/capabilities/__init__.py` exports all seven capabilities (Country, Date, Email, IP, ISBN, Money, Phone); export completeness is enforced by `tests/unit/test_capability_exports.py`.
-- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Phone.
+- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Money, Phone.
 - No `pyrightconfig.json` — pyright config is inline `[tool.pyright]` in pyproject.toml. No `.editorconfig`.
-- Data modules live under `rules/data/` (Country, Phone, ISBN) and `grammar/data/` (Country) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
+- Data modules live under `rules/data/` (Country, Money, Phone, ISBN) and `grammar/data/` (Country, Money) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
 - Library only — no CLI, no `__main__.py`, no `[project.scripts]`. Version 0.2.0.
 - Coverage: global `fail_under = 95` + per-package 95% gates in CI.
