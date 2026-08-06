@@ -155,3 +155,29 @@ class TestMoneyCapabilityFormatValue:
             cap.format_value("EUR 1\u202f234,50", "compact", notation)
             == "EUR1\u202f234,50"
         )
+
+
+# --- Package import tests ---
+
+
+class TestMoneyPackageImports:
+    @pytest.mark.capability
+    def test_package_exports_money_capability(self) -> None:
+        """Money package exports MoneyCapability."""
+        from paxman.capabilities.Money import MoneyCapability as MoneyCapabilityExport
+
+        assert MoneyCapabilityExport is MoneyCapability
+
+    @pytest.mark.capability
+    def test_package_exports_money_contract(self) -> None:
+        """Money package exports MoneyContract."""
+        from paxman.capabilities.Money import MoneyContract as MoneyContractExport
+
+        assert MoneyContractExport is MoneyContract
+
+    @pytest.mark.capability
+    def test_package_exports_money_notation(self) -> None:
+        """Money package exports MoneyNotation."""
+        from paxman.capabilities.Money import MoneyNotation as MoneyNotationExport
+
+        assert MoneyNotationExport is MoneyNotation

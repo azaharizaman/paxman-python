@@ -11,6 +11,14 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from typing import Literal
 
+# Python's int() rejects digit strings longer than int_max_str_digits
+# (default 4300, sys.int_info.default_max_str_digits), and str() of an int
+# beyond the same bound raises too. The grouping fold converts each group
+# with int() and later renders the folded total with str(), so an oversized
+# group (or a folded total that outgrows the bound) would raise. Treat such
+# amounts as unparseable (None) instead.
+_MAX_GROUP_DIGITS = 4300
+
 
 @dataclass(frozen=True, slots=True)
 class ParsedAmount:
@@ -42,17 +50,19 @@ def parse_amount(raw: str) -> ParsedAmount | None:
     Parentheses (accounting form) are ignored: only digit characters and
     the separators participate.
 
-    Assumption note: the user's "1.500,50 -> 1000.50" is internally
-    inconsistent (grouping math gives 1500.50) and is treated as a typo
-    for "1.000,50"; both "1,00.50" and "1.000,50" parse to integer
-    "1000", fraction "50".
+    Assumption note: "1.500,50" parses to integer "1500", fraction "50"
+    (the final "," is the decimal point and "1.500" folds to 1500), a
+    single authoritative result matching the plan's test table. Separately,
+    "1,00.50" parses to integer "1000", fraction "50".
 
     Args:
         raw: The amount token as written (e.g. "1,00.50", "(500)").
 
     Returns:
         The parsed amount, or None when the token contains no digit
-        character (e.g. "" or "abc").
+        character (e.g. "" or "abc") or the folded integer exceeds
+        _MAX_GROUP_DIGITS digits (an oversized group would otherwise
+        make int()/str() raise under int_max_str_digits).
     """
     if not any(ch.isdigit() for ch in raw):
         return None
@@ -66,7 +76,11 @@ def parse_amount(raw: str) -> ParsedAmount | None:
     total = 0
     for group in groups:
         group_digits = "".join(ch for ch in group if ch.isdigit()) or "0"
+        if len(group_digits) > _MAX_GROUP_DIGITS:
+            return None
         total = total * 1000 + int(group_digits)
+    if len(str(total)) > _MAX_GROUP_DIGITS:
+        return None
     fraction_digits = "".join(ch for ch in fraction_raw if ch.isdigit())
     if not fraction_digits or set(fraction_digits) == {"0"}:
         fraction = ""

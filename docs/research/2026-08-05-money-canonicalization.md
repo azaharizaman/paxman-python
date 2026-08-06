@@ -65,7 +65,7 @@ Key findings that shape the design:
    one-provenance-per-file convention): `iso_4217_ed2015.py` validates the
    currency code and supplies the canonical code + minor-unit precision
    (provenance: ISO 4217:2015); `cldr_currencies_ed2025.py` resolves symbols
-   and word names to their currency code (provenance: Unicode CLDR v48).
+   and word names to their currency code (provenance: Unicode CLDR v47).
    `$` alone is a multi-candidate token (29 currencies) resolved by the rule
    via the contract's opt-in `dollar_sign_currency` — default `None`, so bare
    `$` is `INVALID` unless the caller asserts a currency. This mirrors Phone's
@@ -87,17 +87,15 @@ Key findings that shape the design:
    `fractions` lists IQD as 0 digits while ISO List One says 3 — ISO wins for
    a provenance-first library.
 6. **No existing library is a drop-in data source.** Babel (BSD-3-Clause) is
-   the only one worth using — as a **dev-time regeneration dependency**,
-   exactly like Paxman's ISBN snapshot→generated-module pattern, never as a
+   the only one worth using — as a **dev-time reference only**, never as a
    runtime grammar dependency. py-moneyed has the right `Currency` shape but
    stale hand-maintained data and no symbols; forex-python is incomplete (161
    of 178 codes) and network-bound; currency-symbols is one-symbol-per-code
-   and cannot support recognition. Generate `rules/data/` from SIX
-   `list-one.xml` (ISO) + CLDR `currencies.json` (Unicode) via a new
-   `tools/regenerate_currency_data.py`, following
-   `tools/regenerate_isbn_range_data.py` (stdlib-only, committed snapshot,
-   generated-module header with source URL, ruff-compliant emission, purity
-   guard, never imports `paxman`).
+   and cannot support recognition. Curate `rules/data/` from SIX
+   `list-one.xml` (ISO) + CLDR `currencies.json` (Unicode) as plain
+   maintained-in-place tables (per the repository data policy — only the ISBN
+   range message is generated), citing the source URL and snapshot date in
+   each module docstring.
 
 Recommended file layout, rule set, notation, contract, and data modules are
 specified in §7. Open decisions (exact canonical string shape, whether to pad
@@ -369,9 +367,9 @@ Details:
 
 - **Babel** ([github](https://github.com/python-babel/babel)) — full CLDR-backed
   i18n; its own data file is generated from CLDR by `scripts/import_cldr.py`.
-  The right role is a dependency of `tools/regenerate_currency_data.py` (dev
-  time only), not a runtime grammar dependency — Paxman's ISBN/Country pattern
-  is exactly generate-into-modules.
+  The right role is dev-time only (spot-checking curated tables), never a
+  runtime grammar dependency — Paxman's data modules are plain tables
+  maintained in place, with only the ISBN range message generated.
 - **py-moneyed** ([github](https://github.com/py-moneyed/py-moneyed)) — `Currency`
   fields `code, numeric, sub_unit, name, countries` is the right data shape,
   but **no symbol field**, hand-maintained data citing an old ISO FAQ URL,
@@ -386,9 +384,9 @@ Details:
 - **currency-symbols** ([pypi](https://pypi.org/project/currency-symbols/)) —
   forward-only code→symbol; cannot support recognition of an ambiguous symbol.
 
-**Conclusion:** no library supplies Paxman-ready data. Generate two modules —
-ISO from SIX `list-one.xml`, CLDR from `cldr-json` — with the ISBN
-regeneration-tool pattern, and keep the runtime dependency surface at zero.
+**Conclusion:** no library supplies Paxman-ready data. Curate two modules —
+ISO from SIX `list-one.xml`, CLDR from `cldr-json` — as plain
+maintained-in-place tables, and keep the runtime dependency surface at zero.
 
 ---
 
@@ -421,8 +419,8 @@ paxman/capabilities/Money/
     ├── cldr_currencies_ed2025.py # PUBLICATION: Unicode CLDR — symbols/words → code
     └── data/
         ├── __init__.py
-        ├── iso4217_list_one.py   # generated from SIX snapshot
-        └── cldr_currencies.py    # generated from CLDR
+        ├── iso4217_list_one.py   # plain table, curated from SIX snapshot
+        └── cldr_currencies.py    # plain table, curated from CLDR
 ```
 
 ```python
@@ -531,10 +529,10 @@ PUBLICATION = Provenance(
 ```python
 PUBLICATION = Provenance(
     authority="Unicode",
-    specification_name="CLDR v48",
+    specification_name="CLDR v47",
     kind="registry",
     reference_url="https://cldr.unicode.org/",
-    version="48",
+    version="47",
     lifecycle="active",
     publication_year=2025,
 )
@@ -579,28 +577,32 @@ for offered formats (identity for the default).
 ```python
 @dataclass(frozen=True)
 class MoneyContract(CapabilityContract):
-    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "iso"          # CODE + amount
-    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"symbol"})
+    DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "code_amount"  # CODE + amount
+    OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"compact"})
 
     capability_name: str = field(default="money", init=False)
+    precision: Literal["strict", "truncate", "round"] = "strict"
     dollar_sign_currency: str | None = None  # bare "$" resolution (opt-in)
 
     @property
-    def active_grammars(self) -> list[str]:
-        return ["code_recognition", "symbol_recognition", "word_recognition"]
+    def active_grammars(self) -> tuple[str, ...]:
+        return ("code_recognition", "symbol_recognition", "word_recognition")
 
     def _extra_dict_fields(self) -> dict[str, object]:
-        return {"dollar_sign_currency": self.dollar_sign_currency}
+        return {
+            "precision": self.precision,
+            "dollar_sign_currency": self.dollar_sign_currency,
+        }
 ```
 
 `dollar_sign_currency` is a rule *parameter* (read via `typing.cast` in the
 symbol rule, like Phone's `default_country`), not a feature-toggle flag — it
 affects validity/resolution, and no `requires_features` entry is needed for
 it. `output_format` is inherited (`str | None = None`, resolved in base
-`__post_init__` via `resolve_output_format`); the `"symbol"` offered format
-renders `$500.00` but cannot change candidates — the presentational-only
-invariant. `_extra_dict_fields()` includes `dollar_sign_currency` so the replay
-hash reflects the resolution policy.
+`__post_init__` via `resolve_output_format`); the `"compact"` offered format
+removes the separator space (`USD500.00`) but cannot change candidates — the
+presentational-only invariant. `_extra_dict_fields()` includes `precision` and
+`dollar_sign_currency` so the replay hash reflects the resolution policy.
 
 ### 7.5 Registration and exports (Steps 8–9)
 
@@ -636,42 +638,35 @@ Four layers per the guide:
   consistency test: every recognition key in `grammar/data/` is covered by at
   least one rule-data mapping (see §7.8).
 
-### 7.7 Data modules and regeneration (Step 2 optional; ISBN/Country precedents)
+### 7.7 Data modules (Step 2 optional; ISBN/Country precedents)
 
-Two generated modules under `rules/data/`, following the ISBN
-snapshot→generated-module pattern (`tools/regenerate_isbn_range_data.py`) and
-the Country `rules/data/` layout:
+Two plain data modules under `rules/data/`, maintained in place per the
+repository data policy (AGENTS.md: only the ISBN range message is generated —
+via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited
+directly), following the Country `rules/data/` layout:
 
-- `rules/data/iso4217_list_one.py` — generated from a committed snapshot of
-  SIX `list-one.xml` (stored next to the module, like ISBN keeps its XML
-  snapshot). Exports: `ACTIVE_CODES` (frozenset of 178 alpha codes),
-  `CODE_TO_NUMERIC: dict[str, str]`, `CODE_TO_MINOR_UNITS: dict[str, int | None]`
-  (`None` for metals/funds `N.A.`), `CODE_TO_ENTITY`. Header cites the source
-  URL + snapshot date.
-- `rules/data/cldr_currencies.py` — generated from `cldr-numbers-full`'s
-  `main/en/currencies.json` (plus `es` for the `US$` qualified form, matching
-  the CLDR `symbol` fields). Exports: `CODE_TO_SYMBOL`,
-  `CODE_TO_DISPLAY_NAME`, `SYMBOL_TO_CODE` (incl. qualified forms, longest
-  first), `WORD_TO_CODE` (normalized display-name keys).
-- `tools/regenerate_currency_data.py` — new stdlib-only tool in the ISBN
-  image: reads the committed snapshots, emits the two modules with a
-  `GENERATED, do not edit by hand` header (source URL, version, regenerate
-  command), ruff-compliant emission (line length 88), a purity guard rejecting
-  the `output_format` token, and never imports `paxman` (keeps `tools/` out of
-  the import-linter layers). Babel is a permitted dev-time dependency *of the
-  tool only*, to parse CLDR — or parse `cldr-json` directly.
+- `rules/data/iso4217_list_one.py` — plain table of the ISO 4217 List One
+  snapshot (source URL + snapshot date cited in the docstring). Exports:
+  `CURRENCY_CODES` (frozenset of the 165 codes with a numeric minor-unit
+  exponent; the 13 `N.A.` codes — metals/funds — are excluded, with no usable
+  minor units), `MINOR_UNITS: dict[str, int]` (exponent per code).
+- `rules/data/cldr_currencies.py` — plain table of the CLDR v47 English +
+  Spanish currency data (`main/en/currencies.json` plus `es` for the `US$`
+  qualified form, matching the CLDR `symbol` fields). Exports:
+  `SYMBOL_TO_CODES` (symbol → sorted tuple of codes, incl. qualified forms,
+  longest first), `NAME_TO_CODES` (normalized display-name keys → code).
 
-**Data-source caveat to record in the generated header:** CLDR `fractions`
-disagrees with ISO List One on IQD (0 vs 3 minor digits). The module keeps the
-ISO value (authoritative for minor units) and documents the discrepancy.
+**Known data discrepancy:** CLDR `fractions` disagrees with ISO List One on
+IQD (0 vs 3 minor digits). The module keeps the ISO value — IQD minor units
+3 — because ISO List One is authoritative for minor units.
 
 ### 7.8 Consistency test (the grammar/rule boundary, enforced)
 
 Following Country's `tests/capabilities/country/test_data_consistency.py`,
 Money ships a one-directional coverage assertion: every key in
 `grammar/data/currency_symbols.py` ∪ `grammar/data/currency_words.py` is
-covered by the union of rule-data mapping keys (`SYMBOL_TO_CODE`,
-`WORD_TO_CODE`), with per-authority ownership tests (symbols → CLDR only;
+covered by the union of rule-data mapping keys (`SYMBOL_TO_CODES`,
+`NAME_TO_CODES`), with per-authority ownership tests (symbols → CLDR only;
 words → CLDR only; codes → ISO only). This is the test that lets the two
 catalogs drift independently without breaking shipped behavior — and the
 exact seam the future localized-words grammar will plug into (its keys must
@@ -748,15 +743,15 @@ architecture without touching existing files' contracts.
 - **D4 — Symbol grammar mechanism: key-table regex alternation**, compiled once at module
   scope from generated data tables (`SYMBOL_TO_CODE`, `QUALIFIED_TO_CODE`), every token
   `re.escape()`d, longest-first alternation (qualified `CA$`/`A$`/`CN¥` before bare `$`).
-  Curated CLDR vocabulary (never `\p{Sc}`), generated data module + regeneration tool per the
-  ISBN/Country pattern.
+  Curated CLDR vocabulary (never `\p{Sc}`), plain key tables maintained in place per the
+  repository data policy (only the ISBN range message is generated).
 - **D4a — Symbol → code mapping lives in the rule layer.** The grammar emits only the raw
   token (`currency_part="$"`); the CLDR rule resolves `$` → `USD` via the tables. Preserves
   the core boundary: grammars never map tokens to canonical values.
 - **D5 — One `cldr_currencies_ed2025.py` with two rule classes** (`SectionSymbols` resolves
   `$` → `USD`; `SectionNames` resolves `Dollar` → `USD`). Mirrors `iso_3166_ed2024.py`
   (one publication, multiple `Section*` classes); enables independent pinning/exclusion of
-  symbol vs word validation; one provenance citation for CLDR v48.
+  symbol vs word validation; one provenance citation for CLDR v47.
 - **D6 — Single-currency recognition, prefix prioritized; no `currency_pattern_append_iso`
   grammar.** An amount is resolved to **exactly one currency**: a **prefix** indicator
   (`$1,432.00`) always wins; a **suffix** indicator (`1,432.00 USD`) is recognized only
@@ -791,8 +786,9 @@ Canonical: `CODE + " " + amount` padded to ISO 4217 minor units (`USD 500.00`,
 `BHD 500.000`, `JPY 1000`); `output_format="compact"` → `USD500.00`.
 Grammars: `code_recognition`, `symbol_recognition`, `word_recognition` (prefix-priority
 single-currency, D6). Rules: `iso_4217_ed2015.py` (codes + minor units),
-`cldr_currencies_ed2025.py` (`SectionSymbols` + `SectionNames`). Data: generated
-`rules/data/` modules + `tools/regenerate_currency_data.py`.
+`cldr_currencies_ed2025.py` (`SectionSymbols` + `SectionNames`). Data: plain
+`rules/data/` modules maintained in place (only the ISBN range message is
+generated).
 
 ---
 

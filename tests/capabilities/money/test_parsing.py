@@ -7,6 +7,7 @@ import dataclasses
 import pytest
 
 from paxman.capabilities.Money.parsing import (
+    _MAX_GROUP_DIGITS,
     ParsedAmount,
     format_amount,
     parse_amount,
@@ -79,6 +80,21 @@ class TestParseAmount:
     def test_parse_amount_accounting_parens(self) -> None:
         """Accounting-form parentheses are ignored; the digit run is kept."""
         assert parse_amount("(500)") == ParsedAmount("500", "")
+
+    def test_parse_amount_oversized_group_never_raises(self) -> None:
+        """A grouped integer past int()'s digit limit parses to None, never raising.
+
+        Python's int() rejects digit strings longer than the platform limit
+        (int_max_str_digits, default 4300) with ValueError; parse_amount stays
+        non-raising by returning None beyond the documented _MAX_GROUP_DIGITS
+        bound.
+        """
+        assert parse_amount("9" * (_MAX_GROUP_DIGITS + 1) + ".50") is None
+
+    def test_parse_amount_group_digit_boundary(self) -> None:
+        """At the documented digit bound parses; beyond it returns None."""
+        assert parse_amount("9" * _MAX_GROUP_DIGITS + ".50") is not None
+        assert parse_amount("9" * (_MAX_GROUP_DIGITS + 1) + ".50") is None
 
 
 class TestFormatAmount:

@@ -150,6 +150,17 @@ class TestSectionCode:
         """The ISO rule never gates on contract features (always runs)."""
         assert self.rule.requires_features == frozenset()
 
+    def test_rejects_accounting_amount(self) -> None:
+        """Accounting-form amounts are rejected: the sign would be dropped.
+
+        The grammar recognizes "(500)" (accounting shape) and parse_amount
+        keeps the digit run, so the rule must reject the shape — otherwise
+        "(500) USD" would canonicalize a negative amount as positive.
+        """
+        contract = MoneyContract()
+        notation = _notation("USD", "(500)", "code", "accounting")
+        assert self.rule.matches(notation, contract) is False
+
 
 class TestSectionSymbols:
     """Tests for SectionSymbols rule."""
@@ -256,6 +267,12 @@ class TestSectionSymbols:
     def test_requires_features_empty(self) -> None:
         """Never gate on dollar_sign_currency: bare $ yields INVALID, not MISSING."""
         assert self.rule.requires_features == frozenset()
+
+    def test_rejects_accounting_amount(self) -> None:
+        """Accounting-form amounts are rejected: the sign would be dropped."""
+        contract = MoneyContract()
+        notation = _notation("\u20ac", "(500)", "symbol", "accounting")
+        assert self.rule.matches(notation, contract) is False
 
     @pytest.mark.parametrize(
         "symbol",
@@ -365,3 +382,9 @@ class TestSectionNames:
     def test_requires_features_empty(self) -> None:
         """The CLDR name rule never gates on contract features."""
         assert self.rule.requires_features == frozenset()
+
+    def test_rejects_accounting_amount(self) -> None:
+        """Accounting-form amounts are rejected: the sign would be dropped."""
+        contract = MoneyContract()
+        notation = _notation("Euro", "(500)", "word", "accounting")
+        assert self.rule.matches(notation, contract) is False

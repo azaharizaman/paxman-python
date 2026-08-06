@@ -1516,7 +1516,7 @@ MINOR_UNITS: dict[str, int] = {
 
 - [ ] **Step 5: GREEN — write `paxman/capabilities/Money/rules/data/cldr_currencies.py`**
 
-The COMPLETE module body is the script's `===== cldr_currencies.py =====` section (Step 3). The module has the exact shape below: docstring + `from __future__ import annotations` + the `SYMBOL_TO_CODES` dict (67 keys, one entry per line, keys sorted, the 29-code `"$"` row wrapped one code per line) + the `NAME_TO_CODES` dict (62 keys, one entry per line). Representative complete rows — spot-check the script output against these; they are the brief-anchored and D6-critical mappings (note BHD/AED have NO symbol row: their CLDR symbol is the code itself, filtered as a code fallback):
+The block below is an **excerpt** (a subset of the full tables — 16 of the 67 `SYMBOL_TO_CODES` keys, 5 of the 62 `NAME_TO_CODES` keys). The COMPLETE module body is the script's `===== cldr_currencies.py =====` section (Step 3) — that output is authoritative. The module has the exact shape below: docstring + `from __future__ import annotations` + the `SYMBOL_TO_CODES` dict (67 keys, one entry per line, keys sorted, the 29-code `"$"` row wrapped one code per line) + the `NAME_TO_CODES` dict (62 keys, one entry per line). The excerpted rows shown are the brief-anchored and D6-critical mappings — spot-check the script output against these (note BHD/AED have NO symbol row: their CLDR symbol is the code itself, filtered as a code fallback):
 
 ```python
 """Unicode CLDR currency symbol and display-name lookup tables.
@@ -2715,10 +2715,10 @@ def parse_amount(raw: str) -> ParsedAmount | None:
     Parentheses (accounting form) are ignored: only digit characters and
     the separators participate.
 
-    Assumption note: the user's "1.500,50 -> 1000.50" is internally
-    inconsistent (grouping math gives 1500.50) and is treated as a typo
-    for "1.000,50"; both "1,00.50" and "1.000,50" parse to integer
-    "1000", fraction "50".
+    Assumption note: "1.500,50" parses to integer "1500", fraction "50"
+    (the final "," is the decimal point and "1.500" folds to 1500), a
+    single authoritative result matching the plan's test table. Separately,
+    "1,00.50" parses to integer "1000", fraction "50".
 
     Args:
         raw: The amount token as written (e.g. "1,00.50", "(500)").
@@ -3948,7 +3948,7 @@ uv run pytest tests/unit/test_capability_exports.py -v
 
 Expected: `14 passed` (7 capability classes × 2 tests). This also closes the pre-existing gap flagged in review: the current file omits Country and Date despite AGENTS.md claiming all six exports are enforced — the rewritten file covers all seven capabilities.
 
-**Cross-task note (marker semantics):** the money marker's real payload is the Task 1–6 suite already committed under `tests/capabilities/money/` (capability-marked; `test_data_consistency.py`, created in Task 8, additionally carries `pytest.mark.money`). From this step on `uv run pytest -m money` selects the money suite; running the directory directly (`uv run pytest tests/capabilities/money`) also works, per tests/AGENTS.md.
+**Cross-task note (marker semantics):** `pytest.mark.money` is applied per module, not per directory — the Task 1–6 suite under `tests/capabilities/money/` is `capability`-marked, and `test_data_consistency.py` (created in Task 8) additionally carries `pytest.mark.money`. Run the suite via `uv run pytest -m capability` or the directory directly (`uv run pytest tests/capabilities/money`); `-m money` selects only the modules that carry the marker, per tests/AGENTS.md.
 
 - [ ] **Step 3: GREEN — extend the capability-surface guard test** (`tests/unit/test_capability_surface.py`)
 

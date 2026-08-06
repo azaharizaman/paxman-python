@@ -63,8 +63,10 @@ class SectionCode(Rule[MoneyNotation]):
     Validates a "code"-shaped notation: the currency part must be an
     uppercase alpha-3 code in the ISO 4217 List One table, and the amount
     must parse and (in strict precision mode) not exceed the code's minor
-    units. Lowercase codes are rejected: case folding is the grammar's
-    concern, mirroring how ISBN folds x to X at recognition time.
+    units. Accounting-form amounts (parenthesized) are rejected: the
+    authority assigns no meaning to a parenthesized amount. Lowercase
+    codes are rejected: case folding is the grammar's concern, mirroring
+    how ISBN folds x to X at recognition time.
     """
 
     name = "Section-codes"
@@ -82,10 +84,13 @@ class SectionCode(Rule[MoneyNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if shape == "code", the code is in CURRENCY_CODES, the
-            amount parses, and strict precision is not exceeded.
+            True if shape == "code", the amount is not accounting-form,
+            the code is in CURRENCY_CODES, the amount parses, and strict
+            precision is not exceeded.
         """
         if notation.currency_shape != "code":
+            return False
+        if notation.amount_shape == "accounting":
             return False
         code = notation.currency_part
         if code not in CURRENCY_CODES:

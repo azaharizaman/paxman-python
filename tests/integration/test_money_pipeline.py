@@ -192,6 +192,20 @@ class TestMoneyPipeline:
             assert result.status == Resolution.MISSING, text
 
     @pytest.mark.integration
+    def test_accounting_parens_rejected(self) -> None:
+        """(500) USD is recognized but INVALID: the sign must not be dropped.
+
+        Accounting parentheses are outside the amount semantics; the rules
+        reject the accounting shape so a negative amount never canonicalizes
+        as positive.
+        """
+        register_capability(MoneyCapability())
+        contract = MoneyCapability.create_contract()
+        result = run_capability("(500) USD", contract)
+        assert result.status == Resolution.INVALID
+        assert result.canonicalized_value is None
+
+    @pytest.mark.integration
     def test_cross_grammar_ambiguous(self) -> None:
         """A symbol and a word claiming the same amount are AMBIGUOUS.
 

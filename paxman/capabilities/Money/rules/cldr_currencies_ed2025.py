@@ -124,7 +124,9 @@ class SectionSymbols(Rule[MoneyNotation]):
     Validates "symbol"/"qualified_symbol" shapes. The token resolves to an
     ISO 4217 code (qualified or definitive via the table, multi-candidate
     via dollar_sign_currency), then the amount must parse and (in strict
-    precision mode) not exceed that code's minor units.
+    precision mode) not exceed that code's minor units. Accounting-form
+    amounts (parenthesized) are rejected: the authority assigns no meaning
+    to a parenthesized amount.
     """
 
     name = "Section-symbols"
@@ -142,10 +144,13 @@ class SectionSymbols(Rule[MoneyNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if shape is "symbol"/"qualified_symbol", a code can be
-            resolved, and the amount passes the shared validation.
+            True if shape is "symbol"/"qualified_symbol", the amount is
+            not accounting-form, a code can be resolved, and the amount
+            passes the shared validation.
         """
         if notation.currency_shape not in ("symbol", "qualified_symbol"):
+            return False
+        if notation.amount_shape == "accounting":
             return False
         typed_contract = cast(MoneyContract, contract)
         code = _resolve_symbol_code(notation, typed_contract)
@@ -183,7 +188,8 @@ class SectionNames(Rule[MoneyNotation]):
     Validates "word" shapes. The display name resolves to an ISO 4217 code
     (definitive via the table, multi-candidate via dollar_sign_currency), then
     the amount must parse and (in strict precision mode) not exceed that
-    code's minor units.
+    code's minor units. Accounting-form amounts (parenthesized) are
+    rejected: the authority assigns no meaning to a parenthesized amount.
     """
 
     name = "Section-names"
@@ -201,10 +207,13 @@ class SectionNames(Rule[MoneyNotation]):
             contract: Contract configuration.
 
         Returns:
-            True if shape == "word", a code can be resolved, and the amount
-            passes the shared validation.
+            True if shape == "word", the amount is not accounting-form,
+            a code can be resolved, and the amount passes the shared
+            validation.
         """
         if notation.currency_shape != "word":
+            return False
+        if notation.amount_shape == "accounting":
             return False
         typed_contract = cast(MoneyContract, contract)
         code = _resolve_name_code(notation, typed_contract)
