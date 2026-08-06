@@ -1,52 +1,70 @@
 # CAPABILITIES KNOWLEDGE BASE
 
 ## OVERVIEW
-The deepest directory in the repo (87 py files): 6 self-contained capability packages (Country, Date, Email, IP, ISBN, Phone), each an independent recognize→validate→resolve mini-system wired into the shared pipeline via `paxman.core`. Most work landing here is: add a capability, tweak recognition/validation for one, or regenerate data.
+The deepest directory in the repo (87 py files): 7 capability packages (Country, Date, Email, IP, ISBN, Money, Phone), each an independent recognize→validate→resolve mini-system wired into the shared pipeline via `paxman.core`. Each package is self-contained: grammars recognize representations, rules assign meaning with provenance, the contract selects what runs, and `format_value()` renders the result.
 
-## STRUCTURE
+**Authoritative spec:** the root `HOW_TO_ADD_NEW_CAPABILITY.md` (62KB — read it before touching this directory). This file is the compact governance reference: intended architecture, hard rules, and known legacy exceptions. Where the two differ, HOW_TO wins.
+
+## STRUCTURE (intended)
 ```text
 paxman/capabilities/
 ├── __init__.py          # registration imports + __all__ (see NOTES)
-├── <Name>/              # one per capability (Country, Date, Email, IP, ISBN, Phone)
-│   ├── notation.py      # frozen slots dataclass — the token type
-│   ├── contract.py      # frozen CapabilityContract subclass (no slots)
-│   ├── capability.py    # Capability[NotationT] subclass — wiring
-│   ├── grammar/         # recognizers (one file per grammar)
-│   ├── rules/           # validators (one file per publication)
-│   └── rules/data/      # generated/frozen data (Country, Phone, ISBN)
-└── one-offs             # Country/name_normalization.py, Phone/grammar/common.py
+├── <Name>/              # one self-contained package per capability
+│   ├── __init__.py      # exports Capability, Contract, Notation
+│   ├── notation.py      # frozen slots dataclass — the intermediate token
+│   ├── contract.py      # frozen CapabilityContract subclass (NO slots)
+│   ├── capability.py    # Capability[NotationT] subclass — wiring + format_value()
+│   ├── grammar/         # recognizers — one file per grammar
+│   ├── grammar/data/    # data serving grammars — key-only recognition tables
+│   ├── rules/           # validators — one file per publication
+│   └── rules/data/      # data serving rules — authority-backed lookup tables
 ```
 
 ## WHERE TO LOOK
 | Task | Location |
 |------|----------|
-| Add a new capability | root `HOW_TO_ADD_NEW_CAPABILITY.md` (54KB spec — read first) |
-| Wire grammars+rules | `<Name>/capability.py` → `get_grammars()`, `get_rules()`, static `create_contract()`, optional `format_value()` |
+| Build/extend a capability | root `HOW_TO_ADD_NEW_CAPABILITY.md` (62KB spec — read first) |
+| Wire grammars + rules | `<Name>/capability.py` → `get_grammars()`, `get_rules()`, static `create_contract()` |
+| Presentation | `<Name>/capability.py` → `format_value()` — the ONLY presentation seam |
 | Feature flags / active grammars | `<Name>/contract.py` → `include_*` fields + `active_grammars` property |
 | Token shape | `<Name>/notation.py` |
-| Recognition | `<Name>/grammar/` |
-| Validation | `<Name>/rules/` |
-| Generated data | `<Name>/rules/data/` (ISBN: regenerate via `tools/regenerate_isbn_range_data.py`) |
+| Recognition | `<Name>/grammar/` (+ `grammar/data/` for lexicon key tables) |
+| Validation | `<Name>/rules/` (+ `rules/data/` for authority tables) |
+| Data tables | `rules/data/` (authority data serving rules), `grammar/data/` (keys serving grammars) — plain module-level tables, separated from logic |
+| Generated data | only modules with a source snapshot + tool (ISBN range message → `tools/regenerate_isbn_range_data.py`) — edit via the snapshot, then regenerate |
 | Register a capability | `paxman/capabilities/__init__.py` (import + `__all__`) → `paxman/core/discovery.py` |
 
-## CONVENTIONS
-- Capability class: `Capability[NotationT]` subclass; `name` lowercase ("email", "isbn"); `version` "1.0.0"; static `create_contract()` factory forwarding all kwargs; `format_value()` only where presentation varies (Date, Phone, ISBN).
-- Contracts: `@dataclass(frozen=True)` extending `CapabilityContract`, NO slots. Feature flags as `include_*` kwargs (include_isbn10, include_range_validation, include_ipv6, include_obfuscated, include_localized, include_historical) plus plain config (default_country, two_digit_base_year). `active_grammars` derives from the flags; `_extra_dict_fields()` feeds the replay hash.
-- Notation: `@dataclass(frozen=True, slots=True)` — the sole type parameter of the capability's `Grammar[NotationT]` / `Rule[NotationT]`.
-- Grammar: one file = one recognizer, unique snake_case name (`isbn13_recognition.py`); returns span-bearing `RecognitionMatch`; never validates, dedups, orders, or maps tokens to canonical values.
-- Rule: one file = one publication (`iso_2108_ed2017.py`); class = one spec section; declares `name` ("Section 5.3-isbn13-check-digit"), `strategy`, `provenance`, `citation`, `target_grammars`, `requires_features`.
-- Generated data (`rules/data/`): typed tuples/dicts only, zero logic, produced from a source snapshot (ISBN XML → `range_message.py`) or frozen vendor data (`iso_3166_ed2024.py`, `e164_country_codes.py`).
-- Grammar-layer name data lives in `grammar/data/` (Country: english/chinese/localized/historical names) — data modules, not behavior.
+## INTENDED ARCHITECTURE (the unanimous surface)
+Every capability must conform to the same structural surface. `CapabilityContract` and `Rule.__init_subclass__` make most of it structural rather than documentary:
 
-## ANTI-PATTERNS (THIS DIRECTORY)
-- Don't imitate the one-offs: `Country/name_normalization.py` and `Phone/grammar/common.py` are legacy exceptions, not patterns to copy.
-- Don't hand-edit generated `rules/data/` modules — change the source snapshot and regenerate, or the module drifts from its authority.
-- Don't add `Section6_1`-style rule class names outside Phone: the N801 per-file-ignore in pyproject is scoped to `Phone/rules/*.py` (and its tests) only.
-- No cross-capability imports — a capability package imports only from `paxman.core`, never from a sibling `paxman.capabilities.*`.
-- No presentation logic in rules/grammars — `format_value()` is the only seam (ISBN hyphenation lives in `capability.py`, not a rule).
-- No additions to `__init__.py` without matching `__all__` — the export list is the registration surface.
+- **Notation** — `@dataclass(frozen=True, slots=True)`; one `str` field per component; the sole type parameter of the capability's `Grammar[NotationT]` / `Rule[NotationT]`.
+- **Contract** — `@dataclass(frozen=True)` extending `CapabilityContract`, NO `slots=True` (incompatible with the base `super()` pattern). Sets `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` class vars; `capability_name` via `field(init=False)`; inherits `output_format` (always optional; base `__post_init__` resolves it and validates offered alternatives); implements `active_grammars`; overrides `_extra_dict_fields()` — never hand-writes `as_dict()`.
+- **Grammar** — one file = one recognizer; `name` = `{format}_recognition` (snake_case, unique per capability); emits span-bearing `RecognitionMatch` (half-open `[start, end)`, `raw_text`); syntax-only — extraction and sanitization, never validation, dedup, ordering, or token→canonical mapping. Two sanctioned strategies: Regex (shape) and Lexicon (key-only tables, kept in `grammar/data/` apart from recognition logic); see HOW_TO for the extended set.
+- **Rule** — one file = one publication (module-level `PUBLICATION` provenance constant); class = one spec section; declares `name` (`Section {X.Y.Z}-{description}`), `strategy`, `provenance`, `citation`, `target_grammars` (non-empty), `requires_features` — all six enforced at import time. Rule classes sharing one publication live in the same file; authority-backed lookup tables live in `rules/data/`, separated from rule logic.
+- **Feature gating — two loci, two statuses** — input-shape features toggle grammars via `active_grammars` (disabled grammar → `MISSING`); authority features gate rules via `requires_features` (dropped rule → `INVALID`). Never gate inside `matches()`; never cast to read `include_*` flags. `typing.cast` is only for validity-affecting parameters.
+- **Presentation-only invariant** — rules never reference `output_format` (CI-scanned); `normalize()` always returns the default canonical form; `format_value()` is the only presentation seam, overridden only when `OFFERED_OUTPUT_FORMATS` is non-empty; formatting adds no provenance; offered formats must preserve the capability's ambiguity contract.
+- **`create_contract()`** — static, keyword-only; fixed common block first (`excluded_rules`, `pinned_rules`, `year`, `output_format`), capability-specific params after.
+
+## GOVERNANCE (hard rules)
+- **Grammar/Rule boundary is absolute**: grammars own syntax, rules own meaning. Grammar tables are key-only; authority-backed mappings live in `rules/data/` and are imported only by rules. A consistency test must cover every shipped recognition key against rule-data mappings.
+- **No cross-capability imports** — a capability package imports only from `paxman.core`, never from a sibling `paxman.capabilities.*` (enforced by import-linter).
+- **Rules never read `output_format`**, never raise (best-effort returns; unreachable branches return input unchanged), never gate on `include_*` (declared as `requires_features` instead).
+- **Data files are plain tables, most maintained in place** — `rules/data/` and `grammar/data/` exist to separate data from logic, not to mark generated output. Only modules that carry a generator (source snapshot + script — currently the ISBN range message via `tools/regenerate_isbn_range_data.py`) must be edited through the snapshot and regenerated, never by hand, or they drift from their authority. Unmarked data files are edited directly.
+- **No type suppression** — no `# type: ignore` / `# noqa` / `# pyright: ignore` in source; fix the root cause or use a scoped per-file-ignore in pyproject.
+- **Never modify baseline replay-hash literals** to green `test_default_replay_hashes.py` — fix the regression.
+- **Rule class names are CapWords** — the legacy `Section6_1`-style naming is scoped to `Phone/rules/*.py` (and its tests) via the N801 per-file-ignore: legacy coverage, not a pattern.
+- **`__init__.py` acronym aliases trip N814** — covered by the scoped per-file-ignore; don't add inline `# noqa`.
+- **No additions to `__init__.py` without matching `__all__`** — the export list is the registration surface.
+- **Quality gates before merge** — `ruff check`, `ruff format --check`, `pyright` (strict), `import-linter lint`, `pytest` (95% coverage), replay-hash tests green.
+
+## ANTI-PATTERNS & LEGACY EXCEPTIONS
+- Don't imitate the one-off modules: `Country/name_normalization.py` and `Phone/grammar/common.py` predate the sanctioned strategies — not patterns to copy.
+- Don't force a representation into a regex that fights it — consult HOW_TO's recognition-strategy section (scanner, format-candidate, parser combinators, Unicode-property, automaton) before choosing.
+- Don't invert the two-locus gating model (e.g., gating recognition on authority features or gating validation on input-shape features) — it produces the wrong `Resolution` statuses.
+- Don't write `as_dict()` by hand, and don't add `slots=True` to contracts.
+- Don't put authority data in `grammar/data/` or recognition keys in `rules/data/` — `grammar/data/` serves grammars (keys), `rules/data/` serves rules (authority mappings); the boundary is the point.
+- When extending an existing capability, check whether the file you're touching is a flagged legacy exception before copying its style; new code follows the intended architecture.
 
 ## NOTES
-- `__init__.py` exports all six capabilities (Country, Date, Email, IP, ISBN, Phone); completeness is enforced by `tests/unit/test_capability_exports.py`.
-- `__init__.py` acronym aliases (`ISBNCapability as ISBN`) trip N814; covered by the scoped per-file-ignore in pyproject — don't add inline `# noqa`.
-- Root AGENTS.md is authoritative for pipeline flow, domain objects, and quality gates; this file adds only capability-package specifics.
+- `__init__.py` exports all seven capabilities; completeness is enforced by `tests/unit/test_capability_exports.py`.
+- Root AGENTS.md is authoritative for pipeline flow, domain objects, and quality gates; this file adds capability-package structure and governance specifics.
