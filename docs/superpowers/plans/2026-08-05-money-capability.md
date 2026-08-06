@@ -4,7 +4,7 @@
 
 **Goal:** Implement the **Money capability** that canonicalizes ambiguous currency-amount input to the canonical `CODE + " " + amount` form (e.g. `USD 500.00`) with full provenance. Design source: `docs/research/2026-08-05-money-canonicalization.md` (its §9 "Locked Decisions" is authoritative for reasoning; the cross-part contract below is authoritative for shapes). This plan covers Tasks 1–11 in order: package skeleton, `MoneyNotation`, `MoneyContract`, data tables, rules, grammars, parsing helper, capability wiring, registration, integration/property/replay-hash tests, and documentation.
 
-**Architecture:** A seventh self-contained capability package `paxman/capabilities/Money/` following the unanimous surface: three recognition grammars (`code_recognition`, `symbol_recognition`, `word_recognition`) emit span-bearing `RecognitionMatch[MoneyNotation]`; three authority rules (`SectionCode`, `SectionSymbols`, `SectionNames`) validate against ISO 4217 / CLDR data modules and normalize to the canonical `CODE amount` string; `format_value()` renders `"code_amount"` (identity, the default) or `"compact"` (removes the single space). The contract carries `precision` ("strict"/"truncate"/"round") and `default_currency` (uppercase ISO 4217 alpha-3 or `None`); rules receive the contract, so they read `precision` and `default_currency` directly.
+**Architecture:** A seventh self-contained capability package `paxman/capabilities/Money/` following the unanimous surface: three recognition grammars (`code_recognition`, `symbol_recognition`, `word_recognition`) emit span-bearing `RecognitionMatch[MoneyNotation]`; three authority rules (`SectionCode`, `SectionSymbols`, `SectionNames`) validate against ISO 4217 / CLDR data modules and normalize to the canonical `CODE amount` string; `format_value()` renders `"code_amount"` (identity, the default) or `"compact"` (removes the single space). The contract carries `precision` ("strict"/"truncate"/"round") and `dollar_sign_currency` (uppercase ISO 4217 alpha-3 or `None`; `None` is the default — bare `$`-style symbols only resolve when a currency is explicitly opted in); rules receive the contract, so they read `precision` and `dollar_sign_currency` directly.
 
 **Tech Stack:** Python 3.11, standard library only (re-based grammars, frozen dataclasses). Tests: pytest with the `capability` marker; a `-m money` marker is added in Task 7, so every command in this task runs by path. Gates unchanged: ruff (line-length 88, target py311), pyright strict (`include = ["paxman"]` — tests are excluded), import-linter layers, pytest at 95% coverage.
 
@@ -15,7 +15,7 @@
 ## Cross-Part Contract (must stay identical across all tasks)
 
 - `MoneyNotation` (notation.py): frozen slots dataclass with fields `currency_part: str`, `amount_part: str`, `currency_shape: str = ""` (valid values `"code" | "symbol" | "qualified_symbol" | "word"`), `amount_shape: str = ""` (valid values `"integer" | "dot_decimal" | "comma_decimal" | "space_decimal" | "accounting"`); method `as_list() -> list[str]` returns `[currency_part, amount_part, currency_shape, amount_shape]`.
-- `MoneyContract(CapabilityContract)` (contract.py): `capability_name = field(default="money", init=False)`; `active_grammars` = `("code_recognition", "symbol_recognition", "word_recognition")`; `precision: Literal["strict", "truncate", "round"] = "strict"`; `default_currency: str | None = "USD"`; `DEFAULT_OUTPUT_FORMAT = "code_amount"`; `OFFERED_OUTPUT_FORMATS = frozenset({"compact"})`; `__post_init__` calls `super().__post_init__()` FIRST, then validates `precision` and `default_currency`; `_extra_dict_fields()` returns `{"precision", "default_currency"}`.
+- `MoneyContract(CapabilityContract)` (contract.py): `capability_name = field(default="money", init=False)`; `active_grammars` = `("code_recognition", "symbol_recognition", "word_recognition")`; `precision: Literal["strict", "truncate", "round"] = "strict"`; `dollar_sign_currency: str | None = None`; `DEFAULT_OUTPUT_FORMAT = "code_amount"`; `OFFERED_OUTPUT_FORMATS = frozenset({"compact"})`; `__post_init__` calls `super().__post_init__()` FIRST, then validates `precision` and `dollar_sign_currency`; `_extra_dict_fields()` returns `{"precision", "dollar_sign_currency"}`.
 - Canonical value shape: `"CODE" + " " + amount_with_minor_unit_padding`, e.g. `USD 500.00`, built in `Rule.normalize()`. `"compact"` removes the single space (`USD500.00`).
 - Later-task names (not implemented in Tasks 1–2): grammar files `grammar/code_recognition.py`, `grammar/symbol_recognition.py`, `grammar/word_recognition.py`; rule files `rules/iso_4217_ed2015.py` (`SectionCode`), `rules/cldr_currencies_ed2025.py` (`SectionSymbols`, `SectionNames`); data modules `rules/data/iso4217_list_one.py`, `rules/data/cldr_currencies.py`, `grammar/data/currency_symbols.py`, `grammar/data/currency_words.py`; package-root `parsing.py` (`ParsedAmount`, `parse_amount`, `format_amount`); `capability.py` (`MoneyCapability`).
 
@@ -315,9 +315,9 @@ class TestMoneyContractDefaults:
         """precision defaults to strict."""
         assert MoneyContract().precision == "strict"
 
-    def test_default_currency_default(self) -> None:
-        """default_currency defaults to USD."""
-        assert MoneyContract().default_currency == "USD"
+    def test_dollar_sign_currency_default(self) -> None:
+        """dollar_sign_currency defaults to None (bare $ stays INVALID)."""
+        assert MoneyContract().dollar_sign_currency is None
 
     def test_active_grammars(self) -> None:
         """All three recognition grammars are active by default."""
@@ -351,24 +351,24 @@ class TestMoneyContractPrecision:
 
 
 @pytest.mark.capability
-class TestMoneyContractDefaultCurrency:
-    """default_currency validation."""
+class TestMoneyContractDollarSignCurrency:
+    """dollar_sign_currency validation."""
 
     def test_none_allowed(self) -> None:
-        """None means 'no default currency'."""
-        assert MoneyContract(default_currency=None).default_currency is None
+        """None (the default) means bare $ symbols stay unresolved."""
+        assert MoneyContract(dollar_sign_currency=None).dollar_sign_currency is None
 
     def test_uppercase_alpha3_accepted(self) -> None:
-        """An uppercase ISO 4217 alpha-3 code is accepted."""
-        assert MoneyContract(default_currency="EUR").default_currency == "EUR"
+        """An uppercase ISO 4217 alpha-3 code is accepted (opt-in)."""
+        assert MoneyContract(dollar_sign_currency="EUR").dollar_sign_currency == "EUR"
 
     @pytest.mark.parametrize("currency", ["usd", "US", "US1", "USDD", "U$D", 123])
-    def test_invalid_default_currency_raises_contract_error(
+    def test_invalid_dollar_sign_currency_raises_contract_error(
         self, currency: object
     ) -> None:
-        """Non-alpha-3 default_currency values raise ContractError."""
+        """Non-alpha-3 dollar_sign_currency values raise ContractError."""
         with pytest.raises(ContractError):
-            MoneyContract(default_currency=currency)
+            MoneyContract(dollar_sign_currency=currency)
 
 
 @pytest.mark.capability
@@ -396,17 +396,17 @@ class TestMoneyContractSerialization:
     """as_dict surface."""
 
     def test_as_dict_deterministic_key_set(self) -> None:
-        """as_dict() emits the standard keys plus precision and default_currency."""
+        """as_dict() emits the standard keys plus precision and dollar_sign_currency."""
         assert set(MoneyContract().as_dict().keys()) == _STANDARD_KEYS | {
             "precision",
-            "default_currency",
+            "dollar_sign_currency",
         }
 
     def test_as_dict_values(self) -> None:
-        """as_dict() serializes precision and default_currency with their values."""
-        d = MoneyContract(precision="round", default_currency="JPY").as_dict()
+        """as_dict() serializes precision and dollar_sign_currency with their values."""
+        d = MoneyContract(precision="round", dollar_sign_currency="JPY").as_dict()
         assert d["precision"] == "round"
-        assert d["default_currency"] == "JPY"
+        assert d["dollar_sign_currency"] == "JPY"
 
     def test_as_dict_includes_resolved_output_format(self) -> None:
         """as_dict() emits the resolved (non-None) output_format."""
@@ -424,7 +424,7 @@ Expected: FAIL — collection error `ModuleNotFoundError: No module named 'paxma
 
 - [ ] **Step 3: Write the minimal implementation**
 
-`paxman/capabilities/Money/contract.py` — extends `CapabilityContract` exactly like the ISBN/Country/Phone contracts: frozen dataclass, no `slots=True`, `capability_name` via `field(default=..., init=False)`, `super().__post_init__()` first, `_extra_dict_fields()` override. `default_currency` validation mirrors the Phone `_validate_alpha2` helper pattern (widened `cast(object, ...)` check, same two-branch `ContractError` message shape) adapted to ISO 4217 alpha-3. The `precision` check also widens to `object` before the `in` test, so pyright strict never treats the Literal-typed comparison as statically decidable:
+`paxman/capabilities/Money/contract.py` — extends `CapabilityContract` exactly like the ISBN/Country/Phone contracts: frozen dataclass, no `slots=True`, `capability_name` via `field(default=..., init=False)`, `super().__post_init__()` first, `_extra_dict_fields()` override. `dollar_sign_currency` validation mirrors the Phone `_validate_alpha2` helper pattern (widened `cast(object, ...)` check, same two-branch `ContractError` message shape) adapted to ISO 4217 alpha-3. The `precision` check also widens to `object` before the `in` test, so pyright strict never treats the Literal-typed comparison as statically decidable:
 
 ```python
 # paxman/capabilities/Money/contract.py
@@ -456,7 +456,7 @@ def _validate_alpha3(value: str | None) -> None:
     candidate = cast(object, value)
     if not isinstance(candidate, str):
         raise ContractError(
-            "default_currency must be an uppercase ISO 4217 alpha-3 code, "
+            "dollar_sign_currency must be an uppercase ISO 4217 alpha-3 code, "
             f"got {value!r}"
         )
     if (
@@ -466,7 +466,7 @@ def _validate_alpha3(value: str | None) -> None:
         or not candidate.isupper()
     ):
         raise ContractError(
-            "default_currency must be an uppercase ISO 4217 alpha-3 code, "
+            "dollar_sign_currency must be an uppercase ISO 4217 alpha-3 code, "
             f"got {value!r}"
         )
 
@@ -480,10 +480,12 @@ class MoneyContract(CapabilityContract):
         precision: Amount normalization to ISO 4217 minor units — "strict"
             (over-precision → INVALID, decided by the rules' matches()),
             "truncate" (excess digits dropped), or "round" (half-to-even).
-        default_currency: ISO 4217 alpha-3 code used to resolve bare
-            currency-symbol input (e.g., "$500" → "USD 500.00"). When None,
-            bare symbol input is recognized but never resolved (status
-            INVALID). Never remaps a definitive symbol.
+        dollar_sign_currency: ISO 4217 alpha-3 code (opt-in) used to resolve
+            bare multi-candidate symbol input (e.g., "$500" with
+            dollar_sign_currency="MYR" → "MYR 500.00"). Defaults to None:
+            bare "$" is then recognized but never resolved (status INVALID).
+            Never remaps a definitive symbol (e.g. "€" → EUR) or a qualified
+            symbol ("US$" → USD).
         output_format: Canonical output format ("code_amount" default;
             "compact" removes the single space). Optional — None/"default"/
             "code_amount" all resolve to "code_amount".
@@ -499,19 +501,19 @@ class MoneyContract(CapabilityContract):
 
     # Capability-specific fields
     precision: Literal["strict", "truncate", "round"] = "strict"
-    default_currency: str | None = "USD"
+    dollar_sign_currency: str | None = None
 
     def __post_init__(self) -> None:
         """Validate contract configuration.
 
         Calls the base output_format resolution first, then enforces
         Money-specific rules: precision must be one of "strict"/"truncate"/
-        "round" and default_currency must be an uppercase ISO 4217 alpha-3
-        code when present.
+        "round" and dollar_sign_currency must be an uppercase ISO 4217
+        alpha-3 code when present.
 
         Raises:
             ContractError: If output_format is unsupported, precision is not
-                one of the three, or default_currency is present but not an
+                one of the three, or dollar_sign_currency is present but not an
                 uppercase alpha-3 code.
         """
         super().__post_init__()
@@ -521,7 +523,7 @@ class MoneyContract(CapabilityContract):
                 "precision must be one of 'strict', 'truncate', or 'round', "
                 f"got {self.precision!r}"
             )
-        _validate_alpha3(self.default_currency)
+        _validate_alpha3(self.dollar_sign_currency)
 
     @property
     def active_grammars(self) -> tuple[str, ...]:
@@ -539,18 +541,18 @@ class MoneyContract(CapabilityContract):
         """Serialize capability-specific fields for replay hash.
 
         Returns:
-            Dictionary of precision and default_currency fields.
+            Dictionary of precision and dollar_sign_currency fields.
         """
         return {
             "precision": self.precision,
-            "default_currency": self.default_currency,
+            "dollar_sign_currency": self.dollar_sign_currency,
         }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `uv run pytest tests/capabilities/money/test_contract.py -v`
-Expected: PASS — `36 passed` (defaults ×7, precision ×3 valid + ×5 invalid, default_currency ×2 valid + ×6 invalid, output_format ×3 default-path + ×1 compact + ×5 invalid, serialization ×4).
+Expected: PASS — `36 passed` (defaults ×7, precision ×3 valid + ×5 invalid, dollar_sign_currency ×2 valid + ×6 invalid, output_format ×3 default-path + ×1 compact + ×5 invalid, serialization ×4).
 
 - [ ] **Step 5: Verify + commit**
 
@@ -1972,49 +1974,49 @@ class TestSectionSymbols:
         assert self.rule.normalize(notation, contract) == "USD 50.79"
 
     def test_qualified_symbol_never_remapped(self) -> None:
-        """A definitive qualified symbol ignores default_currency (D3)."""
-        contract = MoneyContract(default_currency="CAD")
+        """A definitive qualified symbol ignores dollar_sign_currency (D3)."""
+        contract = MoneyContract(dollar_sign_currency="CAD")
         notation = _notation("US$", "50.79", "qualified_symbol", "dot_decimal")
         assert self.rule.matches(notation, contract) is True
         assert self.rule.normalize(notation, contract) == "USD 50.79"
 
-    def test_bare_symbol_resolves_via_default_currency(self) -> None:
-        """Bare $ with default_currency=USD resolves to USD (D3)."""
-        contract = MoneyContract(default_currency="USD")
+    def test_bare_symbol_resolves_via_dollar_sign_currency(self) -> None:
+        """Bare $ with dollar_sign_currency=USD resolves to USD (D3)."""
+        contract = MoneyContract(dollar_sign_currency="USD")
         notation = _notation("$", "500", "symbol")
         assert self.rule.matches(notation, contract) is True
         assert self.rule.normalize(notation, contract) == "USD 500.00"
 
-    def test_bare_symbol_default_currency_cad(self) -> None:
-        """Bare $ with default_currency=CAD resolves to CAD (D3)."""
-        contract = MoneyContract(default_currency="CAD")
+    def test_bare_symbol_dollar_sign_currency_cad(self) -> None:
+        """Bare $ with dollar_sign_currency=CAD resolves to CAD (D3)."""
+        contract = MoneyContract(dollar_sign_currency="CAD")
         notation = _notation("$", "500", "symbol")
         assert self.rule.matches(notation, contract) is True
         assert self.rule.normalize(notation, contract) == "CAD 500.00"
 
-    def test_bare_symbol_no_default_currency_invalid(self) -> None:
-        """Bare $ with default_currency=None is INVALID, never dropped (D3)."""
-        contract = MoneyContract(default_currency=None)
+    def test_bare_symbol_no_dollar_sign_currency_invalid(self) -> None:
+        """Bare $ with dollar_sign_currency=None is INVALID, never dropped (D3)."""
+        contract = MoneyContract(dollar_sign_currency=None)
         notation = _notation("$", "500", "symbol")
         assert self.rule.matches(notation, contract) is False
 
-    def test_definitive_symbol_without_default_currency(self) -> None:
-        """Euro sign is definitive (EUR) and needs no default_currency (D3)."""
-        contract = MoneyContract(default_currency=None)
+    def test_definitive_symbol_without_dollar_sign_currency(self) -> None:
+        """Euro sign is definitive (EUR) and needs no dollar_sign_currency (D3)."""
+        contract = MoneyContract(dollar_sign_currency=None)
         notation = _notation("\u20ac", "5", "symbol")
         assert self.rule.matches(notation, contract) is True
         assert self.rule.normalize(notation, contract) == "EUR 5.00"
 
     def test_definitive_symbol_default_contract(self) -> None:
-        """Euro sign with the default contract (USD) still resolves to EUR (D3)."""
+        """Euro sign with the default contract (dollar_sign_currency=None) still resolves to EUR (D3)."""
         contract = MoneyContract()
         notation = _notation("\u20ac", "5", "symbol")
         assert self.rule.matches(notation, contract) is True
         assert self.rule.normalize(notation, contract) == "EUR 5.00"
 
-    def test_multi_candidate_symbol_default_currency(self) -> None:
-        """Yen sign (multi-candidate) resolves via default_currency (D3)."""
-        contract = MoneyContract(default_currency="JPY")
+    def test_multi_candidate_symbol_dollar_sign_currency(self) -> None:
+        """Yen sign (multi-candidate) resolves via dollar_sign_currency (D3)."""
+        contract = MoneyContract(dollar_sign_currency="JPY")
         notation = _notation("\u00a5", "500", "symbol")
         assert self.rule.matches(notation, contract) is True
         assert self.rule.normalize(notation, contract) == "JPY 500"
@@ -2059,7 +2061,7 @@ class TestSectionSymbols:
         assert self.rule.target_grammars == frozenset({"symbol_recognition"})
 
     def test_requires_features_empty(self) -> None:
-        """Never gate on default_currency: bare $ yields INVALID, not MISSING."""
+        """Never gate on dollar_sign_currency: bare $ yields INVALID, not MISSING."""
         assert self.rule.requires_features == frozenset()
 
 
@@ -2077,7 +2079,7 @@ class TestSectionNames:
         assert self.rule.normalize(notation, contract) == "USD 18.00"
 
     def test_definitive_word_euro(self) -> None:
-        """Euro resolves to EUR regardless of default_currency (D3)."""
+        """Euro resolves to EUR regardless of dollar_sign_currency (D3)."""
         contract = MoneyContract()
         notation = _notation("Euro", "5", "word")
         assert self.rule.matches(notation, contract) is True
@@ -2251,7 +2253,7 @@ class SectionCode(Rule[MoneyNotation]):
 
 - [ ] **Step 4: GREEN — implement `paxman/capabilities/Money/rules/cldr_currencies_ed2025.py`**
 
-Two rules share this file because they share one publication (`PUBLICATION`), mirroring how `iso_3166_ed2024.py` co-locates rules of the same provenance. The resolution helpers encode D3: qualified symbols are definitive and never remapped; bare single-candidate symbols and definitive display names resolve to their own code; bare multi-candidate tokens resolve via `default_currency`; `default_currency=None` with a bare multi-candidate token resolves to None, which makes `matches()` return False (pipeline status INVALID, never MISSING). Both rules then apply the same amount validation as `SectionCode` (parse + strict over-precision check against the resolved code's minor units), guarded so a bad `default_currency` value cannot KeyError.
+Two rules share this file because they share one publication (`PUBLICATION`), mirroring how `iso_3166_ed2024.py` co-locates rules of the same provenance. The resolution helpers encode D3: qualified symbols are definitive and never remapped; bare single-candidate symbols and definitive display names resolve to their own code; bare multi-candidate tokens resolve via the opt-in `dollar_sign_currency`; `dollar_sign_currency=None` (the default) with a bare multi-candidate token resolves to None, which makes `matches()` return False (pipeline status INVALID, never MISSING). Both rules then apply the same amount validation as `SectionCode` (parse + strict over-precision check against the resolved code's minor units), guarded so a bad `dollar_sign_currency` value cannot KeyError.
 
 ```python
 """Unicode CLDR currency rules: currency symbols and display names.
@@ -2301,13 +2303,14 @@ def _resolve_symbol_code(
     Qualified symbols (e.g. "US$") map definitively to one code and are
     never remapped. Bare symbols map to their code only when the table has
     exactly one candidate; multi-candidate symbols (e.g. "$", the yen sign)
-    resolve via ``contract.default_currency``. A bare multi-candidate
-    symbol with ``default_currency=None`` resolves to None, which makes
-    matches() return False (INVALID, never silently dropped).
+    resolve via the opt-in ``contract.dollar_sign_currency`` (default None).
+    A bare multi-candidate symbol with ``dollar_sign_currency=None``
+    resolves to None, which makes matches() return False (INVALID, never
+    silently dropped).
 
     Args:
         notation: Money notation to resolve.
-        contract: Money contract (default_currency).
+        contract: Money contract (dollar_sign_currency).
 
     Returns:
         The resolved ISO 4217 code, or None when no code can be resolved.
@@ -2319,7 +2322,7 @@ def _resolve_symbol_code(
         return codes[0]
     if len(codes) == 1:
         return codes[0]
-    return contract.default_currency
+    return contract.dollar_sign_currency
 
 
 def _resolve_name_code(
@@ -2329,12 +2332,13 @@ def _resolve_name_code(
     """Resolve a word notation to an ISO 4217 code (definitive or default).
 
     A display name with exactly one candidate is definitive and never
-    remapped; a multi-candidate name resolves via
-    ``contract.default_currency`` (None -> matches() False -> INVALID).
+    remapped; a multi-candidate name resolves via the opt-in
+    ``contract.dollar_sign_currency`` (None, the default, -> matches()
+    False -> INVALID).
 
     Args:
         notation: Money notation to resolve.
-        contract: Money contract (default_currency).
+        contract: Money contract (dollar_sign_currency).
 
     Returns:
         The resolved ISO 4217 code, or None when no code can be resolved.
@@ -2344,7 +2348,7 @@ def _resolve_name_code(
         return None
     if len(codes) == 1:
         return codes[0]
-    return contract.default_currency
+    return contract.dollar_sign_currency
 
 
 def _amount_matches(
@@ -2354,8 +2358,8 @@ def _amount_matches(
 ) -> bool:
     """Shared amount validation: parse result + strict over-precision check.
 
-    The code comes from the CLDR tables or ``contract.default_currency``;
-    codes absent from MINOR_UNITS (e.g. a bad default_currency value) are
+    The code comes from the CLDR tables or ``contract.dollar_sign_currency``;
+    codes absent from MINOR_UNITS (e.g. a bad dollar_sign_currency value) are
     rejected defensively so neither this check nor normalize() can KeyError
     (rules never raise).
 
@@ -2379,7 +2383,7 @@ class SectionSymbols(Rule[MoneyNotation]):
 
     Validates "symbol"/"qualified_symbol" shapes. The token resolves to an
     ISO 4217 code (qualified or definitive via the table, multi-candidate
-    via default_currency), then the amount must parse and (in strict
+    via dollar_sign_currency), then the amount must parse and (in strict
     precision mode) not exceed that code's minor units.
     """
 
@@ -2437,7 +2441,7 @@ class SectionNames(Rule[MoneyNotation]):
     """CLDR Section: currency display names.
 
     Validates "word" shapes. The display name resolves to an ISO 4217 code
-    (definitive via the table, multi-candidate via default_currency), then
+    (definitive via the table, multi-candidate via dollar_sign_currency), then
     the amount must parse and (in strict precision mode) not exceed that
     code's minor units.
     """
@@ -2494,10 +2498,10 @@ class SectionNames(Rule[MoneyNotation]):
 
 **Semantics note (locked decisions, from the cross-part contract):**
 
-- Symbol/name resolution never remaps a definitive mapping: qualified symbols (`US$`) and single-candidate symbols/names always resolve to their own code, ignoring `default_currency` (D3). Only bare multi-candidate tokens (`$`, yen sign) resolve via `default_currency`.
-- `default_currency=None` plus a bare multi-candidate token makes `matches()` return False, so the pipeline reports INVALID, never MISSING. That is why all three rules declare `requires_features = frozenset()`: gating on `default_currency` would silently drop the rule and misreport the status.
+- Symbol/name resolution never remaps a definitive mapping: qualified symbols (`US$`) and single-candidate symbols/names always resolve to their own code, ignoring `dollar_sign_currency` (D3). Only bare multi-candidate tokens (`$`, yen sign) resolve via `dollar_sign_currency` — an explicit opt-in that defaults to None.
+- `dollar_sign_currency=None` (the default) plus a bare multi-candidate token makes `matches()` return False, so the pipeline reports INVALID, never MISSING. That is why all three rules declare `requires_features = frozenset()`: gating on `dollar_sign_currency` would silently drop the rule and misreport the status.
 - Lowercase `usd` returns False: codes are exact-matched against the uppercase `CURRENCY_CODES` table; case folding is the grammar's job (grammars emit the currency_part token). Display names (`Dollar`, `Euro`) are exact-matched against `NAME_TO_CODES` keys.
-- All failure paths return False from `matches()`; rules never raise. `MINOR_UNITS[code]` is guarded (`code not in MINOR_UNITS` returns False) so a bad `default_currency` value cannot KeyError, and normalize() falls back to the raw amount part only on unreachable defensive paths.
+- All failure paths return False from `matches()`; rules never raise. `MINOR_UNITS[code]` is guarded (`code not in MINOR_UNITS` returns False) so a bad `dollar_sign_currency` value cannot KeyError, and normalize() falls back to the raw amount part only on unreachable defensive paths.
 - The over-precision check runs only in strict mode; `precision="round"`/`"truncate"` accept any fraction and let `format_amount` handle it.
 - None of the rule modules contain the token `output_format` (the CI purity scan over `*/rules/*.py` must stay green).
 
@@ -3453,7 +3457,7 @@ git commit -m "feat(money): add amount parsing and recognition grammars"
 - Create: `paxman/capabilities/Money/capability.py`
 - Create: `tests/capabilities/money/test_capability.py`
 
-The wiring mirrors `paxman/capabilities/Phone/capability.py` exactly: module docstring, `from __future__ import annotations`, alphabetical import block, module-level `__all__`, class attrs `name`/`version`, `get_grammars()`/`get_rules()` returning fresh instances, a static keyword-only `create_contract` factory with the unanimous common block FIRST (`excluded_rules`, `pinned_rules`, `year`, `output_format`) followed by the capability-specific `precision` and `default_currency`, and a `format_value()` presentation seam whose default path is the identity. The capability only *imports* grammars, rules, contract, and notation — it creates no grammar/rule/contract/notation logic of its own.
+The wiring mirrors `paxman/capabilities/Phone/capability.py` exactly: module docstring, `from __future__ import annotations`, alphabetical import block, module-level `__all__`, class attrs `name`/`version`, `get_grammars()`/`get_rules()` returning fresh instances, a static keyword-only `create_contract` factory with the unanimous common block FIRST (`excluded_rules`, `pinned_rules`, `year`, `output_format`) followed by the capability-specific `precision` and `dollar_sign_currency`, and a `format_value()` presentation seam whose default path is the identity. The capability only *imports* grammars, rules, contract, and notation — it creates no grammar/rule/contract/notation logic of its own.
 
 - [ ] **Step 1: RED — write the capability tests** (`tests/capabilities/money/test_capability.py`, `@pytest.mark.capability` class markers, imports from `paxman.capabilities.Money.capability` / `.contract` / `.notation`)
 
@@ -3520,7 +3524,7 @@ class TestMoneyCapability:
         c = MoneyCapability.create_contract()
         assert c.capability_name == "money"
         assert c.precision == "strict"
-        assert c.default_currency == "USD"
+        assert c.dollar_sign_currency is None
         assert c.output_format == "code_amount"
 
     def test_create_contract_precision(self) -> None:
@@ -3528,15 +3532,15 @@ class TestMoneyCapability:
         c = MoneyCapability.create_contract(precision="round")
         assert c.precision == "round"
 
-    def test_create_contract_default_currency(self) -> None:
-        """default_currency passes through to the contract."""
-        c = MoneyCapability.create_contract(default_currency="MYR")
-        assert c.default_currency == "MYR"
+    def test_create_contract_dollar_sign_currency(self) -> None:
+        """dollar_sign_currency passes through to the contract."""
+        c = MoneyCapability.create_contract(dollar_sign_currency="MYR")
+        assert c.dollar_sign_currency == "MYR"
 
-    def test_create_contract_default_currency_none(self) -> None:
-        """default_currency=None passes through (bare $ becomes INVALID)."""
-        c = MoneyCapability.create_contract(default_currency=None)
-        assert c.default_currency is None
+    def test_create_contract_dollar_sign_currency_none(self) -> None:
+        """dollar_sign_currency=None passes through (bare $ becomes INVALID)."""
+        c = MoneyCapability.create_contract(dollar_sign_currency=None)
+        assert c.dollar_sign_currency is None
 
     def test_create_contract_common_block(self) -> None:
         """The unanimous common block passes through to the contract."""
@@ -3691,7 +3695,7 @@ class MoneyCapability(Capability[MoneyNotation]):
         year: int | None = None,
         output_format: str | None = None,
         precision: Literal["strict", "truncate", "round"] = "strict",
-        default_currency: str | None = "USD",
+        dollar_sign_currency: str | None = None,
     ) -> MoneyContract:
         """Factory method for creating contracts with proper defaults.
 
@@ -3707,9 +3711,10 @@ class MoneyCapability(Capability[MoneyNotation]):
                 amounts exceeding the currency's minor-unit precision (the
                 default); "truncate" cuts excess digits; "round" rounds
                 half-to-even to the allowed precision.
-            default_currency: ISO 4217 alpha-3 code used to resolve bare or
-                shared symbols (e.g. "$"). None makes a bare "$" INVALID
-                (recognized, but no authority validates it).
+            dollar_sign_currency: ISO 4217 alpha-3 code (opt-in) used to
+                resolve bare or shared symbols (e.g. "$"). None (the default)
+                makes a bare "$" INVALID (recognized, but no authority
+                validates it).
 
         Returns:
             Configured MoneyContract instance.
@@ -3720,7 +3725,7 @@ class MoneyCapability(Capability[MoneyNotation]):
             year=year,
             output_format=output_format,
             precision=precision,
-            default_currency=default_currency,
+            dollar_sign_currency=dollar_sign_currency,
         )
 
     def format_value(
@@ -3797,7 +3802,15 @@ from __future__ import annotations
 
 import pytest
 
-from paxman.capabilities import IP, ISBN, Email, Money, Phone
+from paxman.capabilities import (
+    Country,
+    Date,
+    Email,
+    IP,
+    ISBN,
+    Money,
+    Phone,
+)
 
 
 class TestCapabilityExports:
@@ -3810,6 +3823,30 @@ class TestCapabilityExports:
     def test_email_capability_name(self) -> None:
         """Email capability has correct name."""
         assert Email.name == "email"
+
+
+class TestCountryCapabilityExports:
+    @pytest.mark.unit
+    def test_country_capability_importable(self) -> None:
+        """Country capability is importable from paxman.capabilities."""
+        assert Country is not None
+
+    @pytest.mark.unit
+    def test_country_capability_name(self) -> None:
+        """Country capability has correct name."""
+        assert Country.name == "country"
+
+
+class TestDateCapabilityExports:
+    @pytest.mark.unit
+    def test_date_capability_importable(self) -> None:
+        """Date capability is importable from paxman.capabilities."""
+        assert Date is not None
+
+    @pytest.mark.unit
+    def test_date_capability_name(self) -> None:
+        """Date capability has correct name."""
+        assert Date.name == "date"
 
 
 class TestPhoneCapabilityExports:
@@ -3909,7 +3946,7 @@ Re-run:
 uv run pytest tests/unit/test_capability_exports.py -v
 ```
 
-Expected: `10 passed` (5 capability classes × 2 tests).
+Expected: `14 passed` (7 capability classes × 2 tests). This also closes the pre-existing gap flagged in review: the current file omits Country and Date despite AGENTS.md claiming all six exports are enforced — the rewritten file covers all seven capabilities.
 
 **Cross-task note (marker semantics):** the money marker's real payload is the Task 1–6 suite already committed under `tests/capabilities/money/` (capability-marked; `test_data_consistency.py`, created in Task 8, additionally carries `pytest.mark.money`). From this step on `uv run pytest -m money` selects the money suite; running the directory directly (`uv run pytest tests/capabilities/money`) also works, per tests/AGENTS.md.
 
@@ -3974,7 +4011,7 @@ _EMAIL_KEYS = _STANDARD_KEYS | {"include_obfuscated", "include_localhost"}
 _DATE_KEYS = _STANDARD_KEYS | {"two_digit_base_year"}
 _COUNTRY_KEYS = _STANDARD_KEYS | {"include_localized", "include_historical"}
 _IP_KEYS = _STANDARD_KEYS | {"include_ipv6"}
-_MONEY_KEYS = _STANDARD_KEYS | {"precision", "default_currency"}
+_MONEY_KEYS = _STANDARD_KEYS | {"precision", "dollar_sign_currency"}
 _PHONE_KEYS = _STANDARD_KEYS | {"default_country"}
 
 _CAPABILITY_SURFACES = [
@@ -4480,10 +4517,14 @@ class TestMoneyPipeline:
     Locked semantics:
     - the code grammar is case-sensitive ``[A-Z]{3}`` (research doc §7.2):
       lowercase ``usd 500`` is not recognized -> MISSING;
-    - D6 single-currency precedence (research doc §9): a prefix symbol
-      always wins over a suffix code, so ``$1,432.00 USD`` resolves via the
-      ``$`` and the trailing ``USD`` is non-matching context (never
-      AMBIGUOUS);
+    - money only recognizes currency+amount together: a bare amount
+      (``500``) or a bare currency (``USD``) alone is not recognized ->
+      MISSING;
+    - D6 single-currency precedence (research doc §9): a prefix symbol and
+      a suffix code claiming the same amount collapse to one canonical
+      value (never AMBIGUOUS). With the default ``dollar_sign_currency=None``
+      the bare ``$`` yields no candidate, so ``$1,432.00 USD`` resolves via
+      the suffix code (the ``$`` is non-matching context);
     - last-separator-wins amount parsing (user ruling): the final ``,`` or
       ``.`` is the decimal point, earlier separators are grouping;
     - AMBIGUOUS arises only from genuinely different canonical values:
@@ -4536,31 +4577,49 @@ class TestMoneyPipeline:
         assert result.canonicalized_value == "USD 18.00"
 
     @pytest.mark.integration
-    def test_success_bare_symbol_default_currency(self) -> None:
-        """$500 resolves to USD via default_currency."""
+    def test_bare_symbol_default_contract_invalid(self) -> None:
+        """$500 with the default contract (dollar_sign_currency=None) is INVALID."""
         register_capability(MoneyCapability())
         contract = MoneyCapability.create_contract()
         result = run_capability("$500", contract)
-        assert result.status == Resolution.SUCCESS
-        assert result.canonicalized_value == "USD 500.00"
+        assert result.status == Resolution.INVALID
+        assert result.candidates == ()
 
     @pytest.mark.integration
-    def test_bare_symbol_no_default_currency_invalid(self) -> None:
-        """$500 with default_currency=None is recognized but unvalidated."""
+    def test_bare_symbol_opt_in_dollar_sign_currency(self) -> None:
+        """$500 with dollar_sign_currency=MYR resolves to MYR 500.00."""
         register_capability(MoneyCapability())
-        contract = MoneyCapability.create_contract(default_currency=None)
+        contract = MoneyCapability.create_contract(dollar_sign_currency="MYR")
+        result = run_capability("$500", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MYR 500.00"
+
+    @pytest.mark.integration
+    def test_bare_symbol_explicit_none_invalid(self) -> None:
+        """$500 with dollar_sign_currency=None is recognized but unvalidated."""
+        register_capability(MoneyCapability())
+        contract = MoneyCapability.create_contract(dollar_sign_currency=None)
         result = run_capability("$500", contract)
         assert result.status == Resolution.INVALID
 
     @pytest.mark.integration
-    def test_prefix_symbol_wins_over_suffix_code(self) -> None:
-        """D6: $1,432.00 USD resolves via the $, never AMBIGUOUS."""
+    def test_suffix_code_wins_over_unresolvable_symbol(self) -> None:
+        """D6: $1,432.00 USD collapses to one canonical value, never AMBIGUOUS.
+
+        With the default dollar_sign_currency=None the bare $ yields no
+        candidate (SectionSymbols.matches() -> False), so the suffix code is
+        the sole candidate: SUCCESS "USD 1432.00" with exactly one candidate.
+        (Oracle review finding: this single-candidate assertion only holds
+        because the symbol candidate is absent — under the old
+        default_currency="USD" two same-valued candidates survived.)
+        """
         register_capability(MoneyCapability())
         contract = MoneyCapability.create_contract()
         result = run_capability("$1,432.00 USD", contract)
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "USD 1432.00"
         assert len(result.candidates) == 1
+        assert {c.recognition_rule for c in result.candidates} == {"code_recognition"}
 
     @pytest.mark.integration
     def test_comma_decimal_european(self) -> None:
@@ -4595,6 +4654,22 @@ class TestMoneyPipeline:
         register_capability(MoneyCapability())
         contract = MoneyCapability.create_contract()
         result = run_capability("gibberish", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.integration
+    def test_bare_amount_missing(self) -> None:
+        """A bare amount without a currency is not a money token (MISSING)."""
+        register_capability(MoneyCapability())
+        contract = MoneyCapability.create_contract()
+        result = run_capability("500", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.integration
+    def test_bare_currency_missing(self) -> None:
+        """A bare currency without an amount is not a money token (MISSING)."""
+        register_capability(MoneyCapability())
+        contract = MoneyCapability.create_contract()
+        result = run_capability("USD", contract)
         assert result.status == Resolution.MISSING
 
     @pytest.mark.integration
@@ -4638,7 +4713,7 @@ Run:
 uv run pytest tests/integration/test_money_pipeline.py -v
 ```
 
-Expected: `15 passed` (marker `integration`).
+Expected: `18 passed` (marker `integration`).
 
 - [ ] **Step 3: Verify + commit**
 
@@ -4648,7 +4723,7 @@ uv run ruff check tests/capabilities/money/test_data_consistency.py tests/integr
 uv run ruff format --check tests/capabilities/money/test_data_consistency.py tests/integration/test_money_pipeline.py
 ```
 
-Expected: all tests pass (`4` + `15`); ruff clean (isort satisfies the canonical grouping: grammar/data then rules/data imports in one first-party block; `paxman.capabilities.Money.*` then `paxman.core.*`/`paxman.engine.*`); format clean.
+Expected: all tests pass (`4` + `18`); ruff clean (isort satisfies the canonical grouping: grammar/data then rules/data imports in one first-party block; `paxman.capabilities.Money.*` then `paxman.core.*`/`paxman.engine.*`); format clean.
 
 Commit:
 
@@ -4927,20 +5002,20 @@ contract = Money.create_contract()
 result = paxman.canonicalize("USD500", contract)
 # → "USD 500.00"
 
-# Bare symbol resolves via default_currency (USD)
+# Bare $ is unresolved by default: INVALID (recognized, no authority)
 contract = Money.create_contract()
 result = paxman.canonicalize("$500", contract)
-# → "USD 500.00"
+# → Status: INVALID
+
+# Opt in: bare $ resolves via dollar_sign_currency
+contract = Money.create_contract(dollar_sign_currency="MYR")
+result = paxman.canonicalize("$500", contract)
+# → "MYR 500.00"
 
 # European comma-decimal: last separator is the decimal point
 contract = Money.create_contract()
 result = paxman.canonicalize("1.000,50 EUR", contract)
 # → "EUR 1000.50"
-
-# Bare symbol with no default currency is recognized but unvalidated
-contract = Money.create_contract(default_currency=None)
-result = paxman.canonicalize("$500", contract)
-# → Status: INVALID
 
 # Compact rendering removes the code/amount separator space
 contract = Money.create_contract(output_format="compact")
@@ -4953,7 +5028,7 @@ result = paxman.canonicalize("USD500", contract)
 
 ```markdown
 | Money | `precision` | `str` | Over-precision amount handling: `"strict"` (reject), `"truncate"`, `"round"` (default: `"strict"`) |
-| Money | `default_currency` | `str` | ISO 4217 alpha-3 code resolving bare/shared symbols; `None` makes bare symbols INVALID (default: `"USD"`) |
+| Money | `dollar_sign_currency` | `str` \| `None` | ISO 4217 alpha-3 code resolving bare/shared symbols (opt-in); `None` (default) makes bare symbols INVALID |
 | Money | `output_format` | `str` | Output format (`"code_amount"` default, `"compact"`) |
 ```
 
