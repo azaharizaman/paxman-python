@@ -8,6 +8,7 @@ from paxman.api import canonicalize
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
+from paxman.capabilities.URL.capability import URLCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
 from paxman.core.errors import CapabilityError
@@ -182,3 +183,41 @@ class TestCanonicalizePhone:
         result = canonicalize("tel:2125550123", contract)
         assert result.status == Resolution.INVALID
         assert all(c.validation_rule != "Section 3-tel-uri" for c in result.candidates)
+
+
+class TestURLCapabilityE2E:
+    """End-to-end tests for the URL capability through paxman.canonicalize."""
+
+    @pytest.mark.e2e
+    def test_url_capability_milestone(self) -> None:
+        """Milestone: absolute URI canonicalizes through the full pipeline."""
+        register_capability(URLCapability())
+        contract = URLCapability.create_contract()
+        result = canonicalize("HTTPS://Example.COM:443/path/../other", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "https://example.com/other"
+
+    @pytest.mark.e2e
+    def test_url_missing(self) -> None:
+        """Input with no absolute-URI pattern returns MISSING."""
+        register_capability(URLCapability())
+        contract = URLCapability.create_contract()
+        result = canonicalize("no url here", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_url_invalid_port(self) -> None:
+        """Out-of-range port is recognized but rejected by the WHATWG rule."""
+        register_capability(URLCapability())
+        contract = URLCapability.create_contract()
+        result = canonicalize("http://example.com:99999/", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.e2e
+    def test_url_opaque_scheme_verbatim(self) -> None:
+        """Opaque (non-special) schemes serialize verbatim."""
+        register_capability(URLCapability())
+        contract = URLCapability.create_contract()
+        result = canonicalize("mailto:user@example.com", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "mailto:user@example.com"
