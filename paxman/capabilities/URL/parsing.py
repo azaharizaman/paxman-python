@@ -35,6 +35,17 @@ _SPECIAL_SCHEMES: dict[str, int | None] = {
 
 _HEX_DIGITS: frozenset[str] = frozenset("0123456789abcdefABCDEF")
 
+
+def _is_ascii_digits(text: str) -> bool:
+    """True when every character is an ASCII decimal digit.
+
+    WHATWG digits are ASCII-only: ``str.isdigit()`` accepts Unicode
+    decimal digits (e.g. Arabic-Indic), which must not be treated as
+    numeric in port or IPv4 parsing.
+    """
+    return text.isascii() and text.isdigit()
+
+
 # WHATWG forbidden host code points (§4.2): NUL, TAB, LF, CR, SPACE,
 # # / : < > ? @ [ \ ] ^ | — fatal in host parsing.
 _FORBIDDEN_HOST: frozenset[str] = frozenset("\x00\t\n\r #/:<>?@[\\]^|")
@@ -174,11 +185,11 @@ def _parse_embedded_ipv4(inside: str, pointer: int) -> tuple[int, int] | None:
                 pointer += 1
             else:
                 return None
-        if not inside[pointer].isdigit():
+        if not _is_ascii_digits(inside[pointer]):
             return None
         first_digit = True
         piece = 0
-        while pointer < length and inside[pointer].isdigit():
+        while pointer < length and _is_ascii_digits(inside[pointer]):
             number = int(inside[pointer])
             if first_digit:
                 piece = number
@@ -322,7 +333,7 @@ def _parse_ipv4_number(part: str) -> int | None:
             return int(part, 8)
         except ValueError:
             return None
-    if part == "" or not part.isdigit():
+    if not _is_ascii_digits(part):
         return None
     return int(part, 10)
 
@@ -339,7 +350,7 @@ def _ends_in_number(ascii_domain: str) -> bool:
     if not parts:
         return False
     last = parts[-1]
-    if last.isascii() and last.isdigit():
+    if _is_ascii_digits(last):
         return True
     return last.startswith(("0x", "0X")) and all(
         char in _HEX_DIGITS for char in last[2:]
@@ -505,12 +516,7 @@ def _encode_userinfo(text: str) -> str:
     out: list[str] = []
     for char in text:
         code = ord(char)
-        if (
-            code == 0x20
-            or code < 0x20
-            or 0x7F <= code <= 0x9F
-            or char in _USERINFO_ENCODE
-        ):
+        if code == 0x20 or code < 0x20 or code == 0x7F or char in _USERINFO_ENCODE:
             out.append(f"%{code:02X}")
         elif code > 0x7F:
             out.append(_utf8_percent_encode(char))
@@ -537,7 +543,7 @@ def _build_authority(scheme: str, authority: str) -> _Parsed | None:
         return None
     parsed.host = host
     if port_string is not None and port_string != "":
-        if not port_string.isdigit():
+        if not _is_ascii_digits(port_string):
             return None
         port = int(port_string)
         if port > 65535:
@@ -560,7 +566,7 @@ def _parse_query_fragment(
         if stop_char is not None and char == stop_char:
             break
         code = ord(char)
-        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F or char in encode_set:
+        if code == 0x20 or code < 0x20 or code == 0x7F or char in encode_set:
             out.append(f"%{code:02X}")
         elif code > 0x7F:
             out.append(_utf8_percent_encode(char))
@@ -654,7 +660,7 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
             )
             break
         code = ord(char)
-        if code == 0x20 or code < 0x20 or 0x7F <= code <= 0x9F or char in _PATH_ENCODE:
+        if code == 0x20 or code < 0x20 or code == 0x7F or char in _PATH_ENCODE:
             buffer.append(f"%{code:02X}")
         elif code > 0x7F:
             buffer.append(_utf8_percent_encode(char))
@@ -688,7 +694,7 @@ def _parse_opaque(parsed: _Parsed, source: str, start: int) -> None:
             )
             return
         code = ord(char)
-        if code < 0x20 or 0x7F <= code <= 0x9F:
+        if code < 0x20 or code == 0x7F:
             out.append(f"%{code:02X}")
         elif code > 0x7F:
             out.append(_utf8_percent_encode(char))

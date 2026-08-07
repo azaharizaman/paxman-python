@@ -24,7 +24,7 @@ from paxman.core.domain import Grammar, RecognitionMatch
 _ABSOLUTE_URI_PATTERN = re.compile(
     r"(?<![A-Za-z0-9+.\-])"
     r"[A-Za-z][A-Za-z0-9+.\-]*:"
-    r"[^ <>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*[^ <>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]"
+    r'[^ <>"\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*[^ <>"\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'
 )
 
 
@@ -46,10 +46,14 @@ class AbsoluteUriRecognition(Grammar[URLNotation]):
         results: list[RecognitionMatch[URLNotation]] = []
         for match in _ABSOLUTE_URI_PATTERN.finditer(text):
             raw_span = match.group(0)
-            # Appendix C: a trailing ")" is excluded only when unbalanced
-            # (more ")" than "(" in the span); repeat while unbalanced.
-            while raw_span.endswith(")") and raw_span.count(")") > raw_span.count("("):
-                raw_span = raw_span[:-1]
+            # Appendix C: drop trailing ")" only while it outnumbers "(";
+            # counting once then trimming the run equals the loop, in one pass.
+            excess = raw_span.count(")") - raw_span.count("(")
+            trim = 0
+            while trim < excess and raw_span[-(trim + 1)] == ")":
+                trim += 1
+            if trim:
+                raw_span = raw_span[:-trim]
             # D16: the pattern guarantees at least one body character after
             # the colon, and stripping only removes trailing ")" — so a span
             # reduced to the bare scheme has lost its body and must not be

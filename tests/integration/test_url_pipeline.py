@@ -1,5 +1,7 @@
 """Integration tests for the URL capability pipeline."""
 
+from collections.abc import Iterator
+
 import pytest
 
 from paxman.api import canonicalize
@@ -9,7 +11,7 @@ from paxman.core.domain import Resolution
 
 
 @pytest.fixture(autouse=True)
-def _fresh_registry() -> None:
+def _clean_registry() -> Iterator[None]:
     """Reset the capability registry before and after each test."""
     reset_registry()
     yield
@@ -66,7 +68,7 @@ class TestURLPipeline:
 
     @pytest.mark.integration
     def test_invalid_fatal(self) -> None:
-        """Port > 65535 is a fatal WHATWG error: recognized, never INVALID.
+        """Port > 65535 is a fatal WHATWG error: recognized, never SUCCESS.
 
         The grammar recognizes the span (shape-only); the rule rejects it
         (``matches()`` False), so the pipeline reports INVALID with no

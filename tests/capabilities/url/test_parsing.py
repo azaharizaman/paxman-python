@@ -54,13 +54,16 @@ _QUERY_FRAGMENT_CASES: list[tuple[str, str]] = [
     ("http://example.com/#a b", "http://example.com/#a%20b"),
 ]
 
-# §4.5 — non-special schemes pass through
+# §4.5 — special schemes drop their default port; non-special pass through
+_SPECIAL_SCHEME_CASES: list[tuple[str, str]] = [
+    ("ftp://example.com:21/a", "ftp://example.com/a"),  # default port dropped
+    ("ws://example.com:80/a", "ws://example.com/a"),
+]
+
 _NON_SPECIAL_CASES: list[tuple[str, str]] = [
     ("mailto:user@example.com", "mailto:user@example.com"),
     ("GIT://github.com/user/repo", "git://github.com/user/repo"),
     ("ssh://user@host:22/path", "ssh://user@host:22/path"),  # port kept
-    ("ftp://example.com:21/a", "ftp://example.com/a"),  # default port dropped
-    ("ws://example.com:80/a", "ws://example.com/a"),
     ("mailto:user@münchen.de", "mailto:user@m%C3%BCnchen.de"),
     ("data:text/plain,hello world", "data:text/plain,hello world"),  # opaque
     ("git://github.com/user/my repo", "git://github.com/user/my%20repo"),
@@ -92,6 +95,7 @@ _ALL_CASE_INPUTS: list[str] = [
         _RECOVERY_CASES,
         _PERCENT_CASES,
         _QUERY_FRAGMENT_CASES,
+        _SPECIAL_SCHEME_CASES,
         _NON_SPECIAL_CASES,
         _HOST_CASES,
         _NFC_CASES,
@@ -105,6 +109,7 @@ _IDEMPOTENT_OUTPUTS: list[str] = [
         _RECOVERY_CASES,
         _PERCENT_CASES,
         _QUERY_FRAGMENT_CASES,
+        _SPECIAL_SCHEME_CASES,
         _NON_SPECIAL_CASES,
         _HOST_CASES,
         _NFC_CASES,
@@ -130,6 +135,11 @@ def test_percent_encoding_preserved(raw: str, expected: str) -> None:
 
 @pytest.mark.parametrize(("raw", "expected"), _QUERY_FRAGMENT_CASES)
 def test_query_fragment_verbatim(raw: str, expected: str) -> None:
+    assert parse_and_serialize(raw) == expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _SPECIAL_SCHEME_CASES)
+def test_special_scheme_default_port_dropped(raw: str, expected: str) -> None:
     assert parse_and_serialize(raw) == expected
 
 

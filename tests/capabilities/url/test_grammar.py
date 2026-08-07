@@ -93,3 +93,14 @@ class TestAbsoluteUriRecognition:
             for match in grammar.recognize(text):
                 assert 0 <= match.start <= match.end <= len(text)
                 assert len(match.raw_text) == match.end - match.start
+
+    def test_double_quote_right_boundary(self) -> None:
+        grammar = AbsoluteUriRecognition()
+        # Appendix C of RFC 3986 lists '"' as a URI delimiter: a quoted URI
+        # must not swallow its closing quote.
+        results = grammar.recognize('"https://example.com/"')
+        assert len(results) == 1
+        assert results[0].raw_text == "https://example.com/"
+        results = grammar.recognize('"https://example.com/" then "mailto:a@b.de"')
+        spans = [r.raw_text for r in results]
+        assert spans == ["https://example.com/", "mailto:a@b.de"]

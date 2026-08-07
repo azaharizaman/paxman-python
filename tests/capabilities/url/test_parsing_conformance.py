@@ -85,6 +85,26 @@ _USERINFO_CASES: list[tuple[str, str]] = [
     ("http://user:@example.com/", "http://user@example.com/"),
 ]
 
+# C1 controls (U+0080-U+009F) are UTF-8 percent-encoded like any other
+# non-ASCII code point — never single-byte %80-%9F. The C0 set covers
+# only 0x00-0x1F plus U+007F; everything above U+007E is UTF-8 encoded.
+# Verified against Node's URL.
+_C1_ENCODE_CASES: list[tuple[str, str]] = [
+    ("http://example.com/\u0080", "http://example.com/%C2%80"),
+    ("http://example.com/?a=\u009f", "http://example.com/?a=%C2%9F"),
+    ("http://user\u0081name@example.com/", "http://user%C2%81name@example.com/"),
+    ("data:text/plain,\u0090", "data:text/plain,%C2%90"),
+    ("http://example.com/\u007f/", "http://example.com/%7F/"),  # DEL: single byte
+]
+
+# Only ASCII digits are numeric in the WHATWG host/port states: Node throws
+# on Unicode digits (e.g. Arabic-Indic) in ports and IPv4 parts.
+_FATAL_UNICODE_DIGIT_CASES: list[tuple[str, None]] = [
+    ("http://example.com:\u0669\u0669/", None),  # Arabic-Indic digits in port
+    ("http://[::ffff:1.\u0662.\u0663.\u0664]/", None),  # embedded IPv4
+    ("http://[::ffff:\u0661.2.3.4]/", None),  # embedded IPv4, leading digit
+]
+
 # A trailing dot on a domain is preserved; only IPv4 shapes strip it.
 _DOMAIN_TRAILING_DOT_CASES: list[tuple[str, str]] = [
     ("http://example.com./", "http://example.com./"),
@@ -224,3 +244,13 @@ def test_fatal_idna_forms_return_none(raw: str, expected: None) -> None:
 @pytest.mark.parametrize(("raw", "expected"), _IDNA_ACCEPT_CASES)
 def test_idna_host_canonicalization(raw: str, expected: str) -> None:
     assert parse_and_serialize(raw) == expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _C1_ENCODE_CASES)
+def test_c1_controls_utf8_percent_encoded(raw: str, expected: str) -> None:
+    assert parse_and_serialize(raw) == expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _FATAL_UNICODE_DIGIT_CASES)
+def test_unicode_digits_not_numeric(raw: str, expected: None) -> None:
+    assert parse_and_serialize(raw) is expected
