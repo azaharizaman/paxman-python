@@ -90,6 +90,76 @@ _DOMAIN_TRAILING_DOT_CASES: list[tuple[str, str]] = [
     ("http://example.com./", "http://example.com./"),
 ]
 
+# IPv6 literals: bracketed canonical serialization per WHATWG host parser
+# (lowercase hex, longest-zero-run compression, embedded IPv4 combined into
+# the final two pieces). All expected values verified against Node's URL.
+_IPV6_CASES: list[tuple[str, str]] = [
+    ("http://[2001:db8::1]/", "http://[2001:db8::1]/"),
+    ("http://[::]/", "http://[::]/"),
+    ("http://[0:0:0:0:0:0:0:1]/", "http://[::1]/"),
+    ("http://[0:0:0:0:0:0:0:0]/", "http://[::]/"),
+    ("http://[2001:db8:0:0:0:0:0:1]/", "http://[2001:db8::1]/"),
+    ("http://[1:2:3:4:5:6:7:8]/", "http://[1:2:3:4:5:6:7:8]/"),
+    ("http://[1:2:3:4:5:6::7]/", "http://[1:2:3:4:5:6:0:7]/"),
+    ("http://[1:2:3:4:5:6:7::]/", "http://[1:2:3:4:5:6:7:0]/"),
+    ("http://[1::]/", "http://[1::]/"),
+    ("http://[1::1]/", "http://[1::1]/"),
+    ("http://[1:2::3:4]/", "http://[1:2::3:4]/"),
+    (
+        "http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]/",
+        "http://[2001:db8:85a3::8a2e:370:7334]/",
+    ),
+    ("http://[::ffff:192.168.1.1]/", "http://[::ffff:c0a8:101]/"),
+    ("http://[::ffff:0a00:1]/", "http://[::ffff:a00:1]/"),
+    ("http://[::ffff:1.2.3.4]/", "http://[::ffff:102:304]/"),
+    ("http://[::ffff:0.0.0.0]/", "http://[::ffff:0:0]/"),
+    ("http://[::ffff:255.255.255.255]/", "http://[::ffff:ffff:ffff]/"),
+    ("http://[::192.168.1.1]/", "http://[::c0a8:101]/"),
+    ("http://[1:2:3:4:5:6:192.168.1.1]/", "http://[1:2:3:4:5:6:c0a8:101]/"),
+    ("http://[2001:db8::192.168.1.1]/", "http://[2001:db8::c0a8:101]/"),
+]
+
+# IPv6 literals that hit a fatal host-parse error (Node's URL throws).
+_FATAL_IPV6_CASES: list[tuple[str, None]] = [
+    ("http://[1:2:3:4:5:6:7:8:]/", None),  # trailing colon
+    ("http://[1:2:3:4:5:6:7:8:9]/", None),  # nine pieces
+    ("http://[1:2:3:4:5:6:7:8:9:10]/", None),  # ten pieces
+    ("http://[0:0:0:0:0:0:0:1:0]/", None),  # nine pieces
+    ("http://[1:2:3:4::5:6:7:8]/", None),  # :: plus nine piece slots
+    ("http://[1:2:3:4:5::6:7:8]/", None),  # :: plus nine piece slots
+    ("http://[1:2:3:4:5:6:7::8]/", None),  # :: plus nine piece slots
+    ("http://[::1::2]/", None),  # two compressors
+    ("http://[::1::]/", None),  # trailing compressor
+    ("http://[::1:]/", None),  # trailing colon after ::1
+    ("http://[g::1]/", None),  # non-hex piece
+    ("http://[1234]/", None),  # too few pieces, no compressor
+    ("http://[1:2:3]/", None),  # too few pieces, no compressor
+    ("http://[1:2:3!:4]/", None),  # invalid character
+    ("http://[fe80::1%25eth0]/", None),  # zone identifier rejected
+    ("http://[fe80::1%eth0]/", None),  # zone identifier rejected
+    ("http://[::ffff:127.00.0.1]/", None),  # leading zero in IPv4 piece
+    ("http://[::ffff:127.0.0.4000]/", None),  # IPv4 piece out of range
+    ("http://[::ffff:1.2.3.256]/", None),  # last IPv4 piece out of range
+    ("http://[::ffff:127.0.0]/", None),  # three IPv4 pieces
+    ("http://[::ffff:127.0.0.1.2]/", None),  # five IPv4 pieces
+    ("http://[1:2:3:4:5:192.168.1.1]/", None),  # IPv4 too early
+]
+
+# IDNA / punycode hosts that hit a fatal UTS #46 validation error.
+_FATAL_IDNA_CASES: list[tuple[str, None]] = [
+    ("http://xn--abc-def/", None),  # decoded label mixes RTL (U+069F) + LTR
+    ("http://ڟabc.com/", None),  # raw RTL input round-trips to xn--abc-def
+    ("http://exa%C2%A0mple.com/", None),  # U+00A0 maps to space -> forbidden
+    ("https://exa%C2%A0mple.com/", None),  # same on https
+    ("http://exa mple.com/", None),  # raw space in host
+]
+
+# Valid IDN hosts: UTS #46 acceptance with canonical punycode output.
+_IDNA_ACCEPT_CASES: list[tuple[str, str]] = [
+    ("http://עברית.com/", "http://xn--5dbqzzl.com/"),  # Hebrew RTL
+    ("http://münchen.de/", "http://xn--mnchen-3ya.de/"),  # Latin with umlaut
+]
+
 
 @pytest.mark.parametrize(("raw", "expected"), _FATAL_HOST_CASES)
 def test_fatal_host_forms_return_none(raw: str, expected: None) -> None:
@@ -133,4 +203,24 @@ def test_userinfo_percent_encoding(raw: str, expected: str) -> None:
 
 @pytest.mark.parametrize(("raw", "expected"), _DOMAIN_TRAILING_DOT_CASES)
 def test_domain_trailing_dot_preserved(raw: str, expected: str) -> None:
+    assert parse_and_serialize(raw) == expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _IPV6_CASES)
+def test_ipv6_canonicalization(raw: str, expected: str) -> None:
+    assert parse_and_serialize(raw) == expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _FATAL_IPV6_CASES)
+def test_fatal_ipv6_forms_return_none(raw: str, expected: None) -> None:
+    assert parse_and_serialize(raw) is expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _FATAL_IDNA_CASES)
+def test_fatal_idna_forms_return_none(raw: str, expected: None) -> None:
+    assert parse_and_serialize(raw) is expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _IDNA_ACCEPT_CASES)
+def test_idna_host_canonicalization(raw: str, expected: str) -> None:
     assert parse_and_serialize(raw) == expected

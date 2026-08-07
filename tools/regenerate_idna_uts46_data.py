@@ -17,7 +17,8 @@ OUTPUT = _REPO_ROOT / "paxman/capabilities/URL/rules/data/idna_uts46_mapping.py"
 LINE_LENGTH = 88  # must match ruff's line-length in pyproject.toml
 IDNA_VERSION = "15.1.0"  # pinned UTS #46 version
 
-_MAPPED_STATUSES = frozenset({"mapped", "deviation"})
+# Statuses whose rows carry a mapping field (UTS #46 IdnaMappingTable).
+_MAPPED_STATUSES = frozenset({"mapped", "deviation", "disallowed_STD3_mapped"})
 
 
 def _parse_snapshot() -> tuple[dict[str, str], dict[str, str]]:
@@ -47,7 +48,10 @@ def _emit_str_table(entries: dict[str, str]) -> str:
     """Emit a dict literal with ruff-format-compliant line lengths.
 
     Single-line when the whole table fits within 88 columns; otherwise
-    multiline (one entry per line, magic trailing comma).
+    multiline (one entry per line, magic trailing comma). An entry whose
+    line would exceed 88 columns is emitted as a parenthesized implicit
+    string concatenation split on token boundaries, so every line stays
+    compliant.
     """
 
     one_line = (
@@ -55,8 +59,42 @@ def _emit_str_table(entries: dict[str, str]) -> str:
     )
     if len(one_line) <= LINE_LENGTH:
         return one_line
-    blocks = [f'    "{key}": "{value}",' for key, value in entries.items()]
+    blocks: list[str] = []
+    for key, value in entries.items():
+        full = f'    "{key}": "{value}",'
+        if len(full) <= LINE_LENGTH:
+            blocks.append(full)
+        else:
+            blocks.extend(_wrapped_entry(key, value))
     return "{\n" + "\n".join(blocks) + "\n}"
+
+
+def _wrapped_entry(key: str, value: str) -> list[str]:
+    """Emit one entry as a parenthesized implicit string concatenation.
+
+    Chunks are split at token boundaries (each chunk keeps its trailing
+    space) so concatenation reproduces the original value exactly and
+    every emitted line stays within LINE_LENGTH.
+    """
+
+    max_chunk = LINE_LENGTH - 12  # 8 indent + 2 quotes + margin
+    chunks: list[str] = []
+    remaining = value
+    while len(remaining) > max_chunk:
+        cut = remaining.rfind(" ", 0, max_chunk + 1)
+        if cut == -1:  # no boundary within limit; hard split
+            cut = max_chunk
+            chunks.append(remaining[:cut])
+            remaining = remaining[cut:]
+        else:
+            chunks.append(remaining[: cut + 1])  # keep the space: lossless join
+            remaining = remaining[cut + 1 :]
+    if remaining:
+        chunks.append(remaining)
+    lines = [f'    "{key}": (']
+    lines.extend(f'        "{chunk}"' for chunk in chunks)
+    lines.append("    ),")
+    return lines
 
 
 def _build_module(statuses: dict[str, str], mappings: dict[str, str]) -> str:

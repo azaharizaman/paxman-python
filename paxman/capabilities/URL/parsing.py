@@ -16,6 +16,7 @@ is out of scope.
 
 from __future__ import annotations
 
+import unicodedata
 from bisect import bisect_right
 
 from paxman.capabilities.URL.rules.data.idna_uts46_mapping import (
@@ -34,15 +35,19 @@ _SPECIAL_SCHEMES: dict[str, int | None] = {
 
 _HEX_DIGITS: frozenset[str] = frozenset("0123456789abcdefABCDEF")
 
-_FORBIDDEN_HOST: frozenset[str] = frozenset(
-    " /?#<>@\\[]^|"
-    + "".join(chr(code) for code in range(0x20))
-    + "".join(chr(code) for code in range(0x7F, 0xA0))
+# WHATWG forbidden host code points (§4.2): NUL, TAB, LF, CR, SPACE,
+# # / : < > ? @ [ \ ] ^ | — fatal in host parsing.
+_FORBIDDEN_HOST: frozenset[str] = frozenset("\x00\t\n\r #/:<>?@[\\]^|")
+
+# Forbidden domain code points: forbidden host + C0 controls + DEL + %.
+_FORBIDDEN_DOMAIN: frozenset[str] = (
+    _FORBIDDEN_HOST | frozenset(chr(code) for code in range(0x20)) | frozenset("\x7f%")
 )
 
 # WHATWG percent-encode sets (§4.2): the ASCII members each state encodes.
 _PATH_ENCODE: frozenset[str] = frozenset('"<>^`{}')
 _QUERY_ENCODE: frozenset[str] = frozenset('"<>')
+_SPECIAL_QUERY_ENCODE: frozenset[str] = frozenset("\"<>'")
 _FRAGMENT_ENCODE: frozenset[str] = frozenset('"<>`')
 _USERINFO_ENCODE: frozenset[str] = frozenset('"#<>?^`{}/:;=@[\\]|')
 
@@ -152,16 +157,154 @@ def _domain_to_ascii(mapped: str) -> str | None:
     return ".".join(labels)
 
 
+def _parse_embedded_ipv4(inside: str, pointer: int) -> tuple[int, int] | None:
+    """Parse the dotted IPv4 tail of an IPv6 literal per WHATWG.
+
+    Returns the two 16-bit pieces (high, low) of the 32-bit IPv4 address.
+    The IPv4 must run to the end of ``inside``; a part may not have
+    leading zeros or exceed 255, and exactly four parts are required.
+    """
+    hi = 0
+    lo = 0
+    numbers_seen = 0
+    length = len(inside)
+    while pointer < length:
+        if numbers_seen > 0:
+            if inside[pointer] == "." and numbers_seen < 4:
+                pointer += 1
+            else:
+                return None
+        if not inside[pointer].isdigit():
+            return None
+        first_digit = True
+        piece = 0
+        while pointer < length and inside[pointer].isdigit():
+            number = int(inside[pointer])
+            if first_digit:
+                piece = number
+                first_digit = False
+            elif piece == 0:
+                return None
+            else:
+                piece = piece * 10 + number
+            if piece > 255:
+                return None
+            pointer += 1
+        if numbers_seen < 2:
+            hi = hi * 0x100 + piece
+        else:
+            lo = lo * 0x100 + piece
+        numbers_seen += 1
+    if numbers_seen != 4:
+        return None
+    return hi, lo
+
+
+def _serialize_ipv6(address: list[int]) -> str:
+    """Serialize eight pieces: lowercase hex, longest zero run as ``::``."""
+    pieces = [f"{piece:x}" for piece in address]
+    longest_start = -1
+    longest_length = 0
+    run_start = -1
+    run_length = 0
+    for index, piece in enumerate(address):
+        if piece == 0:
+            if run_start == -1:
+                run_start = index
+            run_length += 1
+        else:
+            if run_length > longest_length:
+                longest_start = run_start
+                longest_length = run_length
+            run_start = -1
+            run_length = 0
+    if run_length > longest_length:
+        longest_start = run_start
+        longest_length = run_length
+    if longest_length < 2:
+        return ":".join(pieces)
+    start = longest_start
+    end = longest_start + longest_length
+    if start == 0:
+        return "::" + ":".join(pieces[end:])
+    if end == 8:
+        return ":".join(pieces[:start]) + "::"
+    return ":".join(pieces[:start]) + "::" + ":".join(pieces[end:])
+
+
 def _parse_ipv6_literal(host: str) -> str | None:
-    """Validate a bracketed IPv6 literal; keep the canonical form verbatim."""
-    if not host.endswith("]"):
+    """Parse a bracketed IPv6 literal per WHATWG and serialize canonically.
+
+    Returns the bracketed canonical form (``[2001:db8::1]``) or None on a
+    fatal validation error. Zone identifiers are not supported.
+    """
+    if not host.startswith("[") or not host.endswith("]"):
         return None
     inside = host[1:-1]
-    if not inside or inside.count("::") > 1:
+    if not inside:
         return None
-    if any(char not in "0123456789abcdefABCDEF:" for char in inside):
+    address = [0] * 8
+    piece_index = 0
+    compress: int | None = None
+    pointer = 0
+    length = len(inside)
+    if inside[pointer] == ":":
+        if pointer + 1 >= length or inside[pointer + 1] != ":":
+            return None
+        pointer += 2
+        piece_index += 1
+        compress = piece_index
+    while pointer < length:
+        if piece_index == 8:
+            return None
+        if inside[pointer] == ":":
+            if compress is not None:
+                return None
+            pointer += 1
+            piece_index += 1
+            compress = piece_index
+            continue
+        value = 0
+        digits = 0
+        while digits < 4 and pointer < length and inside[pointer] in _HEX_DIGITS:
+            value = value * 16 + int(inside[pointer], 16)
+            pointer += 1
+            digits += 1
+        if pointer < length and inside[pointer] == ".":
+            if digits == 0:
+                return None
+            pointer -= digits
+            if piece_index > 6:
+                return None
+            embedded = _parse_embedded_ipv4(inside, pointer)
+            if embedded is None:
+                return None
+            hi, lo = embedded
+            address[piece_index] = hi
+            address[piece_index + 1] = lo
+            piece_index += 2
+            break
+        elif pointer < length and inside[pointer] == ":":
+            pointer += 1
+            if pointer >= length:
+                return None
+        elif pointer < length:
+            return None
+        address[piece_index] = value
+        piece_index += 1
+    if compress is not None:
+        swaps = piece_index - compress
+        piece_index = 7
+        while piece_index != 0 and swaps > 0:
+            address[piece_index], address[compress + swaps - 1] = (
+                address[compress + swaps - 1],
+                address[piece_index],
+            )
+            piece_index -= 1
+            swaps -= 1
+    elif piece_index != 8:
         return None
-    return host
+    return f"[{_serialize_ipv6(address)}]"
 
 
 def _parse_ipv4_number(part: str) -> int | None:
@@ -235,22 +378,81 @@ def _parse_ipv4(host: str) -> str | None:
     return ".".join(str(octet) for octet in octets)
 
 
+# RFC 5893 §2 BIDI classes (UTS #46 CheckBidi semantics): a label containing
+# any RandALCat code point must contain no LCat code point, start with a
+# RandALCat code point, and end with a code point in the allowed last set.
+_RANDAL_CAT: frozenset[str] = frozenset({"R", "AL", "AN"})
+_LCAT: frozenset[str] = frozenset({"L"})
+_LAST_BIDI_ALLOWED: frozenset[str] = frozenset(
+    {"R", "AL", "AN", "EN", "ES", "CS", "ET", "ON", "BN", "NSM"}
+)
+
+
+def _bidi_label_ok(decoded: str) -> bool:
+    """RFC 5893 §2 BIDI rules for a decoded U-label (UTS #46 CheckBidi)."""
+    classes = [unicodedata.bidirectional(char) for char in decoded]
+    if not any(bidi in _RANDAL_CAT for bidi in classes):
+        return True
+    if any(bidi in _LCAT for bidi in classes):
+        return False
+    if classes[0] not in _RANDAL_CAT:
+        return False
+    return classes[-1] in _LAST_BIDI_ALLOWED
+
+
+def _validate_punycode_labels(ascii_domain: str) -> bool:
+    """Reject ``xn--`` labels whose decoded payload is invalid per UTS #46.
+
+    The decoded label must contain at least one non-ASCII code point,
+    re-encode back to its own payload (case-insensitively), contain no
+    mapped/disallowed code points, and satisfy the RFC 5893 BIDI rules.
+    """
+    for label in ascii_domain.split("."):
+        if not label.lower().startswith("xn--"):
+            continue
+        payload = label[4:]
+        if payload.endswith("-"):
+            return False
+        try:
+            decoded = payload.encode("ascii").decode("punycode")
+        except UnicodeError:
+            return False
+        if not any(ord(char) > 0x7F for char in decoded):
+            return False
+        if decoded.encode("punycode").decode("ascii") != payload.lower():
+            return False
+        for char in decoded:
+            code = ord(char)
+            if code > 0x7F and _status_of(code) in ("mapped", "disallowed"):
+                return False
+        if not _bidi_label_ok(decoded):
+            return False
+    return True
+
+
 def _parse_host(host: str, special: bool) -> str | None:
-    """Parse a host: IPv6 literal, IPv4, or (special) IDNA domain."""
+    """Parse a host: IPv6 literal, IPv4, opaque, or (special) IDNA domain."""
     if host.startswith("["):
         return _parse_ipv6_literal(host)
     if any(char in _FORBIDDEN_HOST for char in host):
         return None
     if not special:
-        return host
+        return "".join(
+            _utf8_percent_encode(char)
+            if ord(char) <= 0x1F or ord(char) > 0x7E
+            else char
+            for char in host
+        )
     decoded = _percent_decode(host)
-    if any(char in _FORBIDDEN_HOST for char in decoded):
-        return None
     mapped = _idna_map(decoded)
     if mapped is None:
         return None
     ascii_domain = _domain_to_ascii(mapped)
     if ascii_domain is None:
+        return None
+    if any(char in _FORBIDDEN_DOMAIN for char in ascii_domain):
+        return None
+    if not _validate_punycode_labels(ascii_domain):
         return None
     if _ends_in_number(ascii_domain):
         ipv4 = _parse_ipv4(ascii_domain)
@@ -368,6 +570,23 @@ def _parse_query_fragment(
     return "".join(out)
 
 
+def _is_single_dot(segment: str) -> bool:
+    """True for a single-dot path segment incl. percent-encoded variants."""
+    return segment.lower() in (".", "%2e")
+
+
+def _is_double_dot(segment: str) -> bool:
+    """True for a double-dot path segment incl. percent-encoded variants."""
+    return segment.lower() in ("..", ".%2e", "%2e.", "%2e%2e")
+
+
+def _is_windows_drive_letter(text: str) -> bool:
+    """True for a Windows drive letter (ASCII alpha plus ``:`` or ``|``)."""
+    return (
+        len(text) == 2 and text[0].isascii() and text[0].isalpha() and text[1] in ":|"
+    )
+
+
 def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) -> None:
     """Parse path segments (dot-segment removal) plus query and fragment."""
     length = len(source)
@@ -376,23 +595,36 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
     pending_separator = False
 
     def append_segment(segment: str) -> None:
-        if segment == ".":
+        if _is_single_dot(segment):
             return
-        if segment == "..":
-            if segments:
+        if _is_double_dot(segment):
+            if segments and not (
+                parsed.scheme == "file" and _is_windows_drive_letter(segments[-1])
+            ):
                 segments.pop()
             return
+        if parsed.scheme == "file" and _is_windows_drive_letter(segment):
+            segment = segment[0] + ":"
         segments.append(segment)
+
+    def flush_at_terminator() -> None:
+        if buffer:
+            text = "".join(buffer)
+            if _is_single_dot(text):
+                if segments:
+                    append_segment("")
+            else:
+                append_segment(text)
+            buffer.clear()
+        elif pending_separator:
+            append_segment("")
 
     if pos < length and (source[pos] == "/" or (special and source[pos] == "\\")):
         pos += 1
         pending_separator = True
     while True:
         if pos >= length:
-            if buffer:
-                append_segment("".join(buffer))
-            elif pending_separator:
-                append_segment("")
+            flush_at_terminator()
             break
         char = source[pos]
         if char == "/" or (special and char == "\\"):
@@ -402,11 +634,13 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
             pos += 1
             continue
         if char == "?":
-            if buffer:
-                append_segment("".join(buffer))
-            elif pending_separator:
-                append_segment("")
-            parsed.query = _parse_query_fragment(source, pos + 1, "#", _QUERY_ENCODE)
+            flush_at_terminator()
+            parsed.query = _parse_query_fragment(
+                source,
+                pos + 1,
+                "#",
+                _SPECIAL_QUERY_ENCODE if special else _QUERY_ENCODE,
+            )
             hash_pos = source.find("#", pos + 1)
             if hash_pos >= 0:
                 parsed.fragment = _parse_query_fragment(
@@ -414,10 +648,7 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
                 )
             break
         if char == "#":
-            if buffer:
-                append_segment("".join(buffer))
-            elif pending_separator:
-                append_segment("")
+            flush_at_terminator()
             parsed.fragment = _parse_query_fragment(
                 source, pos + 1, None, _FRAGMENT_ENCODE
             )
@@ -488,12 +719,17 @@ def _parse_file(source: str, length: int, colon: int) -> _Parsed | None:
             while end < length and source[end] not in "/\\?#":
                 end += 1
             host = source[host_start:end]
-            if host == "localhost":
-                host = ""
-            parsed_host = _parse_host(host, True)
-            if parsed_host is None:
-                return None
-            parsed.host = parsed_host
+            if _is_windows_drive_letter(host):
+                _parse_path_and_rest(parsed, source, host_start, special=True)
+                return parsed
+            if host:
+                parsed_host = _parse_host(host, True)
+                if parsed_host is None:
+                    return None
+                if parsed_host == "localhost":
+                    parsed.host = ""
+                else:
+                    parsed.host = parsed_host
             pos = end
     _parse_path_and_rest(parsed, source, pos, special=True)
     return parsed

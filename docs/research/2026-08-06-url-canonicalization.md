@@ -14,7 +14,7 @@
 1. **Two authoritative grammars compete.** RFC 3986/3987 define the URI/IRI grammar and a *comparative* normalization ladder; the WHATWG URL Standard defines a *single deterministic* parse→serialize pipeline that subsumes both for web-style identifiers. They diverge materially on percent-encoding, default ports, empty-path handling, IPv4 leading zeros, and IDNA.
 2. **WHATWG URL Standard is the single normative pipeline (D2).** Its parser is a total function — every input maps to exactly one output or a rejection — which satisfies Paxman's determinism contract ("same input + contract = byte-identical output"). RFC 3986's §6 ladder is SHOULD-level guidance for *comparison*, not a canonicalization algorithm, and applying RFC §6.2.2.2 (decode unreserved) *after* WHATWG dot-segment removal can resurrect `../` sequences, producing different outputs for equivalent inputs.
 3. **RFC 3986/3987 remain provenance references.** The rule cites the WHATWG pipeline for the algorithm, and RFC 3986 §3.1 / RFC 3987 §2 for the grammar and IRI mapping rationale. Provenance stays multi-source; behavior is single-source.
-4. **WHATWG preservation semantics verified empirically.** Percent-encoding is preserved byte-for-byte — including invalid sequences (`%zz`, bare `%`) — diverging directly from RFC 3986 §6.2.2.2's recommendation to decode unreserved characters. Empty `?`/`#` and trailing host dots are preserved, matching RFC 3986 §6.2.3's "cannot be assumed equivalent" position.
+4. **WHATWG preservation semantics verified empirically.** Percent-encoding is preserved byte-for-byte in path/query/fragment — including invalid sequences (`%zz`, bare `%`) — diverging directly from RFC 3986 §6.2.2.2's recommendation to decode unreserved characters. In a special-scheme host, in contrast, a bare `%` is rejected (§4.1). Empty `?`/`#` and trailing host dots are preserved, matching RFC 3986 §6.2.3's "cannot be assumed equivalent" position.
 5. **IRI support requires vendored IDNA tables (D3/D13).** RFC 3987 §3.1 explicitly defers internationalized hosts to IDNA at the application layer; WHATWG §3.3 mandates UTS #46. UTS #46 tables are vendored as a generated data module (ISBN `tools/regenerate_isbn_range_data.py` pattern) — zero runtime dependencies.
 6. **Recognition is regex span-matching, not a hand-written parser (D7/D16).** "PARSER" in MILESTONE.md describes the *rule's* parse-and-transform; the grammar is a shape matcher over spans, exactly as IP does today. One grammar, `absolute_uri_recognition`.
 7. **Notation is a single text field (D15).** `URLNotation(text: str)` mirrors `IPNotation`; components would smuggle a second parser into the grammar layer, which the single-rule decision (D11) forbids.
@@ -121,6 +121,10 @@ Throwing inputs (WHATWG: fatal validation error; Paxman: the grammar/rule layer 
 | `http://example.com:80:90/` | Two port components |
 | `http://exa mple.com/` | Space in host |
 | `http://[::1` | Unclosed IPv6 literal |
+| `http://[2001:db8::1::1]/` | Two `::` in one IPv6 literal |
+| `http://xn--abc-def/` | Invalid `xn--` label (punycode payload fails UTS #46 validation) |
+| `http://exa%mple.com/` | Bare `%` in a special-scheme host |
+| `file://exa:mple/` | `:` in a non-drive-letter file host |
 
 ### 4.2 Silent recoveries → canonical + recovery recorded in provenance (D8)
 
@@ -133,8 +137,14 @@ Throwing inputs (WHATWG: fatal validation error; Paxman: the grammar/rule layer 
 | `http://%65xample.com/` | `http://example.com/` | Host percent-decoding |
 | `http://example.com/a b` | `http://example.com/a%20b` | Path space → `%20` |
 | `http://user name@example.com/` | `http://user%20name@example.com/` | Userinfo space → `%20` |
-| `http://[2001:db8::1]/` | `http://[2001:db8::1]/` | IPv6 canonical form preserved |
-| `file://localhost/etc/hosts` | `file:///etc/hosts` | `localhost` host dropped for file |
+| `http://[2001:db8::1]/` | `http://[2001:db8::1]/` | IPv6 literal parsed and re-serialized (see note) |
+| `http://[2001:0DB8:0:0:0:0:0:1]/` | `http://[2001:db8::1]/` | IPv6 re-serialized: lowercase hex, leading zeros dropped, zero run compressed |
+| `http://[::ffff:192.168.1.1]/` | `http://[::ffff:c0a8:101]/` | IPv4-mapped tail serialized as hex pieces |
+| `file://localhost/etc/hosts` | `file:///etc/hosts` | `localhost` host dropped for file (case-insensitive) |
+| `file://LOCALHOST/etc/hosts` | `file:///etc/hosts` | Same, uppercase `LOCALHOST` |
+| `file://a:/x` | `file:///a:/x` | Drive letter (single ASCII alpha + `:`) moved into the path |
+
+IPv6 literals are parsed, not passed through: at most 8 pieces of 1-4 hex digits each (value ≤ 0xFFFF), at most one `::`, and an IPv4-embedded tail only in the final two slots (after six explicit pieces or a `::`); invalid literals are fatal (§4.1). Serialization emits lowercase hex with no leading zeros, compresses the longest run of ≥ 2 zero pieces (ties go leftmost) to `::` with single zeros left explicit, and renders IPv4-mapped tails as hex, not dotted decimal.
 
 ### 4.3 Percent-encoding is preserved byte-for-byte (the big divergence)
 
@@ -152,7 +162,8 @@ Contrast with RFC 3986 §6.2.2.2 (decode unreserved, uppercase hex). The rule mu
 
 | Input | Output |
 |---|---|
-| `http://example.com/?a=b c` | `http://example.com/?a=b%20c` — space → `%20` only |
+| `http://example.com/?a=b c` | `http://example.com/?a=b%20c` — space → `%20` |
+| `http://example.com/?a='b'c` | `http://example.com/?a=%27b%27c` — `'` percent-encoded (special-query set) |
 | `http://example.com/?x=%7e` | `http://example.com/?x=%7e` — `%7e` not decoded |
 | `http://example.com/?a+b` | `http://example.com/?a+b` — `+` is a **literal**, never a space |
 | `http://example.com/?` | `http://example.com/?` — **empty query preserved** |
@@ -160,6 +171,8 @@ Contrast with RFC 3986 §6.2.2.2 (decode unreserved, uppercase hex). The rule mu
 | `http://example.com/#a b` | `http://example.com/#a%20b` |
 
 No parameter ordering, no plus-sign decoding, no empty-component elision.
+
+Special schemes use the special-query percent-encode set: space, `"`, `<`, `>`, and `'` are percent-encoded; `+` stays literal; everything else passes through verbatim. Non-special schemes use the plain query set, which omits the apostrophe (`custom:?a='b'c` keeps `'` raw).
 
 ### 4.5 Non-special schemes pass through (D5)
 
@@ -190,6 +203,9 @@ The opaque-path rule (WHATWG §4.4 opaque path state): a space is appended raw *
 | `http://münchen.de/` | `http://xn--mnchen-3ya.de/` | UTS #46 punycode (per WHATWG §3.3) |
 | `http://caf%C3%A9.de/` | `http://xn--caf-dma.de/` | Percent-encoded host decoded, then IDNA |
 | `http://café.example/` | `http://xn--caf-dma.example/` | IRI host → punycode |
+| `git://münchen.de/` | `git://m%C3%BCnchen.de/` | Non-special host: non-ASCII UTF-8 percent-encoded, no IDNA |
+
+Special-scheme hosts run IDNA (UTS #46): non-ASCII labels map to punycode (`münchen.de` → `xn--mnchen-3ya.de`), and existing `xn--` labels are validated rather than trusted: the punycode payload must decode to ≥ 1 non-ASCII code point, every code point must be valid per UTS #46 (including BIDI), and re-encoding must reproduce the label; any failure rejects the host (`xn--abc-def` is rejected, §4.1). Non-special hosts skip IDNA: non-ASCII is UTF-8 percent-encoded instead. A bare `%` in a special-scheme host is rejected; only `%HH` is decoded (§4.1, §4.2).
 
 ### 4.7 No Unicode normalization (D9)
 
@@ -341,7 +357,7 @@ All sixteen design questions were settled during the design interview (grilling 
 | D3 | IRI scope | Full IRI: non-ASCII host → UTS #46 punycode; path/query/fragment → UTF-8 percent-encoding |
 | D4 | Losslessness | Preserve fragment, userinfo, empty `?`/`#`, trailing host dot, port 0, encoding case |
 | D5 | Scheme handling | WHATWG special-scheme split (ftp/file/http/https/ws/wss full pipeline; others opaque) |
-| D6 | Query normalization | Verbatim: no param sorting, `+` literal, only space → `%20` |
+| D6 | Query normalization | Verbatim: no param sorting, `+` literal; special-query set percent-encodes space, `"`, `<`, `>`, `'` |
 | D7 | Recognition scope | Spans in prose (house convention) |
 | D8 | Invalid-input policy | WHATWG semantics exactly: fatal → unrecognized; recoverable → canonical + provenance |
 | D9 | Unicode normalization | No NFC; RFC 3987 §5.3.2.2 recorded as considered/deferred |
