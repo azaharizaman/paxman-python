@@ -48,10 +48,11 @@ def test_key_rows() -> None:
 def test_module_docstring_records_regeneration() -> None:
     """The docstring records the regeneration command (D13 auditable)."""
     assert (
-        "uv run python tools/regenerate_idna_uts46_data.py" in _MODULE_PATH.read_text()
+        "uv run python tools/regenerate_idna_uts46_data.py"
+        in _MODULE_PATH.read_text(encoding="utf-8")
     )
 
 
 def test_no_output_format_token() -> None:
     """The generated data module must not contain the output_format token."""
-    assert "output_format" not in _MODULE_PATH.read_text()
+    assert "output_format" not in _MODULE_PATH.read_text(encoding="utf-8")

@@ -34,6 +34,7 @@ _SPECIAL_SCHEMES: dict[str, int | None] = {
 }
 
 _HEX_DIGITS: frozenset[str] = frozenset("0123456789abcdefABCDEF")
+_OCTAL_DIGITS: frozenset[str] = frozenset("01234567")
 
 
 def _is_ascii_digits(text: str) -> bool:
@@ -319,20 +320,23 @@ def _parse_ipv6_literal(host: str) -> str | None:
 
 
 def _parse_ipv4_number(part: str) -> int | None:
-    """Parse one IPv4 part in its base (hex/octal/decimal), else None."""
+    """Parse one IPv4 part in its base (hex/octal/decimal), else None.
+
+    The digit sets are validated explicitly before ``int()`` because
+    ``int()`` otherwise accepts underscore separators and signs, which
+    WHATWG rejects in IPv4 parts.
+    """
     if part.startswith(("0x", "0X")):
         hex_digits = part[2:]
         if hex_digits == "":
             return 0
-        try:
-            return int(hex_digits, 16)
-        except ValueError:
+        if not all(char in _HEX_DIGITS for char in hex_digits):
             return None
+        return int(hex_digits, 16)
     if len(part) > 1 and part.startswith("0"):
-        try:
-            return int(part, 8)
-        except ValueError:
+        if not all(char in _OCTAL_DIGITS for char in part):
             return None
+        return int(part, 8)
     if not _is_ascii_digits(part):
         return None
     return int(part, 10)
@@ -511,18 +515,32 @@ def _split_port(text: str) -> tuple[str, str | None]:
     return text, None
 
 
+_EMPTY_ENCODE: frozenset[str] = frozenset()
+
+
+def _encode_char(char: str, encode_set: frozenset[str], encode_space: bool) -> str:
+    """Percent-encode ``char`` per WHATWG, or return it verbatim.
+
+    C0 controls, DEL, and members of ``encode_set`` become ``%HH`` of
+    their code point; space is encoded only when ``encode_space``;
+    non-ASCII is UTF-8 percent-encoded; everything else is unchanged.
+    """
+    code = ord(char)
+    if (
+        code < 0x20
+        or code == 0x7F
+        or (encode_space and code == 0x20)
+        or char in encode_set
+    ):
+        return f"%{code:02X}"
+    if code > 0x7F:
+        return _utf8_percent_encode(char)
+    return char
+
+
 def _encode_userinfo(text: str) -> str:
     """Percent-encode a username or password with the userinfo set."""
-    out: list[str] = []
-    for char in text:
-        code = ord(char)
-        if code == 0x20 or code < 0x20 or code == 0x7F or char in _USERINFO_ENCODE:
-            out.append(f"%{code:02X}")
-        elif code > 0x7F:
-            out.append(_utf8_percent_encode(char))
-        else:
-            out.append(char)
-    return "".join(out)
+    return "".join(_encode_char(char, _USERINFO_ENCODE, True) for char in text)
 
 
 def _build_authority(scheme: str, authority: str) -> _Parsed | None:
@@ -565,13 +583,7 @@ def _parse_query_fragment(
         char = source[index]
         if stop_char is not None and char == stop_char:
             break
-        code = ord(char)
-        if code == 0x20 or code < 0x20 or code == 0x7F or char in encode_set:
-            out.append(f"%{code:02X}")
-        elif code > 0x7F:
-            out.append(_utf8_percent_encode(char))
-        else:
-            out.append(char)
+        out.append(_encode_char(char, encode_set, True))
         index += 1
     return "".join(out)
 
@@ -619,6 +631,10 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
             if _is_single_dot(text):
                 if segments:
                     append_segment("")
+            elif _is_double_dot(text):
+                append_segment(text)
+                if segments:
+                    append_segment("")
             else:
                 append_segment(text)
             buffer.clear()
@@ -659,13 +675,7 @@ def _parse_path_and_rest(parsed: _Parsed, source: str, pos: int, special: bool) 
                 source, pos + 1, None, _FRAGMENT_ENCODE
             )
             break
-        code = ord(char)
-        if code == 0x20 or code < 0x20 or code == 0x7F or char in _PATH_ENCODE:
-            buffer.append(f"%{code:02X}")
-        elif code > 0x7F:
-            buffer.append(_utf8_percent_encode(char))
-        else:
-            buffer.append(char)
+        buffer.append(_encode_char(char, _PATH_ENCODE, True))
         pending_separator = False
         pos += 1
     parsed.path = segments
@@ -693,13 +703,7 @@ def _parse_opaque(parsed: _Parsed, source: str, start: int) -> None:
                 source, index + 1, None, _FRAGMENT_ENCODE
             )
             return
-        code = ord(char)
-        if code < 0x20 or code == 0x7F:
-            out.append(f"%{code:02X}")
-        elif code > 0x7F:
-            out.append(_utf8_percent_encode(char))
-        else:
-            out.append(char)
+        out.append(_encode_char(char, _EMPTY_ENCODE, False))
         index += 1
     parsed.path = ["".join(out)]
 

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import cast
+
 import pytest
 
 from paxman.capabilities.URL.capability import URLCapability
@@ -65,7 +68,9 @@ class TestURLCapabilityCreateContract:
     def test_create_contract_keyword_only(self) -> None:
         """create_contract is static and keyword-only (unanimous surface)."""
         with pytest.raises(TypeError):
-            URLCapability.create_contract("url", (), (), None, "url")  # type: ignore[call-arg]
+            cast(Callable[..., object], URLCapability.create_contract)(
+                "url", (), (), None, "url"
+            )
 
     def test_create_contract_defaults(self) -> None:
         """Default create_contract resolves a url contract."""

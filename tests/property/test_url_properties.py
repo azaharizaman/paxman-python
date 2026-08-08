@@ -62,7 +62,7 @@ def test_span_invariant(text: str) -> None:
     """Every RecognitionMatch span is honest: bounded by the input text."""
     for match in AbsoluteUriRecognition().recognize(text):
         assert 0 <= match.start <= match.end <= len(text)
-        assert len(match.raw_text) == match.end - match.start
+        assert match.raw_text == text[match.start : match.end]
 
 
 @pytest.mark.property

@@ -42,6 +42,8 @@ _VALID_STATUSES = frozenset(
     }
 )
 
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
+
 
 def _interval(token: str) -> tuple[int, int]:
     """Return the inclusive [start, end] code point interval of a token."""
@@ -87,16 +89,20 @@ def test_statuses_are_valid_uts46() -> None:
         assert status in _VALID_STATUSES, f"{token!r} has status {status!r}"
         start_text, sep, end_text = token.partition("..")
         assert 4 <= len(start_text) <= 6, f"{token!r}: {start_text!r} is not 4-6 hex"
-        assert int(start_text, 16) >= 0, f"{token!r}: {start_text!r} is not hex"
+        assert all(char in _HEX_DIGITS for char in start_text), (
+            f"{token!r}: {start_text!r} is not hex"
+        )
         if sep:
             assert 4 <= len(end_text) <= 6, f"{token!r}: {end_text!r} is not 4-6 hex"
-            assert int(end_text, 16) >= 0, f"{token!r}: {end_text!r} is not hex"
+            assert all(char in _HEX_DIGITS for char in end_text), (
+                f"{token!r}: {end_text!r} is not hex"
+            )
             assert _interval(token)[0] <= _interval(token)[1]
 
 
 def test_snapshot_matches_module() -> None:
     """The snapshot header records UTS #46 15.1.0, agreeing with the module."""
-    snapshot = (_DATA_DIR / "idna_uts46_mapping.txt").read_text()
+    snapshot = (_DATA_DIR / "idna_uts46_mapping.txt").read_text(encoding="utf-8")
     assert "UTS #46" in snapshot
     assert f"# Version: {IDNA_VERSION}" in snapshot
 
@@ -111,5 +117,5 @@ def test_regeneration_is_idempotent() -> None:
     generator = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(generator)
 
-    committed = (_DATA_DIR / "idna_uts46_mapping.py").read_text()
+    committed = (_DATA_DIR / "idna_uts46_mapping.py").read_text(encoding="utf-8")
     assert generator.render() == committed

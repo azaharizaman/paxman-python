@@ -37,7 +37,7 @@ Canonical value = the WHATWG-serialized URL string (D10): scheme and host lowerc
 
 ### 1.3 Losslessness (D4)
 
-The capability is **lossless**: no information present in the input is dropped by design. Fragment, userinfo, empty `?`/`#`, trailing host dots, port 0, and percent-encoding case are all preserved. This follows RFC 3986 §6.2.3's position that `http://example.com/` and `http://example.com/#` are *different* URIs and "cannot be assumed equivalent". Dropping components would be a second, undocumented normalization — and would violate determinism for inputs that differ only in those components.
+The capability is **lossless over the components it preserves**: no preserved component is dropped or elided, and percent-encoding case is retained byte-for-byte. Fragment, userinfo, empty `?`/`#`, trailing host dots, port 0, and percent-encoding case are all preserved. (Deliberate WHATWG normalizations — default-port elision, dot-segment resolution, IPv4 base conversion, IDNA host encoding — apply to the components the serializer rewrites, never to the preserved ones.) This follows RFC 3986 §6.2.3's position that `http://example.com/` and `http://example.com/#` are *different* URIs and "cannot be assumed equivalent". Dropping components would be a second, undocumented normalization — and would violate determinism for inputs that differ only in those components.
 
 ---
 
@@ -176,7 +176,7 @@ Special schemes use the special-query percent-encode set: space, `"`, `<`, `>`, 
 
 ### 4.5 Non-special schemes pass through (D5)
 
-WHATWG splits the world: special schemes (ftp, file, http, https, ws, wss) get the full parser; every other valid scheme gets scheme-lowercasing plus opaque handling.
+WHATWG splits the world: special schemes (ftp, file, http, https, ws, wss) get the full parser; every other valid scheme gets scheme-lowercasing plus one of two path branches — a hierarchical `//` path (opaque-host state with an empty host, then the `//` path state: spaces percent-encoded, dot segments resolved) or an opaque path (no `//` after the scheme: §4.4 opaque path state, spaces preserved raw).
 
 | Input | Output | Note |
 |---|---|---|
@@ -309,7 +309,7 @@ The rule **never** reads `output_format`, never gates on `include_*` (declared `
 ### 7.4 Capability and contract (D14)
 
 - `URL` registered in `paxman/capabilities/__init__.py` (export completeness enforced by `tests/unit/test_capability_exports.py`).
-- `URLCapabilityContract` — frozen, no slots, minimal: capability name `"URL"`, notation `URLNotation`, canonical value is a serialized string (D10). **No feature flags** (D14): no `strip_fragment`, no `normalize_query`, no `punycode_display`. Feature requests are future capabilities or future contracts — not flags on this one. (Flags would multiply the state space and break the "one input + one contract = one output" invariant.)
+- `URLCapabilityContract` — frozen, no slots, minimal: capability name `"url"`, notation `URLNotation`, canonical value is a serialized string (D10). **No feature flags** (D14): no `strip_fragment`, no `normalize_query`, no `punycode_display`. Feature requests are future capabilities or future contracts — not flags on this one. (Flags would multiply the state space and break the "one input + one contract = one output" invariant.)
 
 ### 7.5 Data strategy — vendored UTS #46 tables (D13)
 
@@ -390,7 +390,7 @@ All sixteen design questions were settled during the design interview (grilling 
 - **Canonical value** — the byte-identical serialized output for a given input + contract; here, the WHATWG-serialized URL string.
 - **Provenance** — the rule-layer record of which specification sections produced the canonical value, including considered-and-rejected sources and recoveries applied.
 - **NFC** — Unicode Normalization Form C (canonical composition); RFC 3987 §5.3.2.2's conditional recommendation, deliberately deferred (D9).
-- **Lossless canonicalization** — the property that no input information is dropped by design (D4).
+- **Lossless canonicalization** — the property that no preserved component is dropped or elided (D4): the WHATWG serializer rewrites only what it must (default ports, dot segments, IPv4 bases, IDNA hosts), never the preserved components.
 
 ---
 

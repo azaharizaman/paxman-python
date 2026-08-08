@@ -9,6 +9,8 @@ from paxman.capabilities.URL.capability import URLCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
 
+pytestmark = [pytest.mark.integration]
+
 
 @pytest.fixture(autouse=True)
 def _clean_registry() -> Iterator[None]:
@@ -35,7 +37,6 @@ class TestURLPipeline:
       canonical outputs).
     """
 
-    @pytest.mark.integration
     def test_milestone_full_pipeline(self) -> None:
         """The §1 milestone resolves end-to-end through canonicalize().
 
@@ -58,7 +59,6 @@ class TestURLPipeline:
         assert result.candidates[0].provenance[0].authority == "WHATWG"
         assert result.contract.output_format == "url"
 
-    @pytest.mark.integration
     def test_missing(self) -> None:
         """Nothing recognized."""
         register_capability(URLCapability())
@@ -66,7 +66,6 @@ class TestURLPipeline:
         result = canonicalize("no url here", contract)
         assert result.status == Resolution.MISSING
 
-    @pytest.mark.integration
     def test_invalid_fatal(self) -> None:
         """Port > 65535 is a fatal WHATWG error: recognized, never SUCCESS.
 
@@ -81,7 +80,6 @@ class TestURLPipeline:
         assert result.canonicalized_value is None
         assert result.candidates == ()
 
-    @pytest.mark.integration
     def test_invalid_unterminated_ipv6(self) -> None:
         """Unclosed IPv6 literal is fatal: INVALID."""
         register_capability(URLCapability())
@@ -91,7 +89,6 @@ class TestURLPipeline:
         assert result.canonicalized_value is None
         assert result.candidates == ()
 
-    @pytest.mark.integration
     def test_silent_recovery_success(self) -> None:
         """D8: the recognition kept the newline span; the rule recovered.
 
@@ -104,7 +101,6 @@ class TestURLPipeline:
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "http://example.com/"
 
-    @pytest.mark.integration
     def test_verbatim_opaque(self) -> None:
         """§4.5: opaque schemes are preserved verbatim."""
         register_capability(URLCapability())
@@ -113,7 +109,6 @@ class TestURLPipeline:
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "mailto:user@example.com"
 
-    @pytest.mark.integration
     def test_determinism(self) -> None:
         """Same input + same contract -> byte-identical result every call."""
         register_capability(URLCapability())
@@ -123,7 +118,6 @@ class TestURLPipeline:
         assert result1.version_stamp.replay_hash == result2.version_stamp.replay_hash
         assert len(result1.version_stamp.replay_hash) == 64  # SHA-256 hex
 
-    @pytest.mark.integration
     @pytest.mark.parametrize(
         ("raw", "expected"),
         [

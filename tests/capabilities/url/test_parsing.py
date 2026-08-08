@@ -166,13 +166,13 @@ def test_milestone() -> None:
     )
 
 
-def test_idempotent() -> None:
+@pytest.mark.parametrize("raw", _IDEMPOTENT_OUTPUTS)
+def test_idempotent(raw: str) -> None:
     """WHATWG serialization is a fixed point: parsing a serialized URL is a no-op."""
-    for output in _IDEMPOTENT_OUTPUTS:
-        assert parse_and_serialize(output) == output
+    assert parse_and_serialize(raw) == raw
 
 
-def test_never_raises() -> None:
+@pytest.mark.parametrize("raw", _ALL_CASE_INPUTS)
+def test_never_raises(raw: str) -> None:
     """parse_and_serialize returns None on fatal errors instead of raising."""
-    for raw in _ALL_CASE_INPUTS:
-        parse_and_serialize(raw)
+    parse_and_serialize(raw)

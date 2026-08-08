@@ -28,6 +28,9 @@ _FATAL_HOST_CASES: list[tuple[str, None]] = [
     ("http://1..2/", None),  # empty middle part
     ("http://4294967296/", None),  # >= 2**32
     ("http://1.2.3.256/", None),  # last-part bound for 4 parts
+    ("http://0_1.2.3.4/", None),  # underscore is not an octal digit
+    ("http://0x+1.2.3.4/", None),  # sign is not a hex digit
+    ("http://0x1_2.2.3.4/", None),  # underscore is not a hex digit
 ]
 
 # IPv4 canonicalization — WHATWG integer combining, trailing dot, octal/hex.
@@ -39,6 +42,9 @@ _IPV4_CASES: list[tuple[str, str]] = [
     ("http://0x.1/", "http://0.0.0.1/"),
     ("http://1.2.3.4./", "http://1.2.3.4/"),
     ("http://4294967295/", "http://255.255.255.255/"),
+    ("http://0xA.2.3.4/", "http://10.2.3.4/"),  # uppercase hex part
+    ("http://0x1.2.3.4/", "http://1.2.3.4/"),  # lowercase hex part
+    ("http://0x.2.3.4/", "http://0.2.3.4/"),  # empty hex part is 0
 ]
 
 # Non-special schemes: hosts are kept verbatim (no IPv4, no IDNA).
@@ -108,6 +114,32 @@ _FATAL_UNICODE_DIGIT_CASES: list[tuple[str, None]] = [
 # A trailing dot on a domain is preserved; only IPv4 shapes strip it.
 _DOMAIN_TRAILING_DOT_CASES: list[tuple[str, str]] = [
     ("http://example.com./", "http://example.com./"),
+]
+
+# Dot-segment removal at path end: a trailing single/double-dot resolves and
+# keeps the final slash (Node's URL serializer appends an empty segment).
+# A mixed ``..%2e`` is a literal segment, never a double-dot.
+_DOT_SEGMENT_CASES: list[tuple[str, str]] = [
+    ("http://example.com/a/b/..", "http://example.com/a/"),
+    ("http://example.com/a/..", "http://example.com/"),
+    ("file:///a/b/..", "file:///a/"),
+    ("file:///a/..", "file:///"),
+    ("file:///..", "file:///"),
+    ("git://example.com/a/b/..", "git://example.com/a/"),
+    ("http://example.com/a/%2e%2e", "http://example.com/"),
+    ("http://example.com/a/b/../?q=1", "http://example.com/a/?q=1"),
+    ("http://example.com/a/..%2e", "http://example.com/a/..%2e"),
+]
+
+# Windows drive-letter file URLs: ``C|`` normalizes to ``C:``, and ``..``
+# never removes or traverses above the drive segment.
+_FILE_DRIVE_CASES: list[tuple[str, str]] = [
+    ("file:///C|/path", "file:///C:/path"),
+    ("file:///C:/..", "file:///C:/"),
+    ("file:///C:/../path", "file:///C:/path"),
+    ("file:///C:/a/..", "file:///C:/"),
+    ("file:///C:/a/../..", "file:///C:/"),
+    ("file:///c:/path", "file:///c:/path"),
 ]
 
 # IPv6 literals: bracketed canonical serialization per WHATWG host parser
@@ -254,3 +286,13 @@ def test_c1_controls_utf8_percent_encoded(raw: str, expected: str) -> None:
 @pytest.mark.parametrize(("raw", "expected"), _FATAL_UNICODE_DIGIT_CASES)
 def test_unicode_digits_not_numeric(raw: str, expected: None) -> None:
     assert parse_and_serialize(raw) is expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _DOT_SEGMENT_CASES)
+def test_dot_segments_at_path_end(raw: str, expected: str) -> None:
+    assert parse_and_serialize(raw) == expected
+
+
+@pytest.mark.parametrize(("raw", "expected"), _FILE_DRIVE_CASES)
+def test_file_drive_letters(raw: str, expected: str) -> None:
+    assert parse_and_serialize(raw) == expected

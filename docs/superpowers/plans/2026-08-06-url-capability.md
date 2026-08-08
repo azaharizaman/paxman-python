@@ -26,7 +26,7 @@ Everything below is shared across tasks. Implementers must treat this table as a
 | Rule | `WHATWG URL Standard` — `strategy = RuleStrategy.PARSER`; `target_grammars = frozenset({"absolute_uri_recognition"})`; `requires_features = frozenset()`; `name = "WHATWG URL Standard"` |
 | Provenance | `Provenance(authority="WHATWG", specification_name="URL Standard", kind="specification", reference_url="https://url.spec.whatwg.org/", version="Living Standard", lifecycle="active", publication_year=2026)` |
 | Citation | `"Section 4.4 (basic URL parser); RFC 3986 §3.1 / RFC 3987 §2 grammar"` |
-| Parse helper | `parse_and_serialize(raw: str) -> str | None` in `paxman/capabilities/URL/parsing.py` — identical contract exercised in Tasks 4, 5, 9, and 11 |
+| Parse helper | `parse_and_serialize(raw: str) -> str \| None` in `paxman/capabilities/URL/parsing.py` — identical contract exercised in Tasks 4, 5, 9, and 11 |
 | IDNA data | `rules/data/idna_uts46_mapping.py` (generated) + `rules/data/idna_uts46_mapping.txt` (committed snapshot, UTS #46 15.1.0) + `tools/regenerate_idna_uts46_data.py` (ISBN `regenerate_isbn_range_data.py` pattern, D13) |
 | Test markers | `[pytest.mark.capability, pytest.mark.url]` in capability-layer test modules; `url` marker registered in pyproject (`"url: url capability tests"`) |
 | Milestone test | `HTTPS://Example.COM:443/path/../other` → `https://example.com/other` — must appear in Tasks 4, 5, 9, **and** 11 |
@@ -91,11 +91,12 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
     # Body: URI/IRI code points (RFC 3986 §2 + RFC 3987 §2.2 ucschar) plus tab/newline
     #       (Appendix C multi-line URIs); at least ONE body character after the colon (D16).
     # Right boundary: whitespace, control characters (except tab/newline), "<", ">", '"'
-    #       (Appendix C delimiters). Trailing "." kept.
+    #       (Appendix C delimiters); '"' is also excluded from the body (F2 — a quoted
+    #       URI must not swallow its closing quote). Trailing "." kept.
     _ABSOLUTE_URI_PATTERN = re.compile(
         r"(?<![A-Za-z0-9+.\-])"
         r"[A-Za-z][A-Za-z0-9+.\-]*:"
-        r"[^ <>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*[^ <>\x00-\x08\x0B\x0C\x0E-\x1F\x7F]"
+        r'[^ <>"\x00-\x08\x0B\x0C\x0E-\x1F\x7F]*[^ <>"\x00-\x08\x0B\x0C\x0E-\x1F\x7F]'
     )
     ```
   - Post-process: strip an unbalanced trailing `)` (repeatedly, while the span has more `)` than `(`); adjust `end` so `len(raw_text) == end - start` still holds.
@@ -144,7 +145,7 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
   - `_RECOVERY_CASES` (×9, §4.2): `http://exa\nmple.com/` → `http://example.com/`; `http://example.com:` → `http://example.com/`; `http://example.com:0/` → `http://example.com:0/` (port 0 preserved); `http://example.com\path` → `http://example.com/path`; `http://%65xample.com/` → `http://example.com/` (host percent-decoding); `http://example.com/a b` → `http://example.com/a%20b`; `http://user name@example.com/` → `http://user%20name@example.com/`; `http://[2001:db8::1]/` → `http://[2001:db8::1]/`; `file://localhost/etc/hosts` → `file:///etc/hosts`.
   - `_PERCENT_CASES` (×5, §4.3): `http://example.com/a%2fb` → verbatim (case kept, `%2f` ≠ `%2F`); `http://example.com/%41` → verbatim (not decoded to `A`); `http://example.com/~x` → verbatim; `http://example.com/%zz` → verbatim (invalid escape preserved); `http://example.com/a%` → verbatim (bare `%` preserved).
   - `_QUERY_FRAGMENT_CASES` (×6, §4.4): `http://example.com/?a=b c` → `.../?a=b%20c`; `http://example.com/?x=%7e` → verbatim; `http://example.com/?a+b` → verbatim (`+` literal); `http://example.com/?` → verbatim (empty query preserved); `http://example.com/#` → verbatim (empty fragment preserved); `http://example.com/#a b` → `...#a%20b`.
-  - `_NON_SPECIAL_CASES` (×9, §4.5): `mailto:user@example.com` → verbatim; `GIT://github.com/user/repo` → `git://github.com/user/repo`; `ssh://user@host:22/path` → verbatim (port kept, non-special); `ftp://example.com:21/a` → `ftp://example.com/a` (default port dropped); `ws://example.com:80/a` → `ws://example.com/a`; `mailto:user@münchen.de` → `mailto:user@m%C3%BCnchen.de`; `data:text/plain,hello world` → verbatim (opaque path: space raw); `git://github.com/user/my repo` → `git://github.com/user/my%20repo`; `custom:scheme with space` → verbatim (opaque).
+  - `_NON_SPECIAL_CASES` (×9, §4.5 — two path branches: hierarchical `//` path vs opaque path): `mailto:user@example.com` → verbatim; `GIT://github.com/user/repo` → `git://github.com/user/repo`; `ssh://user@host:22/path` → verbatim (port kept, non-special); `ftp://example.com:21/a` → `ftp://example.com/a` (default port dropped); `ws://example.com:80/a` → `ws://example.com/a`; `mailto:user@münchen.de` → `mailto:user@m%C3%BCnchen.de`; `data:text/plain,hello world` → verbatim (opaque branch: space raw); `git://github.com/user/my repo` → `git://github.com/user/my%20repo` (`//` branch: space → `%20`); `custom:scheme with space` → verbatim (opaque branch).
   - `_HOST_CASES` (×7, §4.6): milestone `HTTPS://Example.COM:443/path/../other` → `https://example.com/other`; `http://010.010.010.010/` → `http://8.8.8.8/`; `http://192.168.001.001/` → `http://192.168.1.1/`; `http:///path` → `http://path/`; `http://münchen.de/` → `http://xn--mnchen-3ya.de/`; `http://caf%C3%A9.de/` → `http://xn--caf-dma.de/`; `http://café.example/` → `http://xn--caf-dma.example/`.
   - `_NFC_CASES` (×2, §4.7): `http://example.com/café` → `http://example.com/caf%C3%A9`; `http://example.com/cafe\u0301` → `http://example.com/cafe%CC%81` — **distinct** outputs (no NFC, D9).
   - One parametrized test per table (`test_fatal_cases_return_none`, `test_recovery_cases_canonicalize`, `test_percent_encoding_preserved`, `test_query_fragment_verbatim`, `test_non_special_schemes_pass_through`, `test_hosts_and_ipv4`, `test_no_unicode_normalization`) plus:
@@ -173,7 +174,7 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
     - `rule.name == "WHATWG URL Standard"`; `rule.strategy == RuleStrategy.PARSER`; `rule.target_grammars == frozenset({"absolute_uri_recognition"})`; `rule.requires_features == frozenset()`.
     - `rule.provenance.authority == "WHATWG"`; `.specification_name == "URL Standard"`; `.kind == "specification"`; `.reference_url == "https://url.spec.whatwg.org/"`; `.version == "Living Standard"`; `.lifecycle == "active"`; `.publication_year == 2026`.
     - `rule.citation == "Section 4.4 (basic URL parser); RFC 3986 §3.1 / RFC 3987 §2 grammar"` (matches §1 — provenance is part of the public surface).
-  - `test_returns_resolution_list`: `validate(candidate, output_format="url")` returns a `list[Resolution]`.
+  - `test_matches_normalize`: `matches(URLNotation("HTTPS://Example.COM:443/path/../other"), contract)` → True; `normalize(...)` → `"https://example.com/other"`.
   - `test_success_case`: `URLNotation("HTTPS://Example.COM:443/path/../other")` → one `Resolution` with `value == "https://example.com/other"` and `status == ResolutionStatus.SUCCESS`.
   - `test_success_provenance`: the resolution's `provenance` is the rule's provenance (§1).
   - `test_fatal_validation_no_resolution`: `URLNotation("http://example.com:99999/")` → `[]` (rule returns empty list → pipeline reports `INVALID`).
@@ -183,7 +184,7 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
   - **§4 evidence as rule tests** (research doc §7.6 "parsing → rule"): at minimum `%zz`/bare `%` byte-preservation, empty `?`/`#`, port 0, `010.010.010.010` → `8.8.8.8`, backslash → `/`, default-port elision, `file://localhost` → `file:///`, opaque `mailto:` verbatim, `münchen.de` → `xn--mnchen-3ya.de`, ß deviation, and the two distinct no-NFC outputs — each through `validate()` (not just `parse_and_serialize`), asserting `Resolution.value`.
 - [ ] **Step 2: GREEN** — `rules/whatwg_url_standard.py` mirroring `Money/rules/iso_4217_ed2015.py` and the IP parser rule:
   - `class WhatwgUrlStandard(Rule[URLNotation, Resolution])` — `name = "WHATWG URL Standard"`, `strategy = RuleStrategy.PARSER`, `target_grammars`/`requires_features` per §1, `citation` per §1, `provenance` per §1.
-  - `validate(candidate, output_format="url") -> list[Resolution]` — PARSER strategy: skip regex matching entirely (the orchestrator calls the rule directly on the notation); call `parse_and_serialize(candidate.text)`; `None` → `[]`; canonical string → `[Resolution(value=canonical, status=ResolutionStatus.SUCCESS)]`.
+  - `matches(notation, contract) -> bool` / `normalize(notation, contract) -> str` — PARSER strategy: skip regex matching entirely (the orchestrator calls the rule directly on the notation); call `parse_and_serialize(notation.text)`; `None` → `matches` False (pipeline reports `INVALID`); canonical string → `normalize` returns it; `normalize` never raises (falls back to the input text — unreachable post-`matches()`, defensive best-effort).
   - Rule = one WHATWG §4.4/§4.5 publication; the state machine stays in `parsing.py` (single source shared with Task 4 tests — Traps §4.7).
   - **Purity (Traps §4.1):** no `output_format` token anywhere in the file (source-scanned by `tests/unit/test_rule_output_format_purity.py`); no reading `candidate.output_format`; no feature-gating.
 - [ ] **Step 3: Verify + commit** — `uv run pytest tests/capabilities/url -v` → pass; `uv run ruff check paxman/capabilities/URL/` → clean. Commit `feat(url): add WHATWG URL Standard rule`.
@@ -195,7 +196,7 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
 - Create: `tests/capabilities/url/test_contract.py`
 
 - [ ] **Step 1: RED** — `tests/capabilities/url/test_contract.py` (`pytestmark = [pytest.mark.capability, pytest.mark.url]`):
-  - `test_defaults`: `URLCapabilityContract()` → `capability_name == "url"`, `excluded_rules == ()`, `pinned_rules == ()`, `year is None`, `output_format == "url"`, `active_grammars == ("absolute_uri_recognition",)`.
+  - `test_defaults`: `URLCapabilityContract()` → `capability_name == "url"`, `excluded_rules == ()`, `pinned_rules is None`, `year is None`, `output_format == "url"`, `active_grammars == ("absolute_uri_recognition",)`.
   - `test_output_format_validated`: `URLCapabilityContract(output_format="compact")` raises `ValueError` (not in `OFFERED_OUTPUT_FORMATS` ∪ {`DEFAULT_OUTPUT_FORMAT`}); `URLCapabilityContract(output_format="url")` is fine.
   - `test_extra_dict_fields_empty`: `URLCapabilityContract()._extra_dict_fields() == {}` (D14 — no feature flags, so no extra contract keys).
   - `test_contract_keys`: `asdict()` (recursively, flattening `CapabilityContract` base fields) has exactly `{"capability_name", "excluded_rules", "pinned_rules", "year", "output_format"}` — guard that no feature-key leaks into the replay-hash surface (Traps §4.9).
@@ -269,7 +270,7 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
 - Create: `tests/integration/test_url_pipeline.py`
 - Create: `tests/unit/test_url_contract_homogeneity.py` (if the surface guard in Task 8 does not cover the contract-key assertion)
 
-- [ ] **Step 1: RED** — `tests/integration/test_url_pipeline.py` mirroring `tests/integration/test_money_pipeline.py` (autouse `_fresh_registry` fixture that clears and re-registers the URL capability; class-level docstring locks the semantics):
+- [ ] **Step 1: RED** — `tests/integration/test_url_pipeline.py` mirroring `tests/integration/test_money_pipeline.py` (autouse `_clean_registry` fixture calling `reset_registry()` before/after each test — registry hygiene per tests/AGENTS.md; class-level docstring locks the semantics):
   - `test_milestone_full_pipeline`: `canonicalize("HTTPS://Example.COM:443/path/../other")` →
     - `result.capability == "url"`,
     - `result.status == ResultStatus.SUCCESS`,
@@ -309,7 +310,7 @@ Twelve tasks, each RED → GREEN → verify+commit. Execute strictly in §3 orde
 - Modify: `tests/e2e/test_canonicalize.py` (add URL e2e cases)
 - Modify: `tests/unit/test_capability_exports.py` **only if** the Task 8 export-guard class missed a URL symbol (unlikely — verify, don't assume)
 
-- [ ] **Step 1: RED** — `tests/property/test_url_properties.py` mirroring `tests/property/test_money_properties.py` (autouse fixture registering the URL capability; `@pytest.mark.property` + `@given`):
+- [ ] **Step 1: RED** — `tests/property/test_url_properties.py` (`@pytest.mark.property` + `@given`; property tests drive grammars/parsing directly and never touch the registry — the Money full-pipeline suite is the documented exception):
   - `test_parsing_is_total_and_canonical`: `@given(st.text())` — `parse_and_serialize(raw)` never raises; when it returns a value, `parse_and_serialize(value) == value` (idempotence/fixed point).
   - `test_serialized_output_matches_shape`: `@given(st.text())` — every non-`None` output matches `_CANONICAL_SHAPE` (scheme `:` rest, no leading/trailing whitespace, scheme lowercase):
     ```python

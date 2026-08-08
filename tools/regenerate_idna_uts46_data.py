@@ -26,9 +26,9 @@ def _parse_snapshot() -> tuple[dict[str, str], dict[str, str]]:
 
     statuses maps every range token (single code point or ``start..end``)
     to its UTS #46 status. mappings maps only the rows whose status is
-    ``mapped`` or ``deviation`` to their target sequence (space-separated
-    uppercase hex, as written). A mapped/deviation row that lacks a
-    mapping field is recorded in statuses only.
+    ``mapped``, ``deviation``, or ``disallowed_STD3_mapped`` to their target
+    sequence (space-separated uppercase hex, as written). A mapped-status
+    row that lacks a mapping field is recorded in statuses only.
     """
     statuses: dict[str, str] = {}
     mappings: dict[str, str] = {}
@@ -44,20 +44,21 @@ def _parse_snapshot() -> tuple[dict[str, str], dict[str, str]]:
     return statuses, mappings
 
 
-def _emit_str_table(entries: dict[str, str]) -> str:
+def _emit_str_table(entries: dict[str, str], prefix_len: int = 0) -> str:
     """Emit a dict literal with ruff-format-compliant line lengths.
 
-    Single-line when the whole table fits within 88 columns; otherwise
-    multiline (one entry per line, magic trailing comma). An entry whose
-    line would exceed 88 columns is emitted as a parenthesized implicit
-    string concatenation split on token boundaries, so every line stays
-    compliant.
+    Single-line when the whole table (including the ``prefix_len``
+    characters of the assignment that precedes it at the call site) fits
+    within 88 columns; otherwise multiline (one entry per line, magic
+    trailing comma). An entry whose line would exceed 88 columns is
+    emitted as a parenthesized implicit string concatenation split on
+    token boundaries, so every line stays compliant.
     """
 
     one_line = (
         "{" + ", ".join(f'"{key}": "{value}"' for key, value in entries.items()) + "}"
     )
-    if len(one_line) <= LINE_LENGTH:
+    if len(one_line) + prefix_len <= LINE_LENGTH:
         return one_line
     blocks: list[str] = []
     for key, value in entries.items():
@@ -100,18 +101,24 @@ def _wrapped_entry(key: str, value: str) -> list[str]:
 def _build_module(statuses: dict[str, str], mappings: dict[str, str]) -> str:
     """Assemble the generated module text for the parsed snapshot tables."""
 
+    status_assign = "IDNA_STATUS: dict[str, str] = "
+    mapped_assign = "IDNA_MAPPED: dict[str, str] = "
     doc = (
         '"""UTS #46 IdnaMappingTable data — GENERATED, do not edit by hand.\n'
         "\n"
-        "Source: https://www.unicode.org/Public/idna/15.1.0/IdnaMappingTable.txt\n"
+        f"Source: https://www.unicode.org/Public/idna/{IDNA_VERSION}/IdnaMappingTable.txt\n"
         f"Version: {IDNA_VERSION}\n"
         "Regenerate with: uv run python tools/regenerate_idna_uts46_data.py\n"
         '"""\n'
         "\n"
         "from __future__ import annotations\n\n"
         f'IDNA_VERSION = "{IDNA_VERSION}"\n\n'
-        "IDNA_STATUS: dict[str, str] = " + _emit_str_table(statuses) + "\n\n"
-        "IDNA_MAPPED: dict[str, str] = " + _emit_str_table(mappings) + "\n"
+        + status_assign
+        + _emit_str_table(statuses, len(status_assign))
+        + "\n\n"
+        + mapped_assign
+        + _emit_str_table(mappings, len(mapped_assign))
+        + "\n"
     )
     if "output_format" in doc:  # purity guard — see test_no_output_format_token
         raise RuntimeError("generated module must not contain 'output_format'")
