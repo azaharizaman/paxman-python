@@ -31,8 +31,7 @@ class CurrencyNotation:
             raise ValueError("text must be non-empty")
         if self.shape not in _VALID_SHAPES:
             raise ValueError(
-                f"invalid shape {self.shape!r}; expected one of "
-                f"{sorted(_VALID_SHAPES)}"
+                f"invalid shape {self.shape!r}; expected one of {sorted(_VALID_SHAPES)}"
             )
 
     def as_list(self) -> list[str]:
