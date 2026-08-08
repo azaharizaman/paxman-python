@@ -1,14 +1,14 @@
 # TESTS KNOWLEDGE BASE
 
 ## OVERVIEW
-Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers, 8 capability packages.
+Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers, 9 capability packages.
 
 ## STRUCTURE
 ```text
 tests/
 ├── conftest.py       # loads hypothesis "ci" profile
 ├── unit/             # -m unit        core domain, registry, contracts, purity scans
-├── capabilities/     # -m capability  per-capability, lowercase dirs (country, date, email, ip, isbn, money, phone, url)
+├── capabilities/     # -m capability  per-capability, lowercase dirs (country, currency, date, email, ip, isbn, money, phone, url)
 ├── integration/      # -m integration pipeline, ambiguity, temporal, replay hashes, feature gating, format_value seam
 ├── property/         # -m property    hypothesis property tests
 └── e2e/              # -m e2e         canonicalize() end-to-end
