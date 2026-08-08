@@ -50,13 +50,14 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with eight built-in capabilities:
+Paxman ships with nine built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
 | **Email** | Email addresses | 3 (standard, obfuscated, localhost) | 2 | RFC 5322, RFC 6761 |
 | **Date** | Dates | 3 (ISO, US, European) | 3 | ISO 8601, US federal, EN 50160 |
 | **Country** | Country codes/names | 4 (alpha-2, alpha-3, numeric, name) | 6 | ISO 3166, CLDR |
+| **Currency** | Currency identifiers | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **IP** | IP addresses | 2 (IPv4, IPv6) | 2 | RFC 791, RFC 5952 |
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 | **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
@@ -142,6 +143,36 @@ result = paxman.canonicalize("Burma", contract)
 ```
 
 Localized names are validated by the CLDR rule, so an enabled resolution like `Alemania` → `DE` carries Unicode/CLDR provenance. Recognizing a localized token is not ISO validation: without `include_localized`, recognized localized input (e.g., `Alemania`) is `INVALID` — recognized, but no authority rule runs — rather than being resolved via ISO. Historical names resolve through ISO 3166-3 and return the historical entity's own former code (`Burma` → `BU`), not a successor state's code.
+
+### Currency Capability
+
+Recognizes ISO 4217 alpha-3 codes, CLDR currency symbols, and CLDR currency display-name words as standalone identifiers, canonicalizing to the uppercase alpha-3 code. Identifier-only: amounts are the Money capability's domain (`USD 500` resolves via its `USD` span; amount-glued tokens like `US$5` are not recognized at all).
+
+```python
+from paxman.capabilities import Currency
+
+register_capability(Currency())
+
+# Lowercase code folds to uppercase alpha-3
+contract = Currency.create_contract()
+result = paxman.canonicalize("usd", contract)
+# → "USD"
+
+# Lowercase CLDR display-name word resolves to its code
+contract = Currency.create_contract()
+result = paxman.canonicalize("euro", contract)
+# → "EUR"
+
+# Shared bare symbol is unresolved by default: INVALID (recognized, no authority)
+contract = Currency.create_contract()
+result = paxman.canonicalize("$", contract)
+# → Status: INVALID
+
+# Opt in: default_currency resolves the shared bare symbol
+contract = Currency.create_contract(default_currency="MYR")
+result = paxman.canonicalize("$", contract)
+# → "MYR"
+```
 
 ### IP Capability
 
@@ -312,6 +343,7 @@ Every capability provides a `create_contract()` factory method with common and c
 | Date | `two_digit_base_year` | `int` | Base year for 2-digit years (e.g., `2000` → `"26"` = `2026`) |
 | Country | `include_localized` | `bool` | Enable CLDR multilingual name recognition |
 | Country | `include_historical` | `bool` | Enable deprecated/historical country name recognition |
+| Currency | `default_currency` | `str` \| `None` | ISO 4217 alpha-3 code resolving shared bare symbols (e.g. `"$"`); `None` (default) makes them INVALID |
 | IP | `include_ipv6` | `bool` | Enable IPv6 recognition (default: `True`) |
 | ISBN | `include_isbn10` | `bool` | Enable ISBN-10 recognition (default: `True`) |
 | ISBN | `include_range_validation` | `bool` | Enable ISBN Range Message registrant-range provenance |
