@@ -7,6 +7,7 @@ import pytest
 from paxman.capabilities import (
     IP,
     ISBN,
+    URL,
     Country,
     Date,
     Email,
@@ -97,3 +98,31 @@ class TestMoneyCapabilityExports:
     def test_money_capability_name(self) -> None:
         """Money capability has correct name."""
         assert Money.name == "money"
+
+
+class TestURLCapabilityExports:
+    @pytest.mark.unit
+    def test_url_capability_importable(self) -> None:
+        """URL capability is importable from paxman.capabilities."""
+        assert URL is not None
+
+    @pytest.mark.unit
+    def test_url_capability_name(self) -> None:
+        """URL capability has correct name."""
+        assert URL.name == "url"
+
+    @pytest.mark.unit
+    def test_export_list_contains_eight_names(self) -> None:
+        """The registration surface exports exactly eight capabilities."""
+        import paxman.capabilities as capabilities
+
+        assert set(capabilities.__all__) == {
+            "Country",
+            "Date",
+            "Email",
+            "IP",
+            "ISBN",
+            "Money",
+            "Phone",
+            "URL",
+        }

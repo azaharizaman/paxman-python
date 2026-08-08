@@ -50,7 +50,7 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with seven built-in capabilities:
+Paxman ships with eight built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
@@ -61,6 +61,7 @@ Paxman ships with seven built-in capabilities:
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 | **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
+| **URL** | URLs | 1 (absolute-uri) | 1 | WHATWG URL Standard |
 
 ### Email Capability
 
@@ -260,6 +261,31 @@ result = paxman.canonicalize("(555) 234-5678", contract)
 contract = Phone.create_contract(output_format="rfc3966")
 result = paxman.canonicalize("+15551234567", contract)
 # → "tel:+15551234567"
+```
+
+### URL Capability
+
+Recognizes absolute URIs and IRIs, canonicalizing them per the WHATWG URL Standard (lowercased scheme/host, default-port removal, dot-segment resolution, UTS #46 IDNA for internationalized hosts, byte-preserving percent-encoding).
+
+```python
+from paxman.capabilities import URL
+
+register_capability(URL())
+
+# Absolute URI canonicalization (milestone)
+contract = URL.create_contract()
+result = paxman.canonicalize("HTTPS://Example.COM:443/path/../other", contract)
+# → "https://example.com/other"
+
+# Opaque (non-special) scheme — verbatim
+contract = URL.create_contract()
+result = paxman.canonicalize("mailto:user@example.com", contract)
+# → "mailto:user@example.com"
+
+# IDN host canonicalizes via UTS #46 (IDNA)
+contract = URL.create_contract()
+result = paxman.canonicalize("http://münchen.de", contract)
+# → "http://xn--mnchen-3ya.de/"
 ```
 
 ---

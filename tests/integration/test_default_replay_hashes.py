@@ -5,6 +5,7 @@ that alters the candidate set, provenance set, or serialized contract
 shifts a hash and fails here. Literals captured 2026-08-04 on the
 refactor/streamline-recognition branch. ISBN baseline added 2026-08-05.
 Money baseline added 2026-08-06.
+URL baseline added 2026-08-07.
 
 The recognition-homogeneity migration MUST land with zero hash changes:
 the candidate set it produces is identical to today's. Update these
@@ -21,6 +22,7 @@ from paxman.capabilities.IP.capability import IPCapability
 from paxman.capabilities.ISBN.capability import ISBNCapability
 from paxman.capabilities.Money.capability import MoneyCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
+from paxman.capabilities.URL.capability import URLCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
 
@@ -36,6 +38,7 @@ BASELINE_HASHES = {
     "phone": "01cd035c735461929e5c2974e3b65fbbd615c389c15c3a650113e5050057df7a",
     "isbn": "ad3f0912118b4c47f7cfb56271e8eb143d1fb0bc20ca49b358617a8a8b30f91e",
     "money": "7caeed999ed75780d8300c0cb18631dd0a5e763defbd8f162906d29add4eb1da",
+    "url": "4dd3c9ba701daafc8f8a4450b0d52519195e74db4ceda299a7b8f5e721f3484d",
 }
 
 CASES = [
@@ -69,3 +72,12 @@ def test_default_replay_hash_matches_baseline(key, capability_cls, input_text):
     result = paxman.canonicalize(input_text, contract)
     assert result.status == Resolution.SUCCESS
     assert result.version_stamp.replay_hash == BASELINE_HASHES[key]
+
+
+@pytest.mark.integration
+def test_url_capability_replay_hash():
+    register_capability(URLCapability())
+    contract = URLCapability.create_contract(year=2026)
+    result = paxman.canonicalize("HTTPS://Example.COM:443/path/../other", contract)
+    assert result.status == Resolution.SUCCESS
+    assert result.version_stamp.replay_hash == BASELINE_HASHES["url"]

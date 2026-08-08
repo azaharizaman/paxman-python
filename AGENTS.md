@@ -5,7 +5,7 @@
 **Branch:** feature/CURRENCY-capability
 
 ## OVERVIEW
-Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first, replay-safe. 7 capabilities (Country, Date, Email, IP, ISBN, Money, Phone). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
+Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first, replay-safe. 8 capabilities (Country, Date, Email, IP, ISBN, Money, Phone, URL). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
 
 ## STRUCTURE
 ```text
@@ -13,7 +13,7 @@ paxman/
 ├── api/            # canonicalize() — sole public entry
 ├── engine/         # run_capability() pipeline orchestrator
 ├── core/           # domain objects, Contract protocol, registry, errors
-└── capabilities/   # 7 self-contained capability packages
+└── capabilities/   # 8 self-contained capability packages
 tests/              # unit / capabilities/<cap> / integration / property / e2e
 tools/              # regenerate_isbn_range_data.py (only script)
 docs/               # adr/, report/, research/, superpowers/plans+specs
@@ -85,8 +85,8 @@ uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data mod
 Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-linter lint && pytest`
 
 ## NOTES
-- `paxman/capabilities/__init__.py` exports all seven capabilities (Country, Date, Email, IP, ISBN, Money, Phone); export completeness is enforced by `tests/unit/test_capability_exports.py`.
-- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Money, Phone.
+- `paxman/capabilities/__init__.py` exports all eight capabilities (Country, Date, Email, IP, ISBN, Money, Phone, URL); export completeness is enforced by `tests/unit/test_capability_exports.py`.
+- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Date, Email, IP, ISBN, Money, Phone, URL.
 - No `pyrightconfig.json` — pyright config is inline `[tool.pyright]` in pyproject.toml. No `.editorconfig`.
 - Data modules live under `rules/data/` (Country, Money, Phone, ISBN) and `grammar/data/` (Country, Money) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
 - Library only — no CLI, no `__main__.py`, no `[project.scripts]`. Version 0.2.0.

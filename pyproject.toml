@@ -35,6 +35,7 @@ markers = [
     "country: country capability tests",
     "isbn: isbn capability tests",
     "money: money capability tests",
+    "url: url capability tests",
 ]
 testpaths = ["tests"]
 
