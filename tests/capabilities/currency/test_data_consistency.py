@@ -50,8 +50,8 @@ class TestRecognitionKeysAreRuleDataCovered:
         """Every shipped word token resolves through the CLDR name table."""
         assert set(WORD_TOKENS) == set(NAME_TO_CODES)
 
-    def test_every_symbol_resolves_to_at_least_one_iso_code(self) -> None:
-        """Every CLDR symbol key resolves to at least one ISO 4217 code."""
+    def test_every_resolved_symbol_code_is_in_iso_set(self) -> None:
+        """Every ISO code a symbol resolves to is a member of CURRENCY_CODES."""
         uncovered = sorted(
             code
             for codes in SYMBOL_TO_CODES.values()
@@ -60,8 +60,8 @@ class TestRecognitionKeysAreRuleDataCovered:
         )
         assert not uncovered, _uncovered_report(uncovered, "symbol codes")
 
-    def test_every_word_resolves_to_at_least_one_iso_code(self) -> None:
-        """Every CLDR word key resolves to at least one ISO 4217 code."""
+    def test_every_resolved_word_code_is_in_iso_set(self) -> None:
+        """Every ISO code a word resolves to is a member of CURRENCY_CODES."""
         uncovered = sorted(
             code
             for codes in NAME_TO_CODES.values()
