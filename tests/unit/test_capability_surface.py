@@ -1,8 +1,8 @@
 """Guard tests for the unanimous capability contract & rule surface.
 
 These tests lock the homogeneity mandate so it cannot regress: every one of
-the eight built-in capabilities (Email, Date, Country, IP, ISBN, Money,
-Phone, URL) must
+the nine built-in capabilities (Country, Currency, Date, Email, IP, ISBN,
+Money, Phone, URL) must
 
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),
@@ -27,6 +27,9 @@ import pytest
 from paxman.capabilities.Country.capability import CountryCapability
 from paxman.capabilities.Country.contract import CountryContract
 from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Currency.capability import CurrencyCapability
+from paxman.capabilities.Currency.contract import CurrencyContract
+from paxman.capabilities.Currency.notation import CurrencyNotation
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
@@ -60,6 +63,7 @@ _STANDARD_KEYS = frozenset(
 _EMAIL_KEYS = _STANDARD_KEYS | {"include_obfuscated", "include_localhost"}
 _DATE_KEYS = _STANDARD_KEYS | {"two_digit_base_year"}
 _COUNTRY_KEYS = _STANDARD_KEYS | {"include_localized", "include_historical"}
+_CURRENCY_KEYS = _STANDARD_KEYS | {"default_currency"}
 _IP_KEYS = _STANDARD_KEYS | {"include_ipv6"}
 _ISBN_KEYS = _STANDARD_KEYS | {"include_isbn10", "include_range_validation"}
 _MONEY_KEYS = _STANDARD_KEYS | {"precision", "dollar_sign_currency"}
@@ -87,6 +91,13 @@ _CAPABILITY_SURFACES = [
         "alpha2",
         _COUNTRY_KEYS,
         id="country",
+    ),
+    pytest.param(
+        CurrencyCapability,
+        CurrencyContract,
+        "code",
+        _CURRENCY_KEYS,
+        id="currency",
     ),
     pytest.param(
         IPCapability,
@@ -294,6 +305,13 @@ _FORMAT_SURFACES = [
         id="country",
     ),
     pytest.param(
+        CurrencyCapability,
+        CurrencyContract,
+        "USD",
+        CurrencyNotation(text="USD", shape="code"),
+        id="currency",
+    ),
+    pytest.param(
         IPCapability,
         IPContract,
         "192.0.2.1",
@@ -394,6 +412,13 @@ _IDENTITY_SURFACES = [
         "user@example.com",
         EmailNotation(local_part="user", domain_part="example.com"),
         id="email",
+    ),
+    pytest.param(
+        CurrencyCapability,
+        CurrencyContract,
+        "USD",
+        CurrencyNotation(text="USD", shape="code"),
+        id="currency",
     ),
     pytest.param(
         IPCapability,

@@ -33,6 +33,7 @@ markers = [
     "e2e: end-to-end tests",
     "property: property-based tests (Hypothesis)",
     "country: country capability tests",
+    "currency: currency capability tests",
     "isbn: isbn capability tests",
     "money: money capability tests",
     "url: url capability tests",
