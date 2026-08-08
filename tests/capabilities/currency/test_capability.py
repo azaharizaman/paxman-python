@@ -77,12 +77,12 @@ class TestCurrencyCapability:
         """The unanimous common block passes through to the contract."""
         c = CurrencyCapability.create_contract(
             excluded_rules=["Section-names"],
-            pinned_rules=["Section-codes"],
+            pinned_rules=["Section-code"],
             year=2020,
             output_format="code",
         )
         assert c.excluded_rules == ("Section-names",)
-        assert c.pinned_rules == ("Section-codes",)
+        assert c.pinned_rules == ("Section-code",)
         assert c.year == 2020
         assert c.output_format == "code"
 
