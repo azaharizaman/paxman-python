@@ -151,6 +151,12 @@ class TestSectionSymbols:
         notation = _notation("US$", "word")
         assert self.rule.matches(notation, contract) is False
 
+    def test_rejects_unknown_symbol(self) -> None:
+        """An unknown symbol token is not in SYMBOL_TO_CODES (© is absent)."""
+        contract = CurrencyContract()
+        notation = _notation("\u00a9", "symbol")
+        assert self.rule.matches(notation, contract) is False
+
     @pytest.mark.parametrize(
         ("text", "shape", "default_currency", "expected"),
         [
