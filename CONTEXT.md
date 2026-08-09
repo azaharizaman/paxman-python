@@ -17,22 +17,31 @@ A domain module (e.g., Email) that:
 - Registers **Validation Rules** (semantic rules with provenance)
 - Lives in `capabilities/<CapabilityName>/`
 
+Every capability conforms to the same structural surface: `notation.py`, `contract.py`, `capability.py`, `grammar/`, `rules/` — see [The Capabilities](#the-capabilities) for the shipped set.
+
 ### Contract
 User-facing configuration object that:
-- **Toggles grammars ON/OFF** (e.g., `include_obfuscated=True`)
+- **Toggles grammars ON/OFF** via `include_*` input-shape features (e.g., `include_obfuscated=True`) — a disabled grammar makes its inputs `MISSING`
 - **Pins rules** to run only specific validation rules (e.g., `pinned_rules=["Section 3.4.1-addr-spec"]`)
 - **Excludes rules** to skip specific validation rules (e.g., `excluded_rules=["Section 6.3-localhost"]`)
 - **Pins year** to filter validation rules by `publication_year`
 - **Passes parameters** to validation rules (e.g., `two_digit_base_year`)
-  - Note: `output_format` is a *presentation* parameter consumed by the capability's `format_value()` seam — validation rules never read it
+  - Note: `output_format` is a *presentation* parameter consumed by the capability's `format_value()` seam — validation rules never read it (CI-scanned purity)
 - Does NOT define Notation (that's internal to Capability)
 
 When `pinned_rules` is set, `excluded_rules` is ignored — only the pinned rules run.
 
+`create_contract()` is a static, keyword-only factory with a fixed common block first (`excluded_rules`, `pinned_rules`, `year`, `output_format`), then capability-specific parameters.
+
 ### Notation
-Capability-defined intermediate representation that Grammars must produce.
-- **Email:** `EmailNotation` (frozen dataclass with `local_part` and `domain_part` fields) → `["local_part", "domain_part"]`
-- **Date:** `DateNotation` (frozen dataclass with `N1`, `N2`, `N3` fields) → `["N1", "N2", "N3"]` (position-sensitive: grammar determines meaning)
+Capability-defined intermediate representation that Grammars must produce:
+- **Email:** `EmailNotation(local_part, domain_part)` → `["local_part", "domain_part"]`
+- **Date:** `DateNotation(N1, N2, N3)` → `["N1", "N2", "N3"]` (position-sensitive: grammar determines meaning)
+- **Country:** `CountryNotation(shape, value)` — `shape` discriminates `"alpha2"` / `"alpha3"` / `"numeric"` / `"name"`; `value` is the raw input (e.g., `"US"`, `"USA"`, `"840"`, `"United States"`)
+- **Currency:** `CurrencyNotation(text, shape)` — `shape` is `"code"` / `"qualified_symbol"` / `"symbol"` / `"word"`; codes are grammar-folded to uppercase, words to lowercase, symbols keep exact casing
+- **Money:** `MoneyNotation(currency_part, amount_part, currency_shape, amount_shape)` — verbatim currency + amount tokens with grammar-assigned shape discriminators
+- **ISBN:** `ISBNNotation(shape, digits)` — `shape` is `"isbn10"` / `"isbn13"`, `digits` is the digit string (`X` only as final char of an isbn10 shape)
+- **IP / Phone / URL:** capability-defined shapes for address / number / URI components
 
 **Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
 
@@ -54,6 +63,28 @@ class EmailNotation:
 
 ---
 
+## The Capabilities
+
+Paxman ships nine built-in capabilities, each wired to an authoritative specification:
+
+| Capability | Domain | Authorities |
+|------------|--------|-------------|
+| **Email** | Email addresses | RFC 5322, RFC 6761 |
+| **Date** | Dates | ISO 8601, US federal, EN 50160 |
+| **Country** | Country codes/names | ISO 3166, CLDR |
+| **Currency** | Currency identifiers | ISO 4217, CLDR |
+| **IP** | IP addresses | RFC 791, RFC 5952 |
+| **ISBN** | ISBNs | ISO 2108, ISBN Users' Manual, ISBN Range Message |
+| **Money** | Money amounts | ISO 4217, CLDR |
+| **Phone** | Phone numbers | ITU-T E.164, RFC 3966, NANP |
+| **URL** | URLs | WHATWG URL Standard |
+
+Capability classes are exported from `paxman/capabilities/__init__.py` as acronym aliases (`EmailCapability as Email`, etc.); the export list is enforced by `tests/unit/test_capability_exports.py`.
+
+**In development:** the **SI Unit** capability (BIPM SI Brochure, 9th edition) is the planned 10th capability (MILESTONE row 23; branch `feature/si-unit-capability`). It will be the first capability whose canonical value is case-meaningful (`K` kelvin vs `k` kilo). This document will be updated again once it ships.
+
+---
+
 ## Pipeline Components
 
 ### Grammar (Recognition Rule)
@@ -63,7 +94,7 @@ Syntactic extraction rules that:
 - Live in `capabilities/<CapabilityName>/grammar/`
 - Are **filtered by the orchestrator** based on the contract's `active_grammars`
 - Do NOT validate, de-duplicate, or order — the engine owns containment dedup and document ordering
-- Only recognize
+- Only recognize (syntax, shape, lexicon keys) — never map tokens to canonical values, never import rule-layer data
 
 ### Validation Rule
 Semantic rules that:
@@ -106,6 +137,8 @@ class Section341AddrSpec(Rule[EmailNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"  # Human-readable citation
+    target_grammars = frozenset({"standard_recognition", "obfuscated_recognition"})
+    requires_features = frozenset()  # authority features this rule gates on
 
     def matches(self, notation: EmailNotation, contract: Contract) -> bool:
         """Check if notation matches addr-spec pattern."""
@@ -119,11 +152,13 @@ class Section341AddrSpec(Rule[EmailNotation]):
         return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"
 ```
 
+Every rule declares six metadata attrs — `name`, `strategy`, `provenance`, `citation`, `target_grammars` (non-empty `frozenset[str]`), `requires_features` (`frozenset[str]`) — enforced at import time by `Rule.__init_subclass__`. Rules never raise and never read `output_format`.
+
 ### Notation Purpose
 Notation exists for **placement-sensitive rules**:
 - **Dates:** `["01", "02", "2026"]` — position matters (DD/MM/YYYY vs MM/DD/YYYY)
 - **Email:** `["azahari", "gmail.com"]` — position matters (local vs domain)
-- **Countries:** `["Russia", "Federation"]` — multi-word names
+- **Country / Currency / ISBN:** a `shape` discriminator field carries which grammar produced the token (e.g., `CountryNotation(shape="name", value="United States")`); rules dispatch on shape
 
 The resolver **consumes notation** and outputs a canonical_value (not notation).
 
@@ -131,36 +166,32 @@ The resolver **consumes notation** and outputs a canonical_value (not notation).
 | Strategy | Use Case | Example |
 |----------|----------|---------|
 | `REGEX` | Pattern matching | Email addr-spec validation |
-| `LOOKUP_TABLE` | Table lookup | HTTP status codes, country codes |
-| `PARSER` | Value parsing | Date parsing, UUID validation |
+| `LOOKUP_TABLE` | Table lookup | Currency ISO 4217 codes, country codes |
+| `PARSER` | Value parsing | Date parsing, URL parsing |
 
 ### LookupTable Example
 ```python
-# capabilities/HttpStatusCode/rules/rfc_9110_ed2022.py
+# capabilities/Currency/rules/iso_4217_ed2015.py
 
-class Section15StatusCodes(Rule[StatusCodeNotation]):
-    """RFC 9110 Section 15 - Status Codes"""
-    
-    name = "Section 15-status-codes"
+class SectionCode(Rule[CurrencyNotation]):
+    """ISO 4217 Section 3 - Currency and funds codes"""
+
+    name = "Section 3-code"
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
-    
-    TABLE = {
-        103: "Early Hints",
-        200: "OK",
-        404: "Not Found",
-        ...
-    }
-    
-    def matches(self, notation: StatusCodeNotation, contract: Contract) -> bool:
-        """Check if status code exists in table."""
-        return int(notation.code) in self.TABLE
-    
-    def normalize(self, notation: StatusCodeNotation, contract: Contract) -> str:
-        """Return canonical status code."""
-        code = int(notation.code)
-        return str(code)
+    target_grammars = frozenset({"code_recognition", "symbol_recognition", "word_recognition"})
+    requires_features = frozenset()
+
+    def matches(self, notation: CurrencyNotation, contract: Contract) -> bool:
+        """Check if the code/symbol/word maps to a known currency code."""
+        return notation.text in self.TABLE
+
+    def normalize(self, notation: CurrencyNotation, contract: Contract) -> str:
+        """Return canonical ISO 4217 alpha-3 code."""
+        return self.TABLE[notation.text]
 ```
+
+Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. Only the ISBN range message is generated from a source snapshot (via `tools/regenerate_isbn_range_data.py`) — everything else is maintained in place.
 
 ### Parser Example
 ```python
@@ -173,6 +204,8 @@ class Section431CalendarDate(Rule[DateNotation]):
     name = "Section 4.3.1-calendar-date"
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
+    target_grammars = frozenset({"iso8601_recognition"})
+    requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
         """Try to parse as ISO 8601 date.
@@ -300,6 +333,23 @@ contract = Email.create_contract(
 )
 # Only rules matching both pinning and year filter are active
 ```
+
+### Presentation: format_value and output_format
+
+Presentation is a single seam, not a rule concern:
+- `output_format` is always optional (`None` / `"default"` / the capability's `DEFAULT_OUTPUT_FORMAT` resolve to the default; offered formats resolve to themselves; anything else raises `ContractError`). Resolved once in `CapabilityContract.__post_init__`; contracts declare `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` class vars.
+- `format_value()` on the capability is the **ONLY presentation seam** — `normalize()` always returns the default canonical form.
+- Rules never reference `output_format` (CI-scanned purity); formatting adds no provenance; offered formats must preserve the capability's ambiguity contract.
+- Only capabilities with non-empty `OFFERED_OUTPUT_FORMATS` override `format_value()` — e.g., Date (`"ISO"`/`"US"`), ISBN (`"isbn13"`/`"hyphenated"`), Money (`"code_amount"`/`"compact"`), Phone (`"e164"`/`"rfc3966"`/`"national"`).
+
+### Feature Gating — two loci, two statuses
+
+Input-shape and authority features gate at different points and produce different statuses:
+- **Input-shape features** (`include_*`) toggle grammars via the contract's `active_grammars` property. A disabled grammar never recognizes → its inputs are **`MISSING`**.
+- **Authority features** gate rules via `requires_features` (declared on the rule). The rule is dropped from the run → recognized but unvalidated input is **`INVALID`**.
+- Never gate inside `matches()` / `recognize()`; never cast a contract to read `include_*` flags inside a rule (`typing.cast` is only for validity-affecting parameters).
+
+Example: Currency's `default_currency` opt-in resolves a shared bare symbol (`"$"`) only when the code is one of that symbol's own candidate codes; otherwise the bare symbol is `INVALID` (recognized, no authority).
 
 ### RecognizedRep
 Data class carrying recognition output. Produced by the engine from each
@@ -451,9 +501,16 @@ class CapabilityError(PaxmanError):
 
 
 class RecognitionError(PaxmanError):
-    """Raised when grammar fails to parse input (malformed regex, etc.)."""
+    """Raised when grammar fails to parse input (malformed regex, etc.).
 
-    def __init__(self, rule: str, message: str, original_error: Exception):
+    ``original_error`` is the underlying exception for failures inside
+    ``Grammar.recognize()``; it is ``None`` for structural failures the
+    engine itself detects (e.g. a malformed match returned by a grammar).
+    """
+
+    def __init__(
+        self, rule: str, message: str, original_error: Exception | None = None
+    ) -> None:
         self.rule = rule
         self.original_error = original_error
         super().__init__(f"[{rule}] {message}")
@@ -462,7 +519,7 @@ class RecognitionError(PaxmanError):
 class ValidationError(PaxmanError):
     """Raised when validation rule encounters unexpected error."""
 
-    def __init__(self, rule: str, message: str, original_error: Exception):
+    def __init__(self, rule: str, message: str, original_error: Exception) -> None:
         self.rule = rule
         self.original_error = original_error
         super().__init__(f"[{rule}] {message}")
@@ -486,16 +543,16 @@ class ValidationError(PaxmanError):
 ### Basic Usage
 ```python
 import paxman
-from paxman.capabilities.Email.capability import EmailCapability
+from paxman.capabilities import Email
 from paxman.core.domain import Resolution
 from paxman.core.discovery import register_capability
 
 # Register capability (required before first use)
-register_capability(EmailCapability())
+register_capability(Email())
 
 # Canonicalize an email
 result = paxman.canonicalize(
-    "azahari at gmail dot com", EmailCapability.create_contract(include_obfuscated=True)
+    "azahari at gmail dot com", Email.create_contract(include_obfuscated=True)
 )
 
 if result.status == Resolution.SUCCESS:
@@ -507,10 +564,10 @@ else:
 
 ### Date with Year Pinning
 ```python
-from paxman.capabilities.Date.capability import DateCapability
+from paxman.capabilities import Date
 
 # Pin to 2019, include ISO 8601 rule (publication_year=2019)
-contract = DateCapability.create_contract(year=2019)
+contract = Date.create_contract(year=2019)
 result = paxman.canonicalize("2026-01-02", contract)
 
 # Result: "2026-01-02" (ISO 8601 grammar + rule)
@@ -547,7 +604,7 @@ for candidate in result.candidates:
 ## Capability Registration
 
 ### Capability Registry
-- **Built-in capabilities:** Registered in `paxman/capabilities/__init__.py`
+- **Built-in capabilities:** Exported from `paxman/capabilities/__init__.py` (acronym aliases, enforced by `test_capability_exports.py`) — **registration is explicit**, via `register_capability(Email())` before first use
 - **User-registered capabilities:** Added via `register_capability()` before first call
 - **Registry freezes** at the start of each `run_capability()` call (engine responsibility)
 - **Duplicate registration** raises `CapabilityError` — each capability name must be unique.
@@ -558,6 +615,7 @@ for candidate in result.candidates:
 ### Capability Versioning
 - Each capability has its own version in `capability.py`
 - Capability version is independent of engine version
+- All nine built-in capabilities currently ship `version = "1.0.0"`
 - Example:
   ```python
   # capabilities/Email/capability.py
@@ -568,7 +626,7 @@ for candidate in result.candidates:
   ```
 
 ### Engine Versioning
-- Engine version lives in `pyproject.toml` or `paxman/__init__.py`
+- Engine version is resolved in `paxman/engine/orchestrator.py` — `PAXMAN_VERSION = _resolve_version()` reads the installed `paxman` package version via `importlib.metadata` (falling back to `"0.1.0"`)
 - Referenced in `VersionStamp.paxman_version`
 - Independent of capability versions
 
@@ -622,65 +680,119 @@ class Contract(Protocol):
         ...
 ```
 
+Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and implement `_extra_dict_fields()` — never hand-write `as_dict()` (it feeds `replay_hash`).
+
 ---
 
 ## Directory Structure
 
 ```
 paxman/
-├── __init__.py                    # Public API exports
+├── __init__.py                    # Public API exports (canonicalize, register_capability, CapabilityError)
+├── api/
+│   ├── __init__.py
+│   └── canonicalize.py            # Public canonicalize() function → run_capability()
 ├── core/
-│   ├── __init__.py
+│   ├── __init__.py                # Re-exports domain vocabulary + registry functions
 │   ├── capability.py              # Capability abstract class
-│   ├── contract.py                # Contract protocol
-│   ├── discovery.py               # Capability registry
-│   ├── domain.py                  # Provenance, Candidate, Rule, Grammar, etc.
+│   ├── capability_contract.py     # CapabilityContract base (output_format policy)
+│   ├── contract.py                # Contract protocol + resolve_output_format
+│   ├── discovery.py               # Capability registry (register/freeze/reset)
+│   ├── domain.py                  # Provenance, Candidate, Rule, Grammar, Notation, etc.
 │   └── errors.py                  # Exception hierarchy
-├── capabilities/
-│   ├── __init__.py
-│   ├── Email/
-│   │   ├── __init__.py
-│   │   ├── capability.py          # EmailCapability
-│   │   ├── contract.py            # EmailContract
-│   │   ├── notation.py            # EmailNotation dataclass
-│   │   ├── grammar/
-│   │   │   ├── __init__.py
-│   │   │   ├── standard_recognition.py
-│   │   │   ├── obfuscated_recognition.py
-│   │   │   └── localhost_recognition.py
-│   │   └── rules/
-│   │       ├── __init__.py
-│   │       ├── rfc_5322_ed2008.py
-│   │       └── rfc_6761_ed2012.py
-│   └── Date/
-│       ├── __init__.py
-│       ├── capability.py          # DateCapability
-│       ├── contract.py            # DateContract
-│       ├── notation.py            # DateNotation dataclass
-│       ├── grammar/
-│       │   ├── __init__.py
-│       │   ├── iso8601_recognition.py
-│       │   ├── us_recognition.py
-│       │   └── european_recognition.py
-│       └── rules/
-│           ├── __init__.py
-│           ├── iso_8601_ed2019.py
-│           ├── us_federal_rules_ed2023.py
-│           └── en_50160_ed2010.py
 ├── engine/
 │   ├── __init__.py
-│   └── orchestrator.py            # Pipeline orchestrator
-└── api/
-    ├── __init__.py
-    └── canonicalize.py            # Public canonicalize() function
+│   └── orchestrator.py            # run_capability() pipeline orchestrator + ExecutionResult
+└── capabilities/
+    ├── __init__.py                # Acronym alias exports (Email, Date, Country, ...) + __all__
+    ├── Email/                     # grammar/ (3) + rules/ (2) — RFC 5322, RFC 6761
+    │   ├── __init__.py
+    │   ├── capability.py          # EmailCapability
+    │   ├── contract.py            # EmailContract
+    │   ├── notation.py            # EmailNotation dataclass
+    │   ├── grammar/
+    │   │   ├── standard_recognition.py
+    │   │   ├── obfuscated_recognition.py
+    │   │   └── localhost_recognition.py
+    │   └── rules/
+    │       ├── rfc_5322_ed2008.py
+    │       └── rfc_6761_ed2012.py
+    ├── Date/                      # grammar/ (3) + rules/ (3) — ISO 8601, US federal, EN 50160
+    │   ├── capability.py          # DateCapability
+    │   ├── contract.py            # DateContract
+    │   ├── notation.py            # DateNotation dataclass
+    │   ├── grammar/
+    │   │   ├── iso8601_recognition.py
+    │   │   ├── us_recognition.py
+    │   │   └── european_recognition.py
+    │   └── rules/
+    │       ├── iso_8601_ed2019.py
+    │       ├── us_federal_rules_ed2023.py
+    │       └── en_50160_ed2010.py
+    ├── Country/                   # grammar/ (4) + rules/ (3) + grammar/data/ + rules/data/
+    │   ├── capability.py          # CountryCapability
+    │   ├── contract.py            # CountryContract
+    │   ├── notation.py            # CountryNotation (shape, value)
+    │   ├── name_normalization.py  # LEGACY one-off — not a pattern to copy
+    │   ├── grammar/               # alpha2, alpha3, numeric, name_recognition
+    │   ├── grammar/data/          # english_names, localized_names, historical_names, chinese_names
+    │   ├── rules/                 # iso_3166_ed2024, iso_3166_historical_ed2020, cldr_localized_ed2025
+    │   └── rules/data/            # iso_3166_ed2024, iso_3166_ed2020_part3, cldr_ed2025
+    ├── Currency/                  # grammar/ (3) + rules/ (2) + grammar/data/ + rules/data/ — ISO 4217, CLDR
+    │   ├── capability.py          # CurrencyCapability
+    │   ├── contract.py            # CurrencyContract (default_currency opt-in)
+    │   ├── notation.py            # CurrencyNotation (text, shape)
+    │   ├── grammar/               # code, symbol, word_recognition
+    │   ├── grammar/data/          # currency_symbols, currency_words
+    │   ├── rules/                 # iso_4217_ed2015, cldr_currencies_ed2025
+    │   └── rules/data/            # iso4217_list_one, cldr_currencies
+    ├── IP/                        # grammar/ (2) + rules/ (2) — RFC 791, RFC 5952
+    │   ├── capability.py          # IPCapability
+    │   ├── contract.py            # IPContract
+    │   ├── notation.py            # IPNotation
+    │   ├── grammar/               # ipv4, ipv6_recognition
+    │   └── rules/                 # rfc_791_ed1981, rfc_5952_ed2010
+    ├── ISBN/                      # grammar/ (2) + rules/ (3) + rules/data/ — ISO 2108, Users' Manual, Range Message
+    │   ├── capability.py          # ISBNCapability
+    │   ├── contract.py            # ISBNContract
+    │   ├── notation.py            # ISBNNotation (shape, digits)
+    │   ├── grammar/               # isbn10, isbn13_recognition
+    │   ├── rules/                 # iso_2108_ed2017, isbn_users_manual_ed2012, isbn_range_message_ed2026
+    │   └── rules/data/            # range_message (GENERATED via tools/regenerate_isbn_range_data.py)
+    ├── Money/                     # grammar/ (3) + rules/ (2) + grammar/data/ + rules/data/ — ISO 4217, CLDR
+    │   ├── capability.py          # MoneyCapability
+    │   ├── contract.py            # MoneyContract (precision, dollar_sign_currency)
+    │   ├── notation.py            # MoneyNotation (currency_part, amount_part, ...)
+    │   ├── parsing.py             # amount parsing helpers
+    │   ├── grammar/               # code, symbol, word_recognition
+    │   ├── grammar/data/          # currency_symbols, currency_words
+    │   ├── rules/                 # iso_4217_ed2015, cldr_currencies_ed2025
+    │   └── rules/data/            # iso4217_list_one, cldr_currencies
+    ├── Phone/                     # grammar/ (4) + rules/ (3) + rules/data/ — E.164, RFC 3966, NANP
+    │   ├── capability.py          # PhoneCapability
+    │   ├── contract.py            # PhoneContract (default_country)
+    │   ├── notation.py            # PhoneNotation
+    │   ├── grammar/               # e164, tel_uri, international_00, national_recognition (+ common.py LEGACY)
+    │   ├── rules/                 # e164_ed2010, rfc_3966_ed2004, nanp_ed2024
+    │   └── rules/data/            # e164_country_codes, nanp_tables
+    └── URL/                       # grammar/ (1) + rules/ (1) + rules/data/ — WHATWG URL Standard
+        ├── capability.py          # URLCapability
+        ├── contract.py            # URLContract
+        ├── notation.py            # URLNotation
+        ├── parsing.py             # WHATWG URL parsing helpers
+        ├── grammar/               # absolute_uri_recognition
+        ├── rules/                 # whatwg_url_standard
+        └── rules/data/            # idna_uts46_mapping
 ```
+
+**In development (not yet in tree):** the SI Unit capability (branch `feature/si-unit-capability`, research at `docs/research/2026-08-09-si-unit-canonicalization.md`). Structure will follow the Currency LOOKUP_TABLE template with BIPM SI Brochure data under `rules/data/`.
 
 ### Package Responsibilities
 
 | Package | Responsibility |
 |---------|----------------|
-| `paxman.core` | Domain objects, protocols, discovery |
-| `paxman.capabilities` | Capability implementations |
+| `paxman.core` | Domain objects, protocols, discovery (import-linter leaf — imports from nothing inside `paxman.*`) |
+| `paxman.capabilities` | Capability implementations (import only from `paxman.core`) |
 | `paxman.engine` | Pipeline orchestration |
 | `paxman.api` | Public API entry points |
 
@@ -691,35 +803,55 @@ paxman/
 ### Test Structure
 ```
 tests/
-├── unit/
-│   ├── test_provenance.py        # Provenance dataclass
-│   ├── test_candidate.py         # Candidate dataclass
-│   ├── test_recognized_rep.py    # RecognizedRep dataclass
-│   ├── test_resolution.py        # Resolution enum
-│   ├── test_contract.py          # Contract validation
-│   ├── test_version_stamp.py     # VersionStamp + replay_hash
-│   ├── test_capability_exports.py # Capability exports validation
-│   └── test_errors.py            # Exception hierarchy
-├── capabilities/
-│   ├── email/
-│   │   ├── test_grammar.py       # Recognition rules
-│   │   ├── test_rules.py         # Validation rules
-│   │   └── test_capability.py    # Capability registration
-│   └── date/
-│       ├── test_grammar.py       # Recognition rules
-│       ├── test_rules.py         # Validation rules
-│       └── test_capability.py    # Capability registration
-├── property/
-│   ├── __init__.py
+├── conftest.py                    # loads hypothesis "ci" profile
+├── unit/                          # -m unit        core domain, registry, contracts, purity scans
+│   ├── test_provenance.py         # Provenance dataclass
+│   ├── test_candidate.py          # Candidate dataclass
+│   ├── test_recognized_rep.py     # RecognizedRep dataclass
+│   ├── test_resolution.py         # Resolution enum
+│   ├── test_contract.py           # Contract protocol/validation
+│   ├── test_capability_contract.py# CapabilityContract (output_format policy, defaults)
+│   ├── test_capability.py         # Capability ABC
+│   ├── test_capability_surface.py # Surface homogeneity across capabilities
+│   ├── test_capability_exports.py # __init__ export completeness (9 capabilities)
+│   ├── test_version_stamp.py      # VersionStamp + replay_hash
+│   ├── test_discovery.py          # Registry register/freeze/reset
+│   ├── test_errors.py             # Exception hierarchy
+│   ├── test_rule_metadata.py      # Rule modules importable + metadata
+│   ├── test_rule_output_format_purity.py  # bans output_format in rules (CI scan)
+│   ├── test_grammar_semantic_purity.py    # grammar↔rules import/meaning boundary
+│   └── test_package_install.py    # packaging sanity
+├── capabilities/                  # -m capability  per-capability, lowercase dirs
+│   ├── country/                   # test_grammar, test_rules, test_capability, test_data_consistency
+│   ├── currency/                  # + test_contract, test_notation, test_data
+│   ├── date/                      # test_grammar, test_rules, test_capability
+│   ├── email/                     # test_grammar, test_rules, test_capability
+│   ├── ip/                        # test_grammar, test_rules, test_capability
+│   ├── isbn/                      # + test_contract, test_notation, test_data
+│   ├── money/                     # + test_contract, test_notation, test_data, test_parsing
+│   ├── phone/                     # + test_data
+│   └── url/                       # + test_contract, test_notation, test_data, test_parsing, test_rule
+├── integration/                   # -m integration pipeline, ambiguity, temporal, replay hashes,
+│   │                              # feature gating, format_value seam, per-capability pipelines
+│   ├── test_pipeline.py           # Full pipeline flow
+│   ├── test_ambiguity.py          # Ambiguity detection
+│   ├── test_temporal.py           # Year-based filtering
+│   ├── test_feature_gating.py     # include_* / requires_features loci
+│   ├── test_format_value_seam.py  # output_format presentation seam
+│   ├── test_recognition_seam.py   # span-bearing RecognitionMatch contract
+│   ├── test_default_replay_hashes.py  # baseline replay hashes (do not edit literals)
+│   └── test_<cap>_pipeline.py     # country, currency, date, money, phone, url pipelines
+├── property/                      # -m property    hypothesis property tests
 │   ├── test_domain_properties.py
 │   ├── test_grammar_properties.py
-│   └── test_rule_properties.py
-├── integration/
-│   ├── test_pipeline.py          # Full pipeline flow
-│   ├── test_ambiguity.py         # Ambiguity detection
-│   └── test_temporal.py          # Year-based filtering
-└── e2e/
-    └── test_canonicalize.py      # End-to-end user scenarios
+│   ├── test_rule_properties.py
+│   ├── test_format_value_properties.py
+│   ├── test_currency_properties.py
+│   ├── test_isbn_properties.py
+│   ├── test_money_properties.py   # full-pipeline exception (local _fresh_registry fixture)
+│   └── test_url_properties.py
+└── e2e/                           # -m e2e         canonicalize() end-to-end
+    └── test_canonicalize.py       # End-to-end user scenarios
 ```
 
 ### Test Markers
@@ -743,6 +875,8 @@ def test_ambiguity_detection(): ...
 def test_canonicalize_email_success(): ...
 ```
 
+Per-capability markers are registered for `country`, `currency`, `isbn`, `money`, and `url` — run one capability's suite directly with `uv run pytest tests/capabilities/<cap>` (or `-m <cap>`). Capability dirs are lowercase (`isbn`, not `ISBN`).
+
 ---
 
 ## Architectural Enforcement
@@ -750,11 +884,12 @@ def test_canonicalize_email_success(): ...
 ### Toolchain
 | Tool | Purpose | Configuration |
 |------|---------|---------------|
-| **ruff** | Linting + formatting | `pyproject.toml` |
-| **pyright** | Static type checking (strict) | `pyrightconfig.json` |
+| **uv** | Dependency management + command runner | `pyproject.toml` (every command via `uv run`) |
+| **ruff** | Linting + formatting | `pyproject.toml` (`[tool.ruff]`) |
+| **pyright** | Static type checking (strict) | `pyproject.toml` (`[tool.pyright]` — no `pyrightconfig.json`) |
 | **import-linter** | Enforce import boundaries | `pyproject.toml` |
 | **pytest** | Testing | `pyproject.toml` |
-| **hypothesis** | Property-based testing | `conftest.py` |
+| **hypothesis** | Property-based testing | `tests/conftest.py` |
 
 ### Import Rules (import-linter)
 ```toml
@@ -783,20 +918,26 @@ markers = [
     "integration: integration tests",
     "e2e: end-to-end tests",
     "property: property-based tests (Hypothesis)",
+    "country: country capability tests",
+    "currency: currency capability tests",
+    "isbn: isbn capability tests",
+    "money: money capability tests",
+    "url: url capability tests",
 ]
 testpaths = ["tests"]
 ```
 
 ### Pyright Configuration
-```json
-{
-  "pythonVersion": "3.11",
-  "typeCheckingMode": "strict",
-  "reportMissingImports": true,
-  "reportMissingTypeStubs": false,
-  "include": ["paxman"],
-  "exclude": ["tests", "docs"]
-}
+Pyright is configured inline in `pyproject.toml` (there is **no** `pyrightconfig.json` in this repo):
+
+```toml
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+include = ["paxman"]
+exclude = ["tests", "docs"]
 ```
 
 ### Hypothesis Configuration
@@ -840,16 +981,4 @@ select = [
     "B",    # flake8-bugbear
     "SIM",  # flake8-simplify
 ]
-```
-
-### Pyright Configuration
-```json
-{
-  "pythonVersion": "3.11",
-  "typeCheckingMode": "strict",
-  "reportMissingImports": true,
-  "reportMissingTypeStubs": false,
-  "include": ["paxman"],
-  "exclude": ["tests", "docs"]
-}
 ```

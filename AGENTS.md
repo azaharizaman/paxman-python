@@ -85,9 +85,9 @@ uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data mod
 Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-linter lint && pytest`
 
 ## NOTES
-- `paxman/capabilities/__init__.py` exports all nine capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL); export completeness is enforced by `tests/unit/test_capability_exports.py`.
-- CONTEXT.md documents only Email/Date (HttpStatusCode example doesn't exist). Real set: Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL.
+- `paxman/capabilities/__init__.py` exports all nine shipped capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL); export completeness is enforced by `tests/unit/test_capability_exports.py`. A 10th — SI Unit (BIPM SI Brochure) — is in development on `feature/si-unit-capability`; update counts and the export/enumeration lists when it lands.
+- CONTEXT.md is the domain glossary for the full shipped set (nine capabilities). It is kept in sync with the code; when adding a capability, update its Notation/table entries there too.
 - No `pyrightconfig.json` — pyright config is inline `[tool.pyright]` in pyproject.toml. No `.editorconfig`.
-- Data modules live under `rules/data/` (Country, Money, Phone, ISBN) and `grammar/data/` (Country, Money) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
+- Data modules live under `rules/data/` (Country, Currency, ISBN, Money, Phone, URL) and `grammar/data/` (Country, Currency, Money) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
 - Library only — no CLI, no `__main__.py`, no `[project.scripts]`. Version 0.2.0.
 - Coverage: global `fail_under = 95` + per-package 95% gates in CI.

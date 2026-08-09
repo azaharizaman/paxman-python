@@ -1,7 +1,7 @@
 # TESTS KNOWLEDGE BASE
 
 ## OVERVIEW
-Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers, 9 capability packages.
+Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers, 9 shipped capability packages (10th — SI Unit — in development on `feature/si-unit-capability`; update counts when it lands).
 
 ## STRUCTURE
 ```text
@@ -33,7 +33,7 @@ tests/
 ## CONVENTIONS
 - One layer per directory. New test placement: `unit/` for core-only behavior, `capabilities/<cap>/` for one capability's grammar/rules/capability, `integration/` for pipeline + cross-capability flows, `property/` for hypothesis, `e2e/` for full `canonicalize()`.
 - Capability dirs are lowercase (`isbn`, not `ISBN`). Each holds `test_grammar.py`, `test_rules.py`, `test_capability.py`, plus `test_notation.py` / `test_contract.py` where the capability has them, plus `test_data.py` for generated data.
-- Run one capability's suite directly: `uv run pytest tests/capabilities/isbn` (per-capability markers `-m country`, `-m isbn`, `-m money` are registered; they select only the modules that carry them).
+- Run one capability's suite directly: `uv run pytest tests/capabilities/isbn` (per-capability markers `-m country`, `-m currency`, `-m isbn`, `-m money`, `-m url` are registered; they select only the modules that carry them).
 - `tests/conftest.py` loads the hypothesis "ci" profile: `max_examples=100`, `deadline=None`, `too_slow` suppressed. Property tests assume this profile; don't override per test.
 - Registry hygiene: integration + e2e suites use an autouse `_clean_registry` fixture calling `reset_registry()`; `test_discovery.py` resets it per test. Property tests never touch the registry (they drive grammars/rules/`format_value` directly) — the sole exception is `test_money_properties.py`, which locks full-pipeline invariants with a local `_fresh_registry` fixture (documented in its module docstring).
 - TDD: failing test first; no skipped tests without justification.
