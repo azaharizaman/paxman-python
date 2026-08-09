@@ -9,6 +9,7 @@ from paxman.capabilities import (
     ISBN,
     URL,
     Country,
+    Currency,
     Date,
     Email,
     Money,
@@ -38,6 +39,18 @@ class TestCountryCapabilityExports:
     def test_country_capability_name(self) -> None:
         """Country capability has correct name."""
         assert Country.name == "country"
+
+
+class TestCurrencyCapabilityExports:
+    @pytest.mark.unit
+    def test_currency_capability_importable(self) -> None:
+        """Currency capability is importable from paxman.capabilities."""
+        assert Currency is not None
+
+    @pytest.mark.unit
+    def test_currency_capability_name(self) -> None:
+        """Currency capability has correct name."""
+        assert Currency.name == "currency"
 
 
 class TestDateCapabilityExports:
@@ -112,12 +125,13 @@ class TestURLCapabilityExports:
         assert URL.name == "url"
 
     @pytest.mark.unit
-    def test_export_list_contains_eight_names(self) -> None:
-        """The registration surface exports exactly eight capabilities."""
+    def test_export_list_contains_nine_names(self) -> None:
+        """The registration surface exports exactly nine capabilities."""
         import paxman.capabilities as capabilities
 
         assert set(capabilities.__all__) == {
             "Country",
+            "Currency",
             "Date",
             "Email",
             "IP",

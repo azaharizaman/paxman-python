@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from paxman.api import canonicalize
+from paxman.capabilities.Currency.capability import CurrencyCapability
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
@@ -221,3 +222,141 @@ class TestURLCapabilityE2E:
         result = canonicalize("mailto:user@example.com", contract)
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "mailto:user@example.com"
+
+
+class TestCurrencyCapabilityE2E:
+    """End-to-end tests for the Currency capability through paxman.canonicalize.
+
+    Rows are the public-API-facing subset of the plan §1 e2e contract,
+    with the two Task-8 corrections applied (the £ shared-symbol row and
+    the Dollars plural row — see the marked tests below).
+    """
+
+    @pytest.mark.e2e
+    def test_currency_milestone_qualified_symbol(self) -> None:
+        """Milestone: "US$" resolves to "USD" via the qualified symbol."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("US$", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "USD"
+
+    @pytest.mark.e2e
+    def test_currency_milestone_lowercase_word(self) -> None:
+        """Milestone: "euro" resolves to "EUR" via the lowercase word (D4)."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("euro", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "EUR"
+
+    @pytest.mark.e2e
+    def test_currency_milestone_code(self) -> None:
+        """Milestone: "GBP" resolves to "GBP"."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("GBP", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "GBP"
+
+    @pytest.mark.e2e
+    def test_currency_case_insensitive_code(self) -> None:
+        """D3: the case-insensitive code grammar folds "usd" to "USD"."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("usd", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "USD"
+
+    @pytest.mark.e2e
+    def test_currency_definitive_bare_symbol(self) -> None:
+        """A definitive bare symbol ("€") resolves without any opt-in."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("\u20ac", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "EUR"
+
+    @pytest.mark.e2e
+    def test_currency_pound_shared_symbol_invalid(self) -> None:
+        """CORRECTED from the plan §1 table (was SUCCESS "GBP"): "£" is a
+        SHARED bare symbol — SYMBOL_TO_CODES["£"] has 6 candidates (FKP, GBP,
+        GIP, SHP, SSP, SYP) — so without the default_currency opt-in it is
+        INVALID (D6), never SUCCESS "GBP" (Task 8 correction, locked in
+        tests/integration/test_currency_pipeline.py).
+        """
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("\u00a3", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.e2e
+    def test_currency_bare_dollar_invalid_without_opt_in(self) -> None:
+        """D6: shared "$" (29 dollar-family candidates) is INVALID without opt-in."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("$", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.e2e
+    def test_currency_bare_dollar_with_default_currency(self) -> None:
+        """D6 opt-in: "$" with default_currency="USD" resolves to "USD"."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract(default_currency="USD")
+        result = canonicalize("$", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "USD"
+
+    @pytest.mark.e2e
+    def test_currency_full_code_set_no_minor_units(self) -> None:
+        """D2: "XAU" (no minor units) resolves — the full 178-code set."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("XAU", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "XAU"
+
+    @pytest.mark.e2e
+    def test_currency_code_span_amount_ignored(self) -> None:
+        """USD 500 resolves via its USD span; amounts are Money's domain."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("USD 500", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "USD"
+
+    @pytest.mark.e2e
+    def test_currency_unknown_code_invalid(self) -> None:
+        """ZZZ is shape-valid but unknown — recognized but INVALID."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("ZZZ", contract)
+        assert result.status == Resolution.INVALID
+
+    @pytest.mark.e2e
+    def test_currency_plural_word_missing(self) -> None:
+        """CORRECTED from the plan §1 table (was INVALID): "Dollars" is not a
+        WORD_TOKENS entry and the plural suffix is blocked by the word-boundary
+        guard — nothing is recognized, so MISSING, never INVALID (Task 8
+        correction, locked in tests/integration/test_currency_pipeline.py).
+        """
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("Dollars", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_currency_amount_glued_token_missing(self) -> None:
+        """D5 whole-token discipline: amount-glued "US$5" is never partial-matched."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("US$5", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_currency_empty_input_missing(self) -> None:
+        """Empty input matches nothing — MISSING."""
+        register_capability(CurrencyCapability())
+        contract = CurrencyCapability.create_contract()
+        result = canonicalize("", contract)
+        assert result.status == Resolution.MISSING

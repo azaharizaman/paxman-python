@@ -1,0 +1,1 @@
+"""Currency rule data tables."""

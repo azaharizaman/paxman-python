@@ -6,6 +6,7 @@ shifts a hash and fails here. Literals captured 2026-08-04 on the
 refactor/streamline-recognition branch. ISBN baseline added 2026-08-05.
 Money baseline added 2026-08-06.
 URL baseline added 2026-08-07.
+Currency baseline added 2026-08-08.
 
 The recognition-homogeneity migration MUST land with zero hash changes:
 the candidate set it produces is identical to today's. Update these
@@ -16,6 +17,7 @@ import pytest
 
 import paxman
 from paxman.capabilities.Country.capability import CountryCapability
+from paxman.capabilities.Currency.capability import CurrencyCapability
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.IP.capability import IPCapability
@@ -33,6 +35,7 @@ from paxman.core.domain import Resolution
 BASELINE_HASHES = {
     "date": "30d8cda36f6c484ae97142642eeb76f815759eb051e51432fa264b9b4bb9b5f2",
     "country": "1f56d993e973871a45f35d57e13efe1448f18e5d663aa763f2899364f041ac85",
+    "currency": "ff9bc40dc7f1be6237257f02d08ee75f4a7409ab69626cb02ac3c349d1a8e5b8",
     "email": "dccb1dec8fbd851c360ecb5feb0ed321a00a2ee6931ed2ba6505c0f92f9ffa31",
     "ip": "f1ae902a100305b511413c34b95ae444386fc864da31c1a02e00fbe1faefa8e4",
     "phone": "01cd035c735461929e5c2974e3b65fbbd615c389c15c3a650113e5050057df7a",
@@ -81,3 +84,12 @@ def test_url_capability_replay_hash():
     result = paxman.canonicalize("HTTPS://Example.COM:443/path/../other", contract)
     assert result.status == Resolution.SUCCESS
     assert result.version_stamp.replay_hash == BASELINE_HASHES["url"]
+
+
+@pytest.mark.integration
+def test_currency_capability_replay_hash():
+    register_capability(CurrencyCapability())
+    contract = CurrencyCapability.create_contract(year=2026)
+    result = paxman.canonicalize("US$", contract)
+    assert result.status == Resolution.SUCCESS
+    assert result.version_stamp.replay_hash == BASELINE_HASHES["currency"]

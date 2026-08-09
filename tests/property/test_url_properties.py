@@ -37,6 +37,22 @@ from paxman.capabilities.URL.parsing import parse_and_serialize
 # excludes (D16: at least one body character after the colon).
 _CANONICAL_SHAPE = re.compile(r"^[a-z][a-z0-9+.\-]*:.*$")
 
+# The grammar's body class (its Appendix C right boundary) excludes exactly:
+# space, angle brackets, double quote, every C0 control except tab/LF/CR
+# (which it admits for multi-line URIs), and DEL. A body opened by one of
+# these, or whose leading ")" run the Appendix C paren strip reduces to the
+# bare scheme, is deliberately not emitted as a span.
+_GRAMMAR_BODY_EXCLUDED = frozenset(
+    ' <>"'
+    + "".join(chr(code) for code in range(0x20) if code not in (0x09, 0x0A, 0x0D))
+    + "\x7f"
+)
+
+# WHATWG strips tab/LF/CR before parsing (parse_and_serialize): a scheme
+# interrupted by one of these parses after stripping but is unanchorable
+# for the grammar, which only admits them inside the body.
+_WHITESPACE_STRIPPED = "\t\n\r"
+
 
 @pytest.mark.property
 @given(text=st.text(alphabet=string.printable, max_size=120))
@@ -72,10 +88,12 @@ def test_recognize_subset_of_parseable(text: str) -> None:
 
     ``recognize`` is a superset of the rule's domain: every recognized span
     either parses (the rule validates it) or is a recognized-but-unvalidated
-    span (the rule rejects it — INVALID), and any input the parser accepts
-    must have been recognized. The sole exception is a bare scheme such as
-    ``a:``, which the parser accepts per WHATWG but the grammar deliberately
-    excludes (D16: no body after the colon).
+    span (the rule rejects it — INVALID). The converse is bounded by the
+    grammar's extraction boundaries: when the parser accepts a body the
+    grammar declines, that body must be non-extractable — bare (D16), opened
+    by an Appendix C delimiter or a C0/DEL control, an all-paren body the
+    paren strip reduces to the bare scheme, or a scheme interrupted by
+    whitespace the parser strips (tab/LF/CR).
     """
     grammar = AbsoluteUriRecognition()
     matches = grammar.recognize(text)
@@ -83,4 +101,11 @@ def test_recognize_subset_of_parseable(text: str) -> None:
         # Never raises; outcome is a value (accepted) or None (unvalidated).
         parse_and_serialize(match.raw_text)
     if parse_and_serialize(text) is not None and not matches:
-        assert text.partition(":")[2] == ""
+        body = text.partition(":")[2]
+        assert (
+            not body
+            or body[0] in _GRAMMAR_BODY_EXCLUDED
+            or body.lstrip(")") == ""
+            or body.lstrip(")")[0] in _GRAMMAR_BODY_EXCLUDED
+            or any(char in _WHITESPACE_STRIPPED for char in text.partition(":")[0])
+        )
