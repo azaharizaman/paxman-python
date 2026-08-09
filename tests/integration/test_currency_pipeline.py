@@ -1,5 +1,8 @@
 """Integration tests for the Currency capability pipeline."""
 
+from collections.abc import Iterator
+from typing import TypedDict
+
 import pytest
 
 from paxman.api import canonicalize
@@ -8,8 +11,15 @@ from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
 
 
+class _ContractKwargs(TypedDict, total=False):
+    """Contract keyword arguments a parametrized row forwards to
+    ``CurrencyCapability.create_contract()``."""
+
+    default_currency: str
+
+
 @pytest.fixture(autouse=True)
-def _clean_registry() -> None:
+def _clean_registry() -> Iterator[None]:
     """Reset the capability registry before and after each test."""
     reset_registry()
     yield
@@ -93,14 +103,13 @@ class TestCurrencyPipeline:
     def test_e2e_contract(
         self,
         text: str,
-        contract_kwargs: dict[str, str],
+        contract_kwargs: _ContractKwargs,
         expected_status: Resolution,
         expected_value: str | None,
     ) -> None:
         """Every row of the plan §1 e2e contract through canonicalize()."""
         register_capability(CurrencyCapability())
-        default_currency = contract_kwargs.get("default_currency")
-        contract = CurrencyCapability.create_contract(default_currency=default_currency)
+        contract = CurrencyCapability.create_contract(**contract_kwargs)
         result = canonicalize(text, contract)
         assert result.status == expected_status
         assert result.canonicalized_value == expected_value

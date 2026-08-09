@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 
 from paxman.capabilities.Currency.contract import CurrencyContract
@@ -44,7 +46,9 @@ def test_invalid_default_currency(value: object) -> None:
     if value is None:
         return
     with pytest.raises(ContractError):
-        CurrencyContract(default_currency=value)  # type: ignore[arg-type]
+        # cast keeps the deliberately-invalid input type-safe at the
+        # boundary; runtime validation rejects non-str/improper values.
+        CurrencyContract(default_currency=cast(str, value))
 
 
 def test_valid_default_currency() -> None:

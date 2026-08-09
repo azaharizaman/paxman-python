@@ -9,6 +9,7 @@ resolves via the opt-in ``contract.default_currency`` (None, the default,
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import cast
 
 from paxman.capabilities.Currency.contract import CurrencyContract
@@ -29,6 +30,38 @@ PUBLICATION = Provenance(
     lifecycle="active",
     publication_year=2025,
 )
+
+
+def _resolve_code(
+    lookup: Mapping[str, tuple[str, ...]],
+    notation: CurrencyNotation,
+    contract: CurrencyContract,
+) -> str | None:
+    """Resolve a lookup-table token to an ISO 4217 code.
+
+    A token with exactly one candidate resolves to it; a multi-candidate
+    token (e.g. "$", "¥") resolves via the opt-in ``contract.default_currency``
+    when that code is one of the token's own candidates (guarded against
+    the token's candidate tuple, not the global CURRENCY_CODES set, so a
+    valid code that never represents the token — "$" with MYR — can never
+    produce a SUCCESS). Resolves to None otherwise, which makes matches()
+    return False (INVALID).
+
+    Args:
+        lookup: Symbol- or name-keyed candidate mapping.
+        notation: Currency notation to resolve.
+        contract: Currency contract (default_currency).
+
+    Returns:
+        The resolved ISO 4217 code, or None when no code can be resolved.
+    """
+    codes = lookup.get(notation.text)
+    if codes is None:
+        return None
+    if len(codes) == 1:
+        return codes[0]
+    candidate = contract.default_currency
+    return candidate if candidate in codes else None
 
 
 def _resolve_symbol_code(
@@ -52,13 +85,7 @@ def _resolve_symbol_code(
     Returns:
         The resolved ISO 4217 code, or None when no code can be resolved.
     """
-    codes = SYMBOL_TO_CODES.get(notation.text)
-    if codes is None:
-        return None
-    if len(codes) == 1:
-        return codes[0]
-    candidate = contract.default_currency
-    return candidate if candidate in codes else None
+    return _resolve_code(SYMBOL_TO_CODES, notation, contract)
 
 
 def _resolve_name_code(
@@ -79,13 +106,7 @@ def _resolve_name_code(
     Returns:
         The resolved ISO 4217 code, or None when no code can be resolved.
     """
-    codes = NAME_TO_CODES.get(notation.text)
-    if codes is None:
-        return None
-    if len(codes) == 1:
-        return codes[0]
-    candidate = contract.default_currency
-    return candidate if candidate in codes else None
+    return _resolve_code(NAME_TO_CODES, notation, contract)
 
 
 class SectionSymbols(Rule[CurrencyNotation]):

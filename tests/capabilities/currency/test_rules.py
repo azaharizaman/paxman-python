@@ -174,8 +174,9 @@ class TestSectionSymbols:
         assert self.rule.normalize(notation, contract) == expected
 
     def test_unknown_default_currency_never_resolves(self) -> None:
-        """A shape-valid but unknown default_currency (ZZZ) is gated against
-        CURRENCY_CODES: the shared symbol is INVALID, never resolved (D6).
+        """A shape-valid but unknown default_currency (ZZZ) never resolves
+        the shared symbol: the opt-in is gated against the symbol's own
+        candidate tuple, and ZZZ is absent from "$"'s candidates (D6).
         """
         contract = CurrencyContract(default_currency="ZZZ")
         notation = _notation("$", "symbol")
