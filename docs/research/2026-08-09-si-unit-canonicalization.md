@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-08-09 |
-| **Scope** | Research and design for the SI unit capability (MILESTONE.md row 23: "SI unit — LOOKUP_TABLE (unit name/symbol/prefix lookup, case-sensitive canonical symbols); provenance BIPM SI Brochure (9th edition, 2019), IEC 80000-1, ISO 80000"). Covers: the SI unit universe as a data surface, the case-sensitivity/ambiguity problem, recognition strategy, rule and data layout, contract surface, registration wiring, and test strategy. Sibling template: Currency (the canonical LOOKUP_TABLE capability, added 2026-08-08). |
+| **Scope** | Research and design for the SI unit capability (MILESTONE.md row 23: "SI unit — LOOKUP_TABLE (unit name/symbol/prefix lookup, case-sensitive canonical symbols); provenance BIPM SI Brochure (9th edition, 2019), IEC 80000-1, ISO 80000"). Covers: the SI unit universe as a data surface, the case-sensitivity/ambiguity problem, recognition strategy, rule and data layout, contract surface, output-format policy (the decorative layer, §7), registration wiring, and test strategy. Sibling template: Currency (the canonical LOOKUP_TABLE capability, added 2026-08-08). |
 | **Out of scope** | Quantities with numbers ("5 kg" — a future measurement capability); non-SI unit systems (imperial/US customary, cgs); IEC 80000-13 binary prefixes (kibi/quebi — a bit/byte capability); Unicode/LaTeX rendering of canonical output; conversion between units of different dimensions. |
 | **Evidence basis** | Primary sources fetched and section-verified this session: [SI Brochure, 9th edition] current PDF **v4.01 (June 2026)**, 102 pp., DOI 10.59161/AUEZ1291 — extracted to `/tmp/opencode/si-brochure-9.txt` and page-verified (base units Table 3, derived units Table 4, prefixes Table 7, non-SI units Table 8, §5.2 writing rules); [27th CGPM Resolution 3 (2022)] (new prefixes) — bipm.org; [ISO 80000-1:2022] — iso.org. Empirical verification: pint @ `6fc0533` (`pint/default_en.txt` anchors L64–96 prefixes, L130 micron, L162 astronomical_unit, L169 metric_ton, L176 degree_Celsius, L180 minute; `parse_units` registry.py:1266; `get_name` registry.py:653) and sympy `physics.units` cloned and behavior-verified live; astropy.units exercised in a partial run. No source code, tests, or configuration were modified. Repo state: branch `feature/si-unit-capability` @ `0a585d2`. |
 
@@ -17,7 +17,8 @@
 4. **The real recognition complexity is prefixed symbols and compound expressions.** `MHz`, `km`, `µm` form a combinatorial vocabulary (24 prefixes × ~29 prefixable units, with the kilogram→gram exception), and `m/s²`, `km/h`, `N·m` are compound expressions requiring a shape grammar plus superscript normalization (`²` → `2`). This is a PARSER-shaped problem inside a LOOKUP_TABLE capability.
 5. **Currency is the structural template throughout**: the same 6-slot package layout (`notation/contract/capability/grammar/rules` + `data/` subdirs), lexicon grammars feeding `LOOKUP_TABLE` rules with one `PUBLICATION` per file, key-only grammar data locked set-equal to rule data by a consistency test, and the four registration touch-points (alias import, runtime register, export test, replay-hash baseline).
 6. **No existing Python library canonicalizes to the Brochure's own case-sensitive symbols.** pint (the richest registry) empirically collides on `k` → Boltzmann constant, `da` → deciyear, `u` → dalton, `B` → byte, and is whitespace-sensitive (`ms` vs `m s`); sympy ships only 20 prefixes and no `degree_Celsius`; astropy is symbol-preserving with US spellings and rejects `litre`/`celsius`/`Np`. All are validation/data cross-checks — the Brochure is the source of truth, exactly as ISO 4217 + CLDR are for Currency.
-7. **The SI contract can be the minimal base contract** (Email/IP-style): zero capability-specific fields, `DEFAULT_OUTPUT_FORMAT = "symbol"`, empty `OFFERED_OUTPUT_FORMATS`, inherited identity `format_value`. It is the cleanest contract surface a LOOKUP_TABLE capability has shipped to date.
+7. **The SI contract can be the minimal base contract** (Email/IP-style): zero capability-specific fields, `DEFAULT_OUTPUT_FORMAT = "symbol"`, empty `OFFERED_OUTPUT_FORMATS`, inherited identity `format_value`. It is the cleanest contract surface a LOOKUP_TABLE capability has shipped to date — and the empty offering set is a criterion-backed decision, not an accident of minimalism (§7).
+8. **`output_format` is a decorative layer, not a second canonicalization.** The engine renders the rule-normalized canonical value *after* validation (`format_value` at orchestrator.py:269) and the rule layer is format-blind (CI purity scan). An offerable format must be **total** over the canonical set (Country offers `name` because every alpha-2 has one; `alpha4` is unofferable because most countries lack it) and **round-trip stable** — `canonicalize(canonicalize(x, C), C)` must reproduce the same value, since the format's output must be a re-recognizable input shape. On those criteria SI's empty `OFFERED_OUTPUT_FORMATS` survives: `"name"` fails on compounds, LaTeX is non-re-entrant, and only superscript-`"unicode"` rendering would qualify today (deferred — §7.4).
 
 ---
 
@@ -298,9 +299,63 @@ Three grammars, mirroring Currency's three — but with two strategic difference
 
 ---
 
-## 7. Paxman Architectural Mapping (HOW_TO Steps 2–10)
+## 7. Output format: the decorative layer
 
-### 7.1 Directory structure (Step 2) and Notation (Step 3)
+Paxman's `output_format` is a **decorative layer applied after the canonical value has been derived** — never a second canonicalization, never a revalidation. This section states where the layer sits in the pipeline, the two criteria any offered format must satisfy, the shipped evidence for those criteria, and what they mean for SI.
+
+### 7.1 Positioning: after derivation, never during it
+
+The engine's `_collect_candidates` (orchestrator.py:245) runs each recognized span through `rule.matches()` (validation), then `rule.normalize()` (canonical derivation), and **only then** renders the value through the capability's presentation seam — `capability.format_value(canonical, contract.output_format, notation)` (orchestrator.py:269) — before candidate dedup and status resolution. The formatted string is what the caller receives; the recognition and validation that produced it never saw the format:
+
+- Rules **cannot read `output_format`** — the CI purity scan (`tests/unit/test_rule_output_format_purity.py`) bans the token from the rule layer.
+- `resolve_output_format()` (paxman/core/contract.py:54) gates *contract construction*, not the pipeline: `None` / `"default"` / the declared default all resolve to the default format; only members of `OFFERED_OUTPUT_FORMATS` pass through; anything else is a `ContractError`.
+
+The positioning is deliberate, and its purpose is usefulness rather than decoration for its own sake. A user who wants the canonical value in a different form does not need a separate resolution path — the usual alternative would re-run recognition and validation against the same authority tables, wasting processing time and risking a *different* answer. Paxman instead validates the true canonical value **once**, then presents that validated value in whatever offered form the caller finds useful. Two consequences are load-bearing:
+
+- **`output_format` never triggers revalidation.** The formatted value is not re-parsed or re-checked within the pass.
+- **`output_format` never changes the canonicalization result.** Recognition, validation, and `normalize()` are format-blind; only the returned presentation differs. If a requested format *would* change the result, it must not be offered at all (§7.2).
+
+### 7.2 Two criteria for an offerable format
+
+**Criterion 1 — total representability.** A format is offerable only if *every* value the capability can canonicalize has a rendering in it — the mapping must be total, not partial. Country offers `"name"` because every ISO 3166-1 alpha-2 code (the canonical value) has an English name; `ALPHA2_TO_NAME` is total. Country can **not** offer `"alpha4"`: alpha-4 codes exist only in ISO 3166-3 for former entities, so most countries have none — the mapping is undefined for the large majority of canonical values, and the format would silently pass them through as if the rendering were meaningful. A partial rendering is not a format, it is a defect.
+
+**Criterion 2 — round-trip stability.** Any offered format's output must be able to re-enter the Paxman pipeline and resolve to the same canonical value, under the same contract promise it was derived from. If the canonical value changes on the second pass, the format is not stable enough to be considered an offering:
+
+```
+paxman.canonicalize(paxman.canonicalize(successful_canonicalize_input, contract), contract) = canonical_value
+```
+
+regardless of which output format the caller wants, or none at all. The double application is a fixed point: the second pass must reproduce the first pass's returned value exactly. For the default format (identity) this reduces to "re-canonicalizing a canonical value returns itself"; for an offered format it means the format's output must be a **recognized input shape** of the same capability — the re-entry must run the same grammars over the formatted string and reach the same canonical value. Criterion 2 is what rules out formats that are merely decorative: any rendering that no grammar can re-read (LaTeX, presentation markup) fails immediately.
+
+### 7.3 Shipped evidence (empirically verified this session)
+
+| Capability | Default | Offered | Criterion 1 | Criterion 2 (verified round-trips) |
+|---|---|---|---|---|
+| Country | `alpha2` | `alpha3`, `numeric`, `name` | ✓ total (every alpha-2 has all three) | ✓ `"US"` → `"USA"` / `"840"` / `"UNITED STATES"` — all re-enter to the same value |
+| ISBN | `isbn13` | `hyphenated` | ✓ Range-Message hyphens are positional, never lossy | ✓ `"9780110002224"` → `"978-0-11-000222-4"` — the isbn13 grammar accepts `[ -]?` separators |
+| Money | `code_amount` | `compact` | ✓ the code/amount separator space is optional in the code grammar | ✓ `"USD500"` → `"USD500.00"` — same glued shape as the original input |
+| Phone | `e164` | `rfc3966`, `national` | ✓ | `rfc3966` ✓ (`"+15551234567"` → `"tel:+15551234567"` re-enters); `national` **⚠** — stable only while the number is valid in the national path; an E.164-valid but NANP-invalid number (`"+15551234567"` → `"5551234567"`) re-enters **INVALID** |
+| Date | `ISO` | `US` | ✓ | **⚠** — stable only while the US reading is unambiguous on re-entry; `"2026-01-02"` → `"01/02/2026"` re-enters **AMBIGUOUS** (a valid European reading also exists) |
+
+The two ⚠ rows are the criterion doing its job. Phone's `national` and Date's `US` both predate the criterion and both have re-entry holes for a subset of inputs — exactly the failure class the criterion exists to prevent. They are the cautionary evidence for why SI's offerings must be gated on both criteria *before* shipping, not audited after.
+
+### 7.4 What the criteria mean for SI
+
+SI ships `DEFAULT_OUTPUT_FORMAT = "symbol"` with an **empty** `OFFERED_OUTPUT_FORMATS` — and the criteria show that is a decision, not a default. Three candidate formats were evaluated:
+
+| Candidate | Rendering | Criterion 1 (total) | Criterion 2 (round-trip) | Verdict |
+|---|---|---|---|---|
+| `"name"` | `kg` → `kilogram`, `MHz` → `megahertz` | ✓ for bare and prefixed symbols — the Brochure names every unit | **✗ for compounds** — `m/s2` has no single-table name; the §5.2 phrase "metre per second squared" is not a recognized input (the name grammar holds unit names, not phrase names) | Not offerable as a whole-capability format; would require compound phrase-name recognition first |
+| `"latex"` | `kg` → `\mathrm{kg}` | ✓ trivially — any string renders | **✗** — no grammar recognizes LaTeX; the output cannot re-enter | **Never offerable** — the textbook case of decorative-but-not-re-entrant |
+| `"unicode"` (superscripts) | `m/s2` → `m/s²`, `s-2` → `s⁻²` | ✓ — every compound exponent is a superscript digit; bare/prefixed symbols are already the Brochure's Unicode (Ω, µ, Å, °C) | ✓ — the compound grammar NFKC-folds `²`→`2` / `⁻²`→`-2` at recognition, so the rendering re-enters to the same ASCII canonical | The **only** format that satisfies both criteria today |
+
+The conclusion: SI v1 keeps `OFFERED_OUTPUT_FORMATS = frozenset()` with identity `format_value`. The symbol form is already the maximal canonical value, and the single re-entrant presentation alternative — superscript `"unicode"` — is a typographic nicety that can be added later behind the same seam. `"name"` stays out until compound phrase-names are a recognized input shape; LaTeX stays out permanently.
+
+---
+
+## 8. Paxman Architectural Mapping (HOW_TO Steps 2–10)
+
+### 8.1 Directory structure (Step 2) and Notation (Step 3)
 
 Mirrors Currency file-for-file; capability directory is `SI` (PascalCase per spec), test directory `si`:
 
@@ -346,15 +401,15 @@ class SIUnitNotation:
 
 `_VALID_SHAPES = frozenset({"symbol", "name", "compound"})`, `__post_init__` rejects empty text / bad shape, `as_list()` returns `[text, shape]`. Currency's exact convention.
 
-### 7.2 Grammar layer (Step 4)
+### 8.2 Grammar layer (Step 4)
 
 - **`symbol_recognition`** — Lexicon strategy, **case-sensitive** (no folding!). Token table = official unit symbols (base ∪ derived ∪ Table 8, minus the "no symbol" units) **plus** the generated prefixed-symbol product, sorted longest-first. Lookarounds (`(?<![\w])…(?![\w])`) prevent mid-word matches, mirroring Currency's sign-blocking lookarounds. Emits `shape="symbol"`.
 - **`name_recognition`** — Lexicon strategy, **case-folded** (the one place folding is safe — unit names are case-insensitive words). Tokens = unit names + prefixed names, longest-first; `"degree Celsius"` multi-word entry; lookbehind blocks attaching to preceding words. Emits `shape="name"`.
-- **`compound_recognition`** — Regex strategy for `A(/|·|⋅)B` and `A·B^n` shapes; applies NFKC to fold `²`→`2`, `⁻²`→`-2`; emits the whole expression as one span with `shape="compound"`. Grammar is shape-only — component validation belongs to the rule (§7.3), exactly the grammar/rule boundary.
+- **`compound_recognition`** — Regex strategy for `A(/|·|⋅)B` and `A·B^n` shapes; applies NFKC to fold `²`→`2`, `⁻²`→`-2`; emits the whole expression as one span with `shape="compound"`. Grammar is shape-only — component validation belongs to the rule (§8.3), exactly the grammar/rule boundary.
 
 All three compile patterns/alternations at module scope, early-return `[]` on blank text, and emit span-bearing `RecognitionMatch` objects only.
 
-### 7.3 Rule layer (Step 5)
+### 8.3 Rule layer (Step 5)
 
 Two rule files, one `PUBLICATION` each (house pattern: one publication per file):
 
@@ -373,7 +428,7 @@ The shared resolution helper mirrors Currency's `_resolve_code`: for a recognize
 
 All rules: never raise, never read `output_format`, six metadata attributes enforced by `Rule.__init_subclass__`. No capability-specific contract field is cast-for (D5) — the contract is pure base.
 
-### 7.4 Capability and Contract (Steps 6–7)
+### 8.4 Capability and Contract (Steps 6–7)
 
 ```python
 @dataclass(frozen=True)
@@ -389,10 +444,10 @@ class SIContract(CapabilityContract):
 ```
 
 - **No capability-specific fields, no `_extra_dict_fields` override** — the first LOOKUP_TABLE capability with a pure base contract (Email/IP-style). Replay hash carries the five standard keys only.
-- `create_contract()`: the unanimous keyword-only common block (`excluded_rules`, `pinned_rules`, `year`, `output_format`), then nothing — `DEFAULT_OUTPUT_FORMAT="symbol"` is the single canonical form and `OFFERED_OUTPUT_FORMATS` is empty, so **`format_value` is inherited (identity)**, like Currency.
+- `create_contract()`: the unanimous keyword-only common block (`excluded_rules`, `pinned_rules`, `year`, `output_format`), then nothing — `DEFAULT_OUTPUT_FORMAT="symbol"` is the single canonical form and `OFFERED_OUTPUT_FORMATS` is empty, so **`format_value` is inherited (identity)**, like Currency. The empty set is criterion-backed (§7.4): no alternative format is both total over the canonical set and round-trip stable.
 - `SICapability.name = "si"`, `version = "1.0.0"`; `get_grammars()` returns the three grammars, `get_rules()` the five rule classes.
 
-### 7.5 Registration and exports (Steps 8–9)
+### 8.5 Registration and exports (Steps 8–9)
 
 The four Currency touch-points, with SI-specific notes:
 
@@ -403,7 +458,7 @@ The four Currency touch-points, with SI-specific notes:
 
 Plus: `pytestmark` marker `si` registered in pyproject `[tool.pytest.ini_options]`, and the README capabilities table gains the tenth row.
 
-### 7.6 Tests (Step 10)
+### 8.6 Tests (Step 10)
 
 Currency's nine test files, renamed:
 
@@ -421,7 +476,7 @@ tests/integration/test_si_pipeline.py   # e2e rows via canonicalize(); _clean_re
 
 The **pint collision table (§4.5) becomes the locked regression suite**: `k`→INVALID, `da`→INVALID, `B`→bel, `KHz`→INVALID, `ms`→millisecond, `m s`→compound. And the milestone examples are the e2e contract rows: `"Kilogram"`→`"kg"`, `"Kelvin"`→`"K"`, `"megahertz"`→`"MHz"`, `"m/s²"`→`"m/s2"`, `"km/h"`→`"km/h"` — all SUCCESS, single candidate.
 
-### 7.7 Data modules
+### 8.7 Data modules
 
 Plain module-level tables, maintained in place (house rule: only ISBN data is generator-produced — but SI's *prefixed-symbol set* is a legitimate exception, generated by a documented `tools/` script from `si_prefixes.py` × unit tables, exactly like `tools/regenerate_isbn_range_data.py`):
 
@@ -433,13 +488,13 @@ Plain module-level tables, maintained in place (house rule: only ISBN data is ge
 - `grammar/data/unit_symbol_tokens.py`, `unit_name_tokens.py` — key-only tuples, longest-first (keys of the rule tables / generator output)
 - `grammar/data/compound_tokens.py` — component keys the compound grammar needs
 
-### 7.8 Consistency test (the grammar/rule boundary, enforced)
+### 8.8 Consistency test (the grammar/rule boundary, enforced)
 
 `test_data_consistency.py` locks the two catalogs equal, Currency-style: `set(unit_symbol_tokens) == set(BASE_UNITS | DERIVED_UNITS | NONSI_SYMBOLS | GENERATED_PREFIXED_SYMBOLS)`; name tokens == `set(NAME_TO_SYMBOL)`; every canonical symbol is brochure-derived; no token maps to a canonical value at the grammar layer.
 
 ---
 
-## 8. Out of Scope and Future Work
+## 9. Out of Scope and Future Work
 
 | Future capability / enhancement | Note |
 |---|---|
@@ -447,26 +502,27 @@ Plain module-level tables, maintained in place (house rule: only ISBN data is ge
 | **Unit conversion** (m↔km, °C↔K) | Requires quantity/dimension algebra (sympy-style) — different mission |
 | **Imperial/US customary, cgs** | Separate registries, separate provenance |
 | **IEC 80000-13 binary prefixes** (kibi…quebi) | Bit/byte capability; must not leak into SI's decimal table |
-| **`output_format` alternatives** (name form "kilogram", LaTeX `\mathrm{kg}`) | Add later as `OFFERED_OUTPUT_FORMATS` + a `format_value` override — the seam exists (ISBN's `hyphenated` is the precedent) |
+| **`output_format` alternatives** | Only formats that pass both offerability criteria (§7.2) may be added — the seam exists (ISBN's `hyphenated` is the precedent). Superscript `"unicode"` rendering (`m/s2` → `m/s²`) is the one candidate that qualifies today and is the natural first addition. `"name"` (`kg` → `kilogram`) is deferred until compound phrase-names are a recognized input; LaTeX is **not offerable** — no grammar recognizes it, so its output cannot re-enter the pipeline |
 | **Acceptance of abrogated names** ("micron", "degree Kelvin") | Policy toggle if users demand; default reject (13th CGPM 1967) |
 
 ---
 
-## 9. Resolved Decisions
+## 10. Resolved Decisions
 
 | ID | Question | Decision |
 |---|---|---|
 | D1 | Input scope | Standalone unit identifiers only: bare/prefixed symbols, names, and compound expressions (`A/B`, `A·B`). Quantities ("5 kg") out of scope (future measurement capability). |
-| D2 | Canonical form | Brochure **symbol form, case-sensitive**: `"Kilogram"`→`"kg"`, `"megahertz"`→`"MHz"`, `"m/s²"`→`"m/s2"`. `DEFAULT_OUTPUT_FORMAT="symbol"`, empty `OFFERED_OUTPUT_FORMATS`, identity `format_value`. |
+| D2 | Canonical form | Brochure **symbol form, case-sensitive**: `"Kilogram"`→`"kg"`, `"megahertz"`→`"MHz"`, `"m/s²"`→`"m/s2"`. `DEFAULT_OUTPUT_FORMAT="symbol"`, empty `OFFERED_OUTPUT_FORMATS`, identity `format_value` — the empty set is criterion-backed (§7.4). |
 | D3 | Authority | BIPM SI Brochure 9th ed. (2019, v4.01 current) is the sole data authority; ISO 80000-1:2022 carries compound-formatting provenance; pint/sympy/astropy are regression oracles only. |
 | D4 | Prefixed symbols | Generated product table (24 prefixes × prefixable units, kg→gram exception), created by a `tools/` script, key-only in `grammar/data/`, authority side in `rules/data/si_prefixes.py`; longest-first token ordering. |
 | D5 | Bare-symbol ambiguity | None exists: official-symbol membership wins over decomposition; prefix-only tokens are INVALID (never AMBIGUOUS). **No capability-specific contract parameter.** Resolution precedence: official set → generated prefixed set → INVALID. |
 | D6 | Compound expressions | Third grammar (`compound_recognition`, regex shape) + `SectionCompounds` PARSER rule validating components against the shared tables; NFKC folds `²`→`2`; canonical `A/B` / `A·B`. Always active (no `include_*`). |
 | D7 | Names & spellings | Names case-folded (safe); US spellings (`meter`, `liter`, `deka`) accepted as aliases; `u` is **not** micro (collides with dalton); `°K`/`micron` rejected (abrogated); `l`→`L`. |
+| D8 | Output-format policy | `output_format` is a post-`normalize()` presentation seam (orchestrator.py:269): it never triggers revalidation and never changes the canonicalization result — rules are format-blind by purity scan. An offerable format must be (1) **total** over the canonical set (Country's `name` qualifies; `alpha4` does not — most countries have none) and (2) **round-trip stable**: re-canonicalizing under the same contract reproduces the same value, `paxman.canonicalize(paxman.canonicalize(x, C), C) = canonical_value`, for every offered format and for none. SI ships no offering: `"name"` fails on compounds, LaTeX is non-re-entrant, `"unicode"` superscripts is the one qualifying candidate (deferred). |
 
 ---
 
-## 10. Glossary
+## 11. Glossary
 
 | Term | Meaning |
 |---|---|
@@ -479,6 +535,7 @@ Plain module-level tables, maintained in place (house rule: only ISBN data is ge
 | **Shape** | Notation discriminator: `"symbol"` / `"name"` / `"compound"` |
 | **Canonical symbol** | The case-sensitive brochure symbol a token resolves to |
 | **INVALID vs MISSING** | Recognized-but-unvalidated (prefix alone) vs not recognized at all |
+| **Output format** | A decorative presentation of the validated canonical value, applied by `format_value()` after `normalize()`; offerable only if total over the canonical set and round-trip stable (§7) |
 
 ---
 
