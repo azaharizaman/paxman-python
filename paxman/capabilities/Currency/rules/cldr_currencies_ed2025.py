@@ -17,7 +17,6 @@ from paxman.capabilities.Currency.rules.data.cldr_currencies import (
     NAME_TO_CODES,
     SYMBOL_TO_CODES,
 )
-from paxman.capabilities.Currency.rules.data.iso4217_list_one import CURRENCY_CODES
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy
 
@@ -40,8 +39,9 @@ def _resolve_symbol_code(
 
     A token with exactly one candidate resolves to it; a multi-candidate
     token (e.g. "$", "¥") resolves via the opt-in ``contract.default_currency``
-    when that code is a known ISO 4217 code (guarded against
-    CURRENCY_CODES so a shape-valid-but-unknown default can never produce
+    when that code is one of the token's own candidates (guarded against the
+    symbol's candidate tuple, not the global CURRENCY_CODES set, so a valid
+    code that never represents the symbol — "$" with MYR — can never produce
     a SUCCESS). Resolves to None otherwise, which makes matches() return
     False (INVALID).
 
@@ -58,7 +58,7 @@ def _resolve_symbol_code(
     if len(codes) == 1:
         return codes[0]
     candidate = contract.default_currency
-    return candidate if candidate in CURRENCY_CODES else None
+    return candidate if candidate in codes else None
 
 
 def _resolve_name_code(
@@ -70,7 +70,7 @@ def _resolve_name_code(
     The grammar folded the word to lowercase; the table keys are
     lowercase, so the lookup is exact. Same definitiveness policy as
     symbols (single candidate definitive; multi-candidate via the opt-in
-    default_currency, gated against CURRENCY_CODES).
+    default_currency, gated against the token's own candidate tuple).
 
     Args:
         notation: Currency notation to resolve.
@@ -85,7 +85,7 @@ def _resolve_name_code(
     if len(codes) == 1:
         return codes[0]
     candidate = contract.default_currency
-    return candidate if candidate in CURRENCY_CODES else None
+    return candidate if candidate in codes else None
 
 
 class SectionSymbols(Rule[CurrencyNotation]):
@@ -93,7 +93,8 @@ class SectionSymbols(Rule[CurrencyNotation]):
 
     Validates "symbol"/"qualified_symbol" shapes. A definitive token
     resolves to its single candidate; a multi-candidate token resolves
-    via ``contract.default_currency`` when set to a known ISO 4217 code.
+    via ``contract.default_currency`` when set to one of the token's own
+    candidate codes.
     """
 
     name = "Section-symbols"

@@ -181,6 +181,29 @@ class TestSectionSymbols:
         notation = _notation("$", "symbol")
         assert self.rule.matches(notation, contract) is False
 
+    @pytest.mark.parametrize(
+        ("text", "default_currency"),
+        [
+            # Valid ISO codes, but NOT candidates of the symbol itself:
+            # "$" never means MYR (ringgit's symbol is RM), "£" never means
+            # USD, "¥" never means EUR. The opt-in may only pick among the
+            # symbol's own candidate codes (D6, tightened per review).
+            ("$", "MYR"),
+            ("\u00a3", "USD"),
+            ("\u00a5", "EUR"),
+        ],
+    )
+    def test_non_candidate_default_currency_rejected(
+        self, text: str, default_currency: str
+    ) -> None:
+        """A valid-but-non-candidate default_currency never resolves the
+        shared symbol: the opt-in is gated against the symbol's own candidate
+        tuple, not the global CURRENCY_CODES set.
+        """
+        contract = CurrencyContract(default_currency=default_currency)
+        notation = _notation(text, "symbol")
+        assert self.rule.matches(notation, contract) is False
+
     def test_definitive_symbol_never_remapped(self) -> None:
         """A definitive symbol ignores default_currency (never remapped, D6)."""
         contract = CurrencyContract(default_currency="USD")

@@ -29,8 +29,10 @@ class TestCurrencyPipeline:
       resolve via the lowercase-key CLDR name table;
     - shared bare symbols (``$`` -> 29 codes, ``£`` -> 6 codes, ``¥`` -> 2
       codes) are INVALID without the ``default_currency`` opt-in (D6); the
-      opt-in is gated against ``CURRENCY_CODES`` and never remaps a
-      definitive (``€`` -> EUR) or qualified (``US$`` -> USD) symbol;
+      opt-in may only pick among the symbol's own candidate codes (e.g.
+      ``$`` + USD -> USD), never a valid code outside that tuple (``$`` +
+      MYR -> INVALID, tightened per review), and never remaps a definitive
+      (``€`` -> EUR) or qualified (``US$`` -> USD) symbol;
     - a standalone 3-letter code shape that is not a known code (``ZZZ``,
       ``the``) is a recognized-but-unvalidated false positive -> INVALID
       (Country parity); prose that no grammar matches (``hello world``)
@@ -68,6 +70,11 @@ class TestCurrencyPipeline:
             # symbol without default_currency opt-in is INVALID.
             ("\u00a3", {}, Resolution.INVALID, None),
             ("$", {}, Resolution.INVALID, None),  # shared: 29 candidates
+            # CORRECTED from the plan (was SUCCESS "MYR" via README example):
+            # the opt-in may only pick among the symbol's own candidate
+            # codes — "$" never means MYR (ringgit's symbol is RM), so a
+            # valid-but-non-candidate default is INVALID, not SUCCESS.
+            ("$", {"default_currency": "MYR"}, Resolution.INVALID, None),
             ("ZZZ", {}, Resolution.INVALID, None),  # shape-valid, unknown code
             ("the", {}, Resolution.INVALID, None),  # shape-only false positive
             # --- MISSING rows ---
