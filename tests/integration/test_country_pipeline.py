@@ -366,6 +366,7 @@ class TestCountryPipeline:
         r1 = run_capability("US", contract)
         r2 = run_capability("US", contract)
 
+        assert r1 == r2
         assert r1.status == r2.status
         assert r1.canonicalized_value == r2.canonicalized_value
         assert [c.value for c in r1.candidates] == [c.value for c in r2.candidates]

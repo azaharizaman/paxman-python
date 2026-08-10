@@ -109,6 +109,7 @@ class TestRunCapability:
         r1 = run_capability("user@example.com", contract)
         r2 = run_capability("user@example.com", contract)
 
+        assert r1 == r2
         assert r1.status == r2.status
         assert r1.canonicalized_value == r2.canonicalized_value
         assert [c.value for c in r1.candidates] == [c.value for c in r2.candidates]
@@ -573,6 +574,7 @@ class TestCanonicalDeterminismAndCandidateOrder:
         first = run_capability(input_text, contract)
         second = run_capability(input_text, contract)
 
+        assert second == first
         assert second.status == first.status
         assert second.canonicalized_value == first.canonicalized_value
         assert second.candidates == first.candidates

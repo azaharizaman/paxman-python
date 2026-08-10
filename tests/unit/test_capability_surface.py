@@ -196,6 +196,26 @@ class TestContractHomogeneity:
         assert _contract_class().output_format == _default_format
 
     @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "_capability,_contract_class,_default_format",
+        _CAPABILITY_SURFACES,
+    )
+    def test_contracts_expose_no_serialization_hooks(
+        self,
+        _capability: type[object],
+        _contract_class: type[object],
+        _default_format: str,
+    ) -> None:
+        """No concrete contract resurrects the removed serialization hooks.
+
+        The negative locks in ``test_capability_contract.py`` pin the base
+        class, but a re-added override on a single concrete contract would
+        slip past them; this guard pins every shipped concrete contract.
+        """
+        assert not hasattr(_contract_class, "as_dict")
+        assert not hasattr(_contract_class, "_extra_dict_fields")
+
+    @pytest.mark.unit
     def test_surface_covers_every_exported_capability(self) -> None:
         """The surface guard tracks the package's registration surface.
 

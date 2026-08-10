@@ -115,6 +115,7 @@ class TestURLPipeline:
         contract = URLCapability.create_contract()
         result1 = canonicalize("HTTPS://Example.COM:443/path/../other", contract)
         result2 = canonicalize("HTTPS://Example.COM:443/path/../other", contract)
+        assert result1 == result2
         assert result1.status == result2.status
         assert result1.canonicalized_value == result2.canonicalized_value
         assert [c.value for c in result1.candidates] == [
