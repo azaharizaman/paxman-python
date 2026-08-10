@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.metadata import version as _get_version
@@ -15,7 +13,6 @@ from paxman.core.discovery import freeze_registry, get_capability
 from paxman.core.domain import (
     Candidate,
     GrammarRule,
-    Provenance,
     RecognitionMatch,
     RecognizedRep,
     Resolution,
@@ -62,7 +59,7 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
 
     status = _determine_status(candidates, had_recognitions)
     canonical_value = _extract_canonical_value(candidates, status)
-    version_stamp = _build_version_stamp(text, candidates, contract, status)
+    version_stamp = VersionStamp(paxman_version=PAXMAN_VERSION)
 
     return ExecutionResult(
         status=status,
@@ -252,8 +249,8 @@ def _collect_candidates(
     Routes each recognition only to rules whose ``target_grammars`` includes the
     producing grammar's name (ARCHITECTURE.md:201), formats each validated
     value through the capability's ``format_value()`` seam, then dedups
-    identical candidate tuples so the replay hash is stable regardless of
-    routing.
+    identical candidate tuples so the candidate multiset is stable regardless
+    of routing.
     """
     candidates: list[Candidate] = []
     for recognition in recognitions:
@@ -330,60 +327,3 @@ def _extract_canonical_value(
     if status == Resolution.SUCCESS and candidates:
         return candidates[0].value
     return None
-
-
-def _build_version_stamp(
-    text: str,
-    candidates: Sequence[Candidate],
-    contract: Contract,
-    status: Resolution,
-) -> VersionStamp:
-    """Compute replay-safe version stamp."""
-    replay_hash = _compute_replay_hash(text, candidates, contract, status)
-    return VersionStamp(paxman_version=PAXMAN_VERSION, replay_hash=replay_hash)
-
-
-def _provenance_to_dict(prov: Provenance) -> dict[str, Any]:
-    """Serialize a Provenance to a deterministic dict."""
-    return {
-        "authority": prov.authority,
-        "specification_name": prov.specification_name,
-        "kind": prov.kind,
-        "reference_url": prov.reference_url,
-        "version": prov.version,
-        "lifecycle": prov.lifecycle,
-        "publication_year": prov.publication_year,
-    }
-
-
-def _candidate_to_dict(c: Candidate) -> dict[str, Any]:
-    """Serialize a Candidate to a deterministic dict."""
-    return {
-        "value": c.value,
-        "recognition_rule": c.recognition_rule,
-        "validation_rule": c.validation_rule,
-        "provenance": sorted(
-            [_provenance_to_dict(p) for p in c.provenance],
-            key=lambda x: x["authority"],
-        ),
-    }
-
-
-def _compute_replay_hash(
-    text: str,
-    candidates: Sequence[Candidate],
-    contract: Contract,
-    status: Resolution,
-) -> str:
-    """SHA-256 of canonical bytes for deterministic replay."""
-    canonical_bytes: dict[str, Any] = {
-        "input": text,
-        "contract": contract.as_dict(),
-        "status": status.value,
-        "candidates": sorted(
-            [_candidate_to_dict(c) for c in candidates],
-            key=lambda x: (x["value"], x["validation_rule"]),
-        ),
-    }
-    canonical_json = json.dumps(canonical_bytes, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
