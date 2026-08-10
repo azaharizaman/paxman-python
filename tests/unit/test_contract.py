@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from paxman.capabilities.Email.capability import EmailCapability
@@ -37,19 +35,9 @@ class _FullyCompliantContract:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "capability_name": self.capability_name,
-            "active_grammars": self.active_grammars,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-            "output_format": self.output_format,
-        }
 
-
-class _MissingAsDict:
-    """Missing the as_dict method."""
+class _NoAsDict:
+    """A class with all six Contract properties but no as_dict method."""
 
     @property
     def capability_name(self) -> str:
@@ -99,9 +87,6 @@ class _MissingCapabilityName:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, Any]:
-        return {}
-
 
 class TestContractProtocol:
     @pytest.mark.unit
@@ -109,8 +94,10 @@ class TestContractProtocol:
         assert isinstance(_FullyCompliantContract(), Contract)
 
     @pytest.mark.unit
-    def test_missing_as_dict_fails_isinstance(self) -> None:
-        assert not isinstance(_MissingAsDict(), Contract)
+    def test_no_as_dict_still_satisfies_protocol(self) -> None:
+        # A class with all six Contract properties satisfies the protocol
+        # even without as_dict — as_dict is no longer part of the contract.
+        assert isinstance(_NoAsDict(), Contract)
 
     @pytest.mark.unit
     def test_missing_capability_name_fails_isinstance(self) -> None:
@@ -123,19 +110,6 @@ class TestContractProtocol:
         # we make it explicit here.
         contract = _FullyCompliantContract()
         assert isinstance(contract, Contract)
-
-    @pytest.mark.unit
-    def test_as_dict_returns_correct_keys(self) -> None:
-        contract = _FullyCompliantContract()
-        result = contract.as_dict()
-        assert set(result.keys()) == {
-            "capability_name",
-            "active_grammars",
-            "excluded_rules",
-            "pinned_rules",
-            "year",
-            "output_format",
-        }
 
     @pytest.mark.unit
     def test_year_can_be_none(self) -> None:
@@ -165,9 +139,6 @@ class TestContractProtocol:
             @property
             def output_format(self) -> str | None:
                 return None
-
-            def as_dict(self) -> dict[str, Any]:
-                return {"year": self.year}
 
         contract = _NoneYear()
         assert isinstance(contract, Contract)
