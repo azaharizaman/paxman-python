@@ -231,10 +231,15 @@ class TestMoneyPipeline:
 
     @pytest.mark.integration
     def test_version_stamp(self) -> None:
-        """Replay hash is present and deterministic."""
+        """Version stamp is present and canonicalization is deterministic."""
         register_capability(MoneyCapability())
         contract = MoneyCapability.create_contract()
         result1 = run_capability("USD500", contract)
         result2 = run_capability("USD500", contract)
-        assert result1.version_stamp.replay_hash == result2.version_stamp.replay_hash
-        assert len(result1.version_stamp.replay_hash) == 64  # SHA-256 hex
+        assert result1.status == result2.status
+        assert result1.canonicalized_value == result2.canonicalized_value
+        assert [c.value for c in result1.candidates] == [c.value for c in result2.candidates]
+        assert len(result1.candidates) == 1
+        assert {c.value for c in result1.candidates} == {"USD 500.00"}
+        assert {p.authority for c in result1.candidates for p in c.provenance} == {"ISO"}
+        assert isinstance(result1.version_stamp.paxman_version, str)

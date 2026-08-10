@@ -1,7 +1,7 @@
 """Integration tests proving the engine routes formatting through the capability.
 
 The engine must invoke ``Capability.format_value()`` on each rule-normalized
-canonical value, before candidate deduplication, status, and replay hashing.
+canonical value, before candidate deduplication and status.
 This test-only capability rewrites the canonical value so the seam is
 observable end to end, and records the arguments it received so the test can
 prove the engine passes the original notation and the contract's resolved
