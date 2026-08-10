@@ -53,82 +53,59 @@ from paxman.core.capability_contract import CapabilityContract
 
 _COMMON_BLOCK = ("excluded_rules", "pinned_rules", "year", "output_format")
 
-_STANDARD_KEYS = frozenset(
-    {"capability_name", "excluded_rules", "pinned_rules", "year", "output_format"}
-)
-
-_EMAIL_KEYS = _STANDARD_KEYS | {"include_obfuscated", "include_localhost"}
-_DATE_KEYS = _STANDARD_KEYS | {"two_digit_base_year"}
-_COUNTRY_KEYS = _STANDARD_KEYS | {"include_localized", "include_historical"}
-_CURRENCY_KEYS = _STANDARD_KEYS | {"default_currency"}
-_IP_KEYS = _STANDARD_KEYS | {"include_ipv6"}
-_ISBN_KEYS = _STANDARD_KEYS | {"include_isbn10", "include_range_validation"}
-_MONEY_KEYS = _STANDARD_KEYS | {"precision", "dollar_sign_currency"}
-_PHONE_KEYS = _STANDARD_KEYS | {"default_country"}
-_URL_KEYS = _STANDARD_KEYS
-
 _CAPABILITY_SURFACES = [
     pytest.param(
         EmailCapability,
         EmailContract,
         "email",
-        _EMAIL_KEYS,
         id="email",
     ),
     pytest.param(
         DateCapability,
         DateContract,
         "ISO",
-        _DATE_KEYS,
         id="date",
     ),
     pytest.param(
         CountryCapability,
         CountryContract,
         "alpha2",
-        _COUNTRY_KEYS,
         id="country",
     ),
     pytest.param(
         CurrencyCapability,
         CurrencyContract,
         "code",
-        _CURRENCY_KEYS,
         id="currency",
     ),
     pytest.param(
         IPCapability,
         IPContract,
         "ip",
-        _IP_KEYS,
         id="ip",
     ),
     pytest.param(
         ISBNCapability,
         ISBNContract,
         "isbn13",
-        _ISBN_KEYS,
         id="isbn",
     ),
     pytest.param(
         MoneyCapability,
         MoneyContract,
         "code_amount",
-        _MONEY_KEYS,
         id="money",
     ),
     pytest.param(
         PhoneCapability,
         PhoneContract,
         "e164",
-        _PHONE_KEYS,
         id="phone",
     ),
     pytest.param(
         URLCapability,
         URLCapabilityContract,
         "url",
-        _URL_KEYS,
         id="url",
     ),
 ]
@@ -137,7 +114,7 @@ _CAPABILITY_SURFACES = [
 class TestContractHomogeneity:
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
+        "_capability,_contract_class,_default_format",
         _CAPABILITY_SURFACES,
     )
     def test_contracts_inherit_capability_contract(
@@ -145,14 +122,13 @@ class TestContractHomogeneity:
         _capability: type[object],
         _contract_class: type[object],
         _default_format: str,
-        _expected_keys: frozenset[str],
     ) -> None:
         """Every contract class inherits CapabilityContract."""
         assert issubclass(_contract_class, CapabilityContract)
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
+        "_capability,_contract_class,_default_format",
         _CAPABILITY_SURFACES,
     )
     def test_capabilities_satisfy_contract_factory(
@@ -160,14 +136,13 @@ class TestContractHomogeneity:
         _capability: type[object],
         _contract_class: type[object],
         _default_format: str,
-        _expected_keys: frozenset[str],
     ) -> None:
         """Every capability class satisfies the ContractFactory protocol."""
         assert isinstance(_capability, ContractFactory)
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
+        "_capability,_contract_class,_default_format",
         _CAPABILITY_SURFACES,
     )
     def test_create_contract_signature_has_unanimous_common_block(
@@ -175,7 +150,6 @@ class TestContractHomogeneity:
         _capability: type[object],
         _contract_class: type[object],
         _default_format: str,
-        _expected_keys: frozenset[str],
     ) -> None:
         """create_contract parameters begin with the unanimous common block.
 
@@ -194,7 +168,7 @@ class TestContractHomogeneity:
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
+        "_capability,_contract_class,_default_format",
         _CAPABILITY_SURFACES,
     )
     def test_output_format_optional_in_contract_signature(
@@ -202,7 +176,6 @@ class TestContractHomogeneity:
         _capability: type[object],
         _contract_class: type[object],
         _default_format: str,
-        _expected_keys: frozenset[str],
     ) -> None:
         """output_format defaults to None on every contract __init__."""
         parameters = inspect.signature(_contract_class).parameters
@@ -210,7 +183,7 @@ class TestContractHomogeneity:
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
+        "_capability,_contract_class,_default_format",
         _CAPABILITY_SURFACES,
     )
     def test_output_format_none_resolves_to_concrete_default(
@@ -218,7 +191,6 @@ class TestContractHomogeneity:
         _capability: type[object],
         _contract_class: type[object],
         _default_format: str,
-        _expected_keys: frozenset[str],
     ) -> None:
         """A no-arg contract resolves output_format to the concrete default."""
         assert _contract_class().output_format == _default_format
