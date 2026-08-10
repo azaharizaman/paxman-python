@@ -117,10 +117,14 @@ class TestURLPipeline:
         result2 = canonicalize("HTTPS://Example.COM:443/path/../other", contract)
         assert result1.status == result2.status
         assert result1.canonicalized_value == result2.canonicalized_value
-        assert [c.value for c in result1.candidates] == [c.value for c in result2.candidates]
+        assert [c.value for c in result1.candidates] == [
+            c.value for c in result2.candidates
+        ]
         assert len(result1.candidates) == 1
         assert {c.value for c in result1.candidates} == {"https://example.com/other"}
-        assert {p.authority for c in result1.candidates for p in c.provenance} == {"WHATWG"}
+        assert {p.authority for c in result1.candidates for p in c.provenance} == {
+            "WHATWG"
+        }
         assert isinstance(result1.version_stamp.paxman_version, str)
 
     @pytest.mark.parametrize(

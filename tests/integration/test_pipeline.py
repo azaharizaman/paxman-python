@@ -96,7 +96,9 @@ class TestRunCapability:
         assert isinstance(result.version_stamp.paxman_version, str)
         assert len(result.candidates) == 1
         assert {c.value for c in result.candidates} == {"user@example.com"}
-        assert {p.authority for c in result.candidates for p in c.provenance} == {"IETF"}
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "IETF"
+        }
 
     @pytest.mark.integration
     def test_canonical_determinism(self):

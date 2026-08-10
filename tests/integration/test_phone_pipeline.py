@@ -249,8 +249,12 @@ class TestPhonePipeline:
         result2 = run_capability("+15551234567", contract)
         assert result1.status == result2.status
         assert result1.canonicalized_value == result2.canonicalized_value
-        assert [c.value for c in result1.candidates] == [c.value for c in result2.candidates]
+        assert [c.value for c in result1.candidates] == [
+            c.value for c in result2.candidates
+        ]
         assert len(result1.candidates) == 2
         assert {c.value for c in result1.candidates} == {"+15551234567"}
-        assert {p.authority for c in result1.candidates for p in c.provenance} == {"ITU-T"}
+        assert {p.authority for c in result1.candidates for p in c.provenance} == {
+            "ITU-T"
+        }
         assert isinstance(result1.version_stamp.paxman_version, str)
