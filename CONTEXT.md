@@ -450,14 +450,14 @@ class ExecutionResult:
     canonicalized_value: str | None  # Extracted from candidates (if SUCCESS)
     candidates: tuple[Candidate, ...]  # Produced by capability validation rules
     contract: Contract  # Passed through from user
-    version_stamp: VersionStamp  # Computed by engine (includes replay_hash)
+    version_stamp: VersionStamp  # Computed by engine (records library version)
 ```
 
 **Responsibility Split:**
 | Component | Responsibility |
 |-----------|----------------|
 | **Capability** | Produces candidates via validation rules |
-| **Engine** | Shapes ExecutionResult, computes status, replay_hash |
+| **Engine** | Shapes ExecutionResult, computes status, attaches VersionStamp |
 
 ### Resolution Semantics
 | Resolution | Phase | Meaning | Candidates | canonicalized_value |
@@ -468,12 +468,11 @@ class ExecutionResult:
 | `AMBIGUOUS` | Validation | Multiple conflicting canonical values | `≥2` (different values) | `None` |
 
 ### VersionStamp
-Replay integrity metadata:
+Library version provenance:
 ```python
 @dataclass(frozen=True)
 class VersionStamp:
     paxman_version: str  # library version
-    replay_hash: str  # SHA-256 of canonical bytes
 ```
 
 ---
@@ -674,13 +673,9 @@ class Contract(Protocol):
     def output_format(self) -> str | None:
         """Output format for canonical values (e.g., 'ISO', 'US')."""
         ...
-
-    def as_dict(self) -> dict[str, Any]:
-        """Serialize contract for replay_hash."""
-        ...
 ```
 
-Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and implement `_extra_dict_fields()` — never hand-write `as_dict()` (it feeds `replay_hash`).
+Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and set `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS`, `capability_name` via `field`, and `active_grammars`.
 
 ---
 
@@ -814,7 +809,7 @@ tests/
 │   ├── test_capability.py         # Capability ABC
 │   ├── test_capability_surface.py # Surface homogeneity across capabilities
 │   ├── test_capability_exports.py # __init__ export completeness (9 capabilities)
-│   ├── test_version_stamp.py      # VersionStamp + replay_hash
+│   ├── test_version_stamp.py      # VersionStamp
 │   ├── test_discovery.py          # Registry register/freeze/reset
 │   ├── test_errors.py             # Exception hierarchy
 │   ├── test_rule_metadata.py      # Rule modules importable + metadata
@@ -831,7 +826,7 @@ tests/
 │   ├── money/                     # + test_contract, test_notation, test_data, test_parsing
 │   ├── phone/                     # + test_data
 │   └── url/                       # + test_contract, test_notation, test_data, test_parsing, test_rule
-├── integration/                   # -m integration pipeline, ambiguity, temporal, replay hashes,
+├── integration/                   # -m integration pipeline, ambiguity, temporal,
 │   │                              # feature gating, format_value seam, per-capability pipelines
 │   ├── test_pipeline.py           # Full pipeline flow
 │   ├── test_ambiguity.py          # Ambiguity detection
@@ -839,7 +834,6 @@ tests/
 │   ├── test_feature_gating.py     # include_* / requires_features loci
 │   ├── test_format_value_seam.py  # output_format presentation seam
 │   ├── test_recognition_seam.py   # span-bearing RecognitionMatch contract
-│   ├── test_default_replay_hashes.py  # baseline replay hashes (do not edit literals)
 │   └── test_<cap>_pipeline.py     # country, currency, date, money, phone, url pipelines
 ├── property/                      # -m property    hypothesis property tests
 │   ├── test_domain_properties.py

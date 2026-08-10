@@ -110,6 +110,6 @@ Out of scope:
    active.
 5. Every shipped grammar name key is covered by at least one Country rule data
    table.
-6. Same input plus same contract remains deterministic; replay hashes are not
+6. Same input plus same contract remains deterministic; outputs are not
    promised to remain byte-identical for inputs whose candidate provenance or
    route changes.

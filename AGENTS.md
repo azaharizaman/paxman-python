@@ -5,7 +5,7 @@
 **Branch:** feature/CURRENCY-capability
 
 ## OVERVIEW
-Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first, replay-safe. 9 capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
+Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first. 9 capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
 
 ## STRUCTURE
 ```text
@@ -63,7 +63,6 @@ docs/               # adr/, report/, research/, superpowers/plans+specs
 ## ANTI-PATTERNS (THIS PROJECT)
 - **No `# type: ignore` / `# noqa` / `# pyright: ignore` in `paxman/` source** — fix root cause or use scoped ruff `per-file-ignores` (sanctioned pattern in pyproject). Tests may use `# type: ignore[misc]` for immutability checks.
 - Never guess/infer/suggest — same input + contract = byte-identical output.
-- Never modify baseline replay-hash literals to green `test_default_replay_hashes.py` — fix the regression.
 - No cross-capability imports; capabilities import only from `paxman.core`; `paxman.core` imports nothing from `paxman.*`.
 - Grammars must not map tokens to canonical values or import rule-layer data.
 - Rules never contain the token `output_format` (code, comments, or docstrings).

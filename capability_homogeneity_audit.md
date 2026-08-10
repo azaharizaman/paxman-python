@@ -16,7 +16,7 @@ design verdict (FACT 1–6 below).
 
 The contract *surface* is now largely unanimous — base `CapabilityContract` plus
 `resolve_output_format` in `paxman/core/contract.py` unify `output_format`
-resolution and `as_dict()` serialization. The behavioral-contract audit found
+resolution. The behavioral-contract audit found
 divergences at four layers; the findings below are preserved as historical
 record, with current status noted below:
 
@@ -154,7 +154,7 @@ Three cross-cutting non-homogeneities (from the grammar-comparison agent):
    (part-keyed set, address-keyed set, span-overlap). No shared contract for
    `recognize()` uniqueness.
 3. **Ordering semantics** — 12 document-order vs 3 two-pass-batch (us, obfuscated,
-   ipv6) vs european explicit re-sort. Deterministic everywhere (no replay hazard)
+   ipv6) vs european explicit re-sort. Deterministic everywhere (no output-identity hazard)
    but the "document order" promise is inconsistent.
 
 **Minor:** Email's 3/3 grammars lack `recognize()` docstrings; 2 Phone
@@ -222,7 +222,7 @@ Ranked defects (from the rule-comparison agent):
 ## Unanimous ideals — recommended build order
 
 1. **`Rule.target_grammars`** + one-line orchestrator filter (fixes F1; makes
-   `ARCHITECTURE.md:201` true; replay-safe with candidate dedup).
+   `ARCHITECTURE.md:201` true; deterministic output with candidate dedup).
 2. **Move `include_*` feature-gating** to engine-enforced declared metadata, split
    by feature kind (fixes F2). **[DONE 2026-08-03]** — enforced via
    `Rule.requires_features` and `_filter_rules()`.
@@ -281,16 +281,16 @@ was implemented there. Date rules now emit ISO defaults only, and
 original F4 severity for Date was overstated; the resolution is the uniform
 formatter seam described in the centralize-output-format addendum below.
 
-### B. F1 replay-hash is byte-identical — the "watch out" risk did not materialize
+### B. F1 candidate multiset is byte-identical — the "watch out" risk did not materialize
 
 The audit's *Watch out for* warns that moving to grammar→rule affinity could change
-the replay hash via candidate multiplicity. In practice `target_grammars` was set equal
+the candidate multiset via candidate multiplicity. In practice `target_grammars` was set equal
 to each rule's *effective acceptance domain* (the affinity map in F1), so the candidate
 multiset is identical to the cartesian product for every capability (Email / Date /
-Country / IP / Phone). The hash is therefore byte-identical by construction. The
+Country / IP / Phone). The output is therefore byte-identical by construction. The
 `_dedup_candidates` step is a pure safety net for future over-declaration, not a
-behavior change. The plan's Step 6.7 hash-snapshot gate was satisfied *structurally*
-(target_grammars == effective domain ⇒ identical hash) rather than by captured
+behavior change. The plan's Step 6.7 determinism gate was satisfied *structurally*
+(target_grammars == effective domain ⇒ identical output) rather than by captured
 pre-change constants; the full 782-test suite passing is the empirical confirmation.
 
 ## Addendum — F3 completion: Country recognition/validation boundary restored (2026-08-03)
@@ -353,10 +353,10 @@ for which CLDR spellings are recognized, independent of `include_localized`
 Phone `strip_separators` remains presentation/syntax normalization and is unchanged
 by F3, as the original finding accepted.
 
-### F. Replay/provenance note
+### F. Determinism/provenance note
 
 For inputs whose candidate provenance or route changed (localized names that
-previously resolved through ISO), replay hashes are intentionally not byte-identical
+previously resolved through ISO), the output is intentionally not byte-identical
 to pre-F3 behavior. Same input + same contract remains deterministic; the change is
 intentional and attributable to the corrected authority routing, not to ordering.
 
@@ -366,8 +366,8 @@ F4 was resolved by the centralize-output-format plan
 (`docs/superpowers/plans/2026-08-04-centralize-output-format.md`). The
 capability-level `format_value(value, output_format, notation)` seam now exists on
 `Capability` (default identity) and is invoked by the engine immediately after
-`Rule.normalize()` — before candidate deduplication, status determination, and
-replay hashing. Formatting adds no provenance; candidate metadata
+`Rule.normalize()` — before candidate deduplication and status determination.
+Formatting adds no provenance; candidate metadata
 (`recognition_rule`, `validation_rule`, `provenance`) is unchanged.
 
 - **The formatter seam now applies uniformly.** Date, Phone, and Country

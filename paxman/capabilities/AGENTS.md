@@ -38,7 +38,7 @@ paxman/capabilities/
 Every capability must conform to the same structural surface. `CapabilityContract` and `Rule.__init_subclass__` make most of it structural rather than documentary:
 
 - **Notation** — `@dataclass(frozen=True, slots=True)`; one `str` field per component; the sole type parameter of the capability's `Grammar[NotationT]` / `Rule[NotationT]`.
-- **Contract** — `@dataclass(frozen=True)` extending `CapabilityContract`, NO `slots=True` (incompatible with the base `super()` pattern). Sets `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` class vars; `capability_name` via `field(init=False)`; inherits `output_format` (always optional; base `__post_init__` resolves it and validates offered alternatives); implements `active_grammars`; overrides `_extra_dict_fields()` — never hand-writes `as_dict()`.
+- **Contract** — `@dataclass(frozen=True)` extending `CapabilityContract`, NO `slots=True` (incompatible with the base `super()` pattern). Sets `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` class vars; `capability_name` via `field(init=False)`; inherits `output_format` (always optional; base `__post_init__` resolves it and validates offered alternatives); implements `active_grammars`.
 - **Grammar** — one file = one recognizer; `name` = `{format}_recognition` (snake_case, unique per capability); emits span-bearing `RecognitionMatch` (half-open `[start, end)`, `raw_text`); syntax-only — extraction and sanitization, never validation, dedup, ordering, or token→canonical mapping. Two sanctioned strategies: Regex (shape) and Lexicon (key-only tables, kept in `grammar/data/` apart from recognition logic); see HOW_TO for the extended set.
 - **Rule** — one file = one publication (module-level `PUBLICATION` provenance constant); class = one spec section; declares `name` (`Section {X.Y.Z}-{description}`), `strategy`, `provenance`, `citation`, `target_grammars` (non-empty), `requires_features` — all six enforced at import time. Rule classes sharing one publication live in the same file; authority-backed lookup tables live in `rules/data/`, separated from rule logic.
 - **Feature gating — two loci, two statuses** — input-shape features toggle grammars via `active_grammars` (disabled grammar → `MISSING`); authority features gate rules via `requires_features` (dropped rule → `INVALID`). Never gate inside `matches()`; never cast to read `include_*` flags. `typing.cast` is only for validity-affecting parameters.
@@ -51,17 +51,16 @@ Every capability must conform to the same structural surface. `CapabilityContrac
 - **Rules never read `output_format`**, never raise (best-effort returns; unreachable branches return input unchanged), never gate on `include_*` (declared as `requires_features` instead).
 - **Data files are plain tables, most maintained in place** — `rules/data/` and `grammar/data/` exist to separate data from logic, not to mark generated output. Only modules that carry a generator (source snapshot + script — currently the ISBN range message via `tools/regenerate_isbn_range_data.py`) must be edited through the snapshot and regenerated, never by hand, or they drift from their authority. Unmarked data files are edited directly.
 - **No type suppression** — no `# type: ignore` / `# noqa` / `# pyright: ignore` in source; fix the root cause or use a scoped per-file-ignore in pyproject.
-- **Never modify baseline replay-hash literals** to green `test_default_replay_hashes.py` — fix the regression.
 - **Rule class names are CapWords** — the legacy `Section6_1`-style naming is scoped to `Phone/rules/*.py` (and its tests) via the N801 per-file-ignore: legacy coverage, not a pattern.
 - **`__init__.py` acronym aliases trip N814** — covered by the scoped per-file-ignore; don't add inline `# noqa`.
 - **No additions to `__init__.py` without matching `__all__`** — the export list is the registration surface.
-- **Quality gates before merge** — `ruff check`, `ruff format --check`, `pyright` (strict), `import-linter lint`, `pytest` (95% coverage), replay-hash tests green.
+- **Quality gates before merge** — `ruff check`, `ruff format --check`, `pyright` (strict), `import-linter lint`, `pytest` (95% coverage).
 
 ## ANTI-PATTERNS & LEGACY EXCEPTIONS
 - Don't imitate the one-off modules: `Country/name_normalization.py` and `Phone/grammar/common.py` predate the sanctioned strategies — not patterns to copy.
 - Don't force a representation into a regex that fights it — consult HOW_TO's recognition-strategy section (scanner, format-candidate, parser combinators, Unicode-property, automaton) before choosing.
 - Don't invert the two-locus gating model (e.g., gating recognition on authority features or gating validation on input-shape features) — it produces the wrong `Resolution` statuses.
-- Don't write `as_dict()` by hand, and don't add `slots=True` to contracts.
+- Don't add `slots=True` to contracts.
 - Don't put authority data in `grammar/data/` or recognition keys in `rules/data/` — `grammar/data/` serves grammars (keys), `rules/data/` serves rules (authority mappings); the boundary is the point.
 - When extending an existing capability, check whether the file you're touching is a flagged legacy exception before copying its style; new code follows the intended architecture.
 
