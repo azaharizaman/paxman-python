@@ -139,9 +139,6 @@ class _FormattingContract:
     def output_format(self) -> str | None:
         return "formatted"
 
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "formatting", "output_format": "formatted"}
-
 
 class _DualTokenGrammar(Grammar[_TokenNotation]):
     """Grammar that recognizes two distinct tokens."""
@@ -243,9 +240,6 @@ class _DualFormattingContract:
     @property
     def output_format(self) -> str | None:
         return "formatted"
-
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "dual_formatting", "output_format": "formatted"}
 
 
 @pytest.fixture(autouse=True)

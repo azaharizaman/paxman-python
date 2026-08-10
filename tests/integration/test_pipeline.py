@@ -249,9 +249,6 @@ class _ErrorContract:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "crash"}
-
 
 class _ExplodingContract(_ErrorContract):
     """Contract variant for ExplodingRuleCapability."""
@@ -263,9 +260,6 @@ class _ExplodingContract(_ErrorContract):
     @property
     def active_grammars(self) -> list[str]:
         return ["simple_grammar"]
-
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "exploding_rule_cap"}
 
 
 class TestErrorWrapping:
@@ -437,9 +431,6 @@ class _PhantomContract:
     @property
     def output_format(self) -> str | None:
         return None
-
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "phantom"}
 
 
 class TestGrammarRuleAffinity:

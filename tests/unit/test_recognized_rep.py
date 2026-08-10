@@ -36,9 +36,6 @@ class FakeContract:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, Any]:
-        return {"capability_name": "email"}
-
 
 def _grammar_rule(name: str = "standard") -> GrammarRule:
     return GrammarRule(capability_name="email", grammar_name=name)
