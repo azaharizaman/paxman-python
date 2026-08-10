@@ -502,9 +502,14 @@ docs: sweep replay-hash references
 uv run ruff check . && uv run ruff format --check . && uv run pyright && \
   uv run import-linter lint && uv run pytest
 ```
-Coverage gate:
+Coverage gate (one include pattern per package — the brace shorthand
+`paxman/{core,capabilities,engine,api}/*` is not expanded by the installed
+coverage version and reports "No data to report"):
 ```bash
-uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fail-under=95
+uv run coverage report --include="paxman/core/*" --fail-under=95
+uv run coverage report --include="paxman/capabilities/*" --fail-under=95
+uv run coverage report --include="paxman/engine/*" --fail-under=95
+uv run coverage report --include="paxman/api/*" --fail-under=95
 ```
 Zero-grep proof (same command as Task 12 Verify) returns CLEAN.
 
