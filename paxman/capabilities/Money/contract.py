@@ -107,14 +107,3 @@ class MoneyContract(CapabilityContract):
             The three recognition grammar names.
         """
         return ("code_recognition", "symbol_recognition", "word_recognition")
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        """Serialize capability-specific fields for replay hash.
-
-        Returns:
-            Dictionary of precision and dollar_sign_currency fields.
-        """
-        return {
-            "precision": self.precision,
-            "dollar_sign_currency": self.dollar_sign_currency,
-        }

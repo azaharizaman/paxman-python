@@ -15,7 +15,7 @@ class URLCapabilityContract(CapabilityContract):
     D14 — no feature flags: every recognized URL is validated by the single
     WHATWG URL Standard rule, and the canonical value IS the WHATWG
     serialization (identity formatter). The contract therefore adds no
-    capability-specific keys to the replay-hash surface.
+    capability-specific keys.
     """
 
     DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "url"
@@ -31,11 +31,3 @@ class URLCapabilityContract(CapabilityContract):
             The single recognition grammar name.
         """
         return ("absolute_uri_recognition",)
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        """Serialize capability-specific fields for replay hash.
-
-        Returns:
-            Empty dict — no feature flags (D14), so no extra contract keys.
-        """
-        return {}
