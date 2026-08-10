@@ -55,21 +55,6 @@ def test_valid_default_currency() -> None:
     assert CurrencyContract(default_currency="USD").default_currency == "USD"
 
 
-def test_as_dict_replay_keys() -> None:
-    d = CurrencyContract(default_currency="USD").as_dict()
-    assert d["capability_name"] == "currency"
-    assert d["output_format"] == "code"
-    assert d["default_currency"] == "USD"
-    assert set(d) >= {
-        "capability_name",
-        "excluded_rules",
-        "pinned_rules",
-        "year",
-        "output_format",
-        "default_currency",
-    }
-
-
 def test_common_block() -> None:
     c = CurrencyContract(
         excluded_rules=("Section-code",),

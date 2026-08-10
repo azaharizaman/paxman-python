@@ -138,14 +138,6 @@ class TestDateContract:
     def test_empty_pinned_rules_are_preserved(self) -> None:
         contract = DateContract(pinned_rules=())
         assert contract.pinned_rules == ()
-        assert contract.as_dict()["pinned_rules"] == ()
-
-    def test_as_dict_includes_all_fields(self) -> None:
-        contract = DateContract(output_format="US", two_digit_base_year=1900)
-        d = contract.as_dict()
-        assert d["capability_name"] == "date"
-        assert d["output_format"] == "US"
-        assert d["two_digit_base_year"] == 1900
 
     def test_output_format_default_resolves_to_iso(self) -> None:
         """'default' reverts to the default ISO rendering."""

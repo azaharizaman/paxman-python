@@ -106,17 +106,6 @@ class TestCountryContract:
         assert "numeric_recognition" in grammars
         assert "name_recognition" in grammars
 
-    def test_as_dict_contains_all_fields(self) -> None:
-        """Verify as_dict serializes all fields."""
-        contract = CountryContract()
-        d = contract.as_dict()
-        assert "capability_name" in d
-        assert "excluded_rules" in d
-        assert "pinned_rules" in d
-        assert "year" in d
-        assert "include_localized" in d
-        assert "include_historical" in d
-
     def test_is_frozen(self) -> None:
         """Verify immutability."""
         contract = CountryContract()
@@ -179,19 +168,6 @@ class TestCountryContract:
         """'none', '', and other unoffered values are contract violations."""
         with pytest.raises(ContractError):
             CountryContract(output_format=fmt)
-
-    def test_as_dict_contains_output_format(self) -> None:
-        """Verify as_dict includes output_format."""
-        contract = CountryContract(output_format="numeric")
-        d = contract.as_dict()
-        assert "output_format" in d
-        assert d["output_format"] == "numeric"
-
-    def test_as_dict_default_output_format(self) -> None:
-        """Verify as_dict shows default alpha2 output_format."""
-        contract = CountryContract()
-        d = contract.as_dict()
-        assert d["output_format"] == "alpha2"
 
 
 class TestCountryCapability:

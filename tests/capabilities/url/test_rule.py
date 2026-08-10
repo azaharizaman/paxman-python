@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 import pytest
 
@@ -32,10 +31,6 @@ class _RuleContract:
     pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = "url"
-    _dict: dict[str, Any] = field(default_factory=dict, compare=False)
-
-    def as_dict(self) -> dict[str, Any]:
-        return dict(self._dict)
 
 
 class TestWhatwgUrlStandard:
