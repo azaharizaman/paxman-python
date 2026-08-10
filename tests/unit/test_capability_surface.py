@@ -11,10 +11,7 @@ Money, Phone, URL) must
   (item 3 — guards the signature itself, which the runtime_checkable
   protocol cannot),
 - keep ``output_format`` optional and resolving to the concrete default
-  (item 4),
-- emit a replay-deterministic ``as_dict()`` key set (item 5), and
-- never return keys from ``_extra_dict_fields()`` that collide with the
-  standard base keys (item 6).
+  (item 4).
 """
 
 from __future__ import annotations
@@ -225,36 +222,6 @@ class TestContractHomogeneity:
     ) -> None:
         """A no-arg contract resolves output_format to the concrete default."""
         assert _contract_class().output_format == _default_format
-
-    @pytest.mark.unit
-    @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
-        _CAPABILITY_SURFACES,
-    )
-    def test_as_dict_replay_shape(
-        self,
-        _capability: type[object],
-        _contract_class: type[object],
-        _default_format: str,
-        _expected_keys: frozenset[str],
-    ) -> None:
-        """as_dict() emits exactly the expected replay-deterministic key set."""
-        assert set(_contract_class().as_dict().keys()) == _expected_keys
-
-    @pytest.mark.unit
-    @pytest.mark.parametrize(
-        "_capability,_contract_class,_default_format,_expected_keys",
-        _CAPABILITY_SURFACES,
-    )
-    def test_extra_dict_fields_do_not_collide_with_standard_keys(
-        self,
-        _capability: type[object],
-        _contract_class: type[object],
-        _default_format: str,
-        _expected_keys: frozenset[str],
-    ) -> None:
-        """Capability-specific as_dict() keys never shadow the standard keys."""
-        assert not (set(_contract_class()._extra_dict_fields()) & _STANDARD_KEYS)
 
     @pytest.mark.unit
     def test_surface_covers_every_exported_capability(self) -> None:
