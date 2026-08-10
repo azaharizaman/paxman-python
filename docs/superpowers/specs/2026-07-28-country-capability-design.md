@@ -316,19 +316,6 @@ class CountryContract:
             "numeric_recognition",
             "name_recognition",
         ]
-    
-    def as_dict(self) -> dict[str, object]:
-        """Serialize for replay hash computation."""
-        return {
-            "capability_name": self.capability_name,
-            "excluded_rules": self.excluded_rules,
-            "pinned_rules": self.pinned_rules,
-            "year": self.year,
-            "output_format": self.output_format,
-            "include_localized": self.include_localized,
-            "include_historical": self.include_historical,
-            "extra_synonyms": self.extra_synonyms,
-        }
 ```
 
 **Fields:**
@@ -620,7 +607,7 @@ For each rule:
 2. `test_missing` — nothing recognized
 3. `test_invalid` — recognized but not validated
 4. `test_ambiguity` — multiple conflicting canonical values
-5. `test_version_stamp` — verify replay hash is present and deterministic
+5. `test_version_stamp` — verify a `VersionStamp` recording the library version is present
 
 ### End-to-End Tests
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import FrozenInstanceError, dataclass, field
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import pytest
 
@@ -38,13 +38,6 @@ class _TestContract(CapabilityContract):
     @property
     def active_grammars(self) -> Sequence[str]:
         return []
-
-
-class _ExtraDictContract(_TestContract):
-    """Subclass exercising the ``_extra_dict_fields()`` extension hook."""
-
-    def _extra_dict_fields(self) -> dict[str, Any]:
-        return {"extra": 42}
 
 
 @dataclass(frozen=True)
@@ -115,41 +108,9 @@ class TestCapabilityContract:
             _TestContract(output_format=123)
 
     @pytest.mark.unit
-    def test_as_dict_emits_standard_keys(self) -> None:
-        """as_dict() emits exactly the 5 standard keys when no extras exist."""
-        contract = _TestContract()
-        assert set(contract.as_dict().keys()) == {
-            "capability_name",
-            "excluded_rules",
-            "pinned_rules",
-            "year",
-            "output_format",
-        }
-
-    @pytest.mark.unit
-    def test_as_dict_standard_values(self) -> None:
-        """as_dict() serializes the standard fields with their configured values."""
-        contract = _TestContract(excluded_rules=("a",), pinned_rules=("b",), year=2026)
-        result = contract.as_dict()
-        assert result["capability_name"] == "test"
-        assert result["excluded_rules"] == ("a",)
-        assert result["pinned_rules"] == ("b",)
-        assert result["year"] == 2026
-        assert result["output_format"] == "test"
-
-    @pytest.mark.unit
-    def test_as_dict_appends_extra_dict_fields(self) -> None:
-        """as_dict() appends _extra_dict_fields() results after the standard keys."""
-        result = _ExtraDictContract().as_dict()
-        assert result["extra"] == 42
-        assert set(result.keys()) == {
-            "capability_name",
-            "excluded_rules",
-            "pinned_rules",
-            "year",
-            "output_format",
-            "extra",
-        }
+    def test_base_class_exposes_no_as_dict_method(self) -> None:
+        """The base class no longer exposes the as_dict() serialization method."""
+        assert not hasattr(_TestContract(), "as_dict")
 
     @pytest.mark.unit
     def test_active_grammars_is_abstract(self) -> None:

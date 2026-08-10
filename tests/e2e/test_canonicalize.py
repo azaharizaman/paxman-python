@@ -93,9 +93,6 @@ class TestCanonicalize:
             def output_format(self) -> str | None:
                 return None
 
-            def as_dict(self) -> dict:
-                return {"capability_name": "nonexistent"}
-
         with pytest.raises(CapabilityError, match="Unknown capability"):
             canonicalize("test", FakeContract())
 

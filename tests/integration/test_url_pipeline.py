@@ -110,13 +110,23 @@ class TestURLPipeline:
         assert result.canonicalized_value == "mailto:user@example.com"
 
     def test_determinism(self) -> None:
-        """Same input + same contract -> byte-identical result every call."""
+        """Same input + same contract -> identical canonical result every call."""
         register_capability(URLCapability())
         contract = URLCapability.create_contract()
         result1 = canonicalize("HTTPS://Example.COM:443/path/../other", contract)
         result2 = canonicalize("HTTPS://Example.COM:443/path/../other", contract)
-        assert result1.version_stamp.replay_hash == result2.version_stamp.replay_hash
-        assert len(result1.version_stamp.replay_hash) == 64  # SHA-256 hex
+        assert result1 == result2
+        assert result1.status == result2.status
+        assert result1.canonicalized_value == result2.canonicalized_value
+        assert [c.value for c in result1.candidates] == [
+            c.value for c in result2.candidates
+        ]
+        assert len(result1.candidates) == 1
+        assert {c.value for c in result1.candidates} == {"https://example.com/other"}
+        assert {p.authority for c in result1.candidates for p in c.provenance} == {
+            "WHATWG"
+        }
+        assert isinstance(result1.version_stamp.paxman_version, str)
 
     @pytest.mark.parametrize(
         ("raw", "expected"),

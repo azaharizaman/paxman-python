@@ -93,11 +93,3 @@ class CurrencyContract(CapabilityContract):
             The three recognition grammar names.
         """
         return ("code_recognition", "symbol_recognition", "word_recognition")
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        """Serialize capability-specific fields for replay hash.
-
-        Returns:
-            Dictionary of the default_currency field.
-        """
-        return {"default_currency": self.default_currency}

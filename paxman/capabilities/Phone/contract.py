@@ -107,6 +107,3 @@ class PhoneContract(CapabilityContract):
             "international_00_recognition",
             "national_recognition",
         ]
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        return {"default_country": self.default_country}

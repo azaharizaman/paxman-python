@@ -176,10 +176,9 @@ class Candidate:
 
 @dataclass(frozen=True, slots=True)
 class VersionStamp:
-    """Replay integrity metadata."""
+    """Version metadata."""
 
     paxman_version: str
-    replay_hash: str
 
 
 class Rule(ABC, Generic[NotationT]):

@@ -44,14 +44,3 @@ class ISBNContract(CapabilityContract):
         if self.include_isbn10:
             grammars.append("isbn10_recognition")
         return grammars
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        """Serialize capability-specific fields for replay hash.
-
-        Returns:
-            Dictionary of include_isbn10 and include_range_validation flags.
-        """
-        return {
-            "include_isbn10": self.include_isbn10,
-            "include_range_validation": self.include_range_validation,
-        }

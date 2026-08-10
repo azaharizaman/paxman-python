@@ -110,6 +110,9 @@ Out of scope:
    active.
 5. Every shipped grammar name key is covered by at least one Country rule data
    table.
-6. Same input plus same contract remains deterministic; replay hashes are not
-   promised to remain byte-identical for inputs whose candidate provenance or
+6. Same input plus same contract, within a fixed library snapshot (fixed library
+   version, registry contents, and rule-data tables), remains deterministic:
+   canonical values are stable. Full-result byte equality (including candidates
+   and provenance metadata) is guaranteed only within that snapshot; outputs are
+   not promised to remain byte-identical for inputs whose candidate provenance or
    route changes.

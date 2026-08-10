@@ -8,10 +8,6 @@ import pytest
 from paxman.capabilities.Money.contract import MoneyContract
 from paxman.core.errors import ContractError
 
-_STANDARD_KEYS = frozenset(
-    {"capability_name", "excluded_rules", "pinned_rules", "year", "output_format"}
-)
-
 
 @pytest.mark.capability
 class TestMoneyContractDefaults:
@@ -107,29 +103,3 @@ class TestMoneyContractOutputFormat:
         """Unoffered output_format values raise ContractError at construction."""
         with pytest.raises(ContractError):
             MoneyContract(output_format=fmt)
-
-
-@pytest.mark.capability
-class TestMoneyContractSerialization:
-    """as_dict surface."""
-
-    def test_as_dict_deterministic_key_set(self) -> None:
-        """as_dict() emits the standard keys plus precision and dollar_sign_currency."""
-        assert set(MoneyContract().as_dict().keys()) == _STANDARD_KEYS | {
-            "precision",
-            "dollar_sign_currency",
-        }
-
-    def test_as_dict_values(self) -> None:
-        """as_dict() serializes precision and dollar_sign_currency with their values."""
-        d = MoneyContract(precision="round", dollar_sign_currency="JPY").as_dict()
-        assert d["precision"] == "round"
-        assert d["dollar_sign_currency"] == "JPY"
-
-    def test_as_dict_includes_resolved_output_format(self) -> None:
-        """as_dict() emits the resolved (non-None) output_format."""
-        assert MoneyContract().as_dict()["output_format"] == "code_amount"
-
-    def test_extra_dict_fields_do_not_collide_with_standard_keys(self) -> None:
-        """Capability-specific as_dict() keys never shadow the standard keys."""
-        assert not (set(MoneyContract()._extra_dict_fields()) & _STANDARD_KEYS)

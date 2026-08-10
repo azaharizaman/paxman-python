@@ -49,10 +49,3 @@ def test_frozen() -> None:
     contract = ISBNContract()
     with pytest.raises(dataclasses.FrozenInstanceError):
         contract.include_isbn10 = False  # type: ignore[misc]
-
-
-def test_as_dict_includes_features() -> None:
-    """as_dict serializes the capability-specific feature flags."""
-    d = ISBNContract().as_dict()
-    assert d["include_isbn10"] is True
-    assert d["include_range_validation"] is False

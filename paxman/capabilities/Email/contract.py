@@ -27,9 +27,3 @@ class EmailContract(CapabilityContract):
             "localhost_recognition": self.include_localhost,
         }
         return [name for name, active in grammar_rules.items() if active]
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        return {
-            "include_obfuscated": self.include_obfuscated,
-            "include_localhost": self.include_localhost,
-        }

@@ -111,12 +111,6 @@ class _LocalizedFixtureContract:
     def include_localized(self) -> bool:
         return self._include_localized
 
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "capability_name": self.capability_name,
-            "include_localized": self._include_localized,
-        }
-
 
 class _LocalizedOnlyCapability(Capability[CountryNotation]):
     """Capability exposing only the localized rule over the fixture grammar."""
@@ -200,9 +194,6 @@ class _DanglingFeatureContract:
     @property
     def output_format(self) -> str | None:
         return None
-
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "dangling_feature"}
 
 
 class _DanglingGrammarRule(Rule[CountryNotation]):

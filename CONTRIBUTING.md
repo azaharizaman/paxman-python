@@ -42,7 +42,7 @@ Tests live in the `tests/` directory and are organized by scope:
 |-----------|--------|----------------|
 | `tests/unit/` | `@pytest.mark.unit` | Domain object immutability, protocol compliance, enums |
 | `tests/capabilities/` | `@pytest.mark.capability` | Grammar recognition and rule normalization per capability |
-| `tests/integration/` | `@pytest.mark.integration` | Full pipeline flow, ambiguity detection, temporal filtering, replay hash |
+| `tests/integration/` | `@pytest.mark.integration` | Full pipeline flow, ambiguity detection, temporal filtering |
 | `tests/e2e/` | `@pytest.mark.e2e` | End-to-end scenarios through the public `canonicalize()` API |
 
 Run all tests:

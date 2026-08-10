@@ -1,7 +1,7 @@
 """Integration tests proving the engine routes formatting through the capability.
 
 The engine must invoke ``Capability.format_value()`` on each rule-normalized
-canonical value, before candidate deduplication, status, and replay hashing.
+canonical value, before candidate deduplication and status.
 This test-only capability rewrites the canonical value so the seam is
 observable end to end, and records the arguments it received so the test can
 prove the engine passes the original notation and the contract's resolved
@@ -139,9 +139,6 @@ class _FormattingContract:
     def output_format(self) -> str | None:
         return "formatted"
 
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "formatting", "output_format": "formatted"}
-
 
 class _DualTokenGrammar(Grammar[_TokenNotation]):
     """Grammar that recognizes two distinct tokens."""
@@ -243,9 +240,6 @@ class _DualFormattingContract:
     @property
     def output_format(self) -> str | None:
         return "formatted"
-
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "dual_formatting", "output_format": "formatted"}
 
 
 @pytest.fixture(autouse=True)

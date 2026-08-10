@@ -4,7 +4,7 @@ Each property locks a mathematical invariant of parsing, formatting, or the
 full pipeline using an independently derived expectation:
 
 - repeated runs over the same input and contract are byte-identical
-  (replay safety);
+  (canonical determinism);
 - format_amount then parse_amount round-trips the value for conforming
   precision;
 - random ASCII input never raises and every status is well-formed;
@@ -48,13 +48,17 @@ def _fresh_registry() -> None:
 
 @pytest.mark.property
 @given(text=st.text(alphabet=string.printable, max_size=120))
-def test_replay_determinism(text: str) -> None:
+def test_canonical_determinism(text: str) -> None:
     """Same input + same contract -> byte-identical ExecutionResult."""
     contract = MoneyCapability.create_contract()
     result1 = run_capability(text, contract)
     result2 = run_capability(text, contract)
     assert result1 == result2
-    assert result1.version_stamp.replay_hash == result2.version_stamp.replay_hash
+    assert result1.status == result2.status
+    assert result1.canonicalized_value == result2.canonicalized_value
+    assert {c.value for c in result1.candidates} == {
+        c.value for c in result2.candidates
+    }
 
 
 @pytest.mark.property
@@ -88,7 +92,12 @@ def test_fuzz_random_text_never_raises(text: str) -> None:
     assert (result.canonicalized_value is not None) == (
         result.status == Resolution.SUCCESS
     )
-    assert len(result.version_stamp.replay_hash) == 64
+    assert isinstance(result.version_stamp.paxman_version, str)
+    if result.status == Resolution.SUCCESS:
+        assert len(result.candidates) >= 1
+        assert {c.value for c in result.candidates} == {result.canonicalized_value}
+        authorities = {p.authority for c in result.candidates for p in c.provenance}
+        assert authorities and all(authorities)
 
 
 @pytest.mark.property

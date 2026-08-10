@@ -141,14 +141,6 @@ class TestIPContract:
         contract = IPContract(include_ipv6=False)
         assert contract.active_grammars == ["ipv4_recognition"]
 
-    def test_as_dict_includes_all_fields(self) -> None:
-        contract = IPContract(include_ipv6=False, year=2010)
-        d = contract.as_dict()
-        assert d["capability_name"] == "ip"
-        assert d["pinned_rules"] is None
-        assert d["include_ipv6"] is False
-        assert d["year"] == 2010
-
     def test_output_format_default_resolves_to_ip(self) -> None:
         """'default' resolves to 'ip' — IP's single canonical form."""
         contract = IPContract(output_format="default")

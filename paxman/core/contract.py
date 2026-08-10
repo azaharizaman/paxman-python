@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Protocol, cast, runtime_checkable
 
 from paxman.core.capability_contract import CapabilityContract as CapabilityContract
 from paxman.core.errors import ContractError
@@ -44,10 +44,6 @@ class Contract(Protocol):
     @property
     def output_format(self) -> str | None:
         """Output format for canonical values (e.g., 'ISO', 'US')."""
-        ...
-
-    def as_dict(self) -> dict[str, Any]:
-        """Serialize contract for replay_hash."""
         ...
 
 

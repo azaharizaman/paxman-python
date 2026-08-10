@@ -31,6 +31,3 @@ class DateContract(CapabilityContract):
             "us_recognition",
             "european_recognition",
         ]
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        return {"two_digit_base_year": self.two_digit_base_year}

@@ -94,10 +94,14 @@ class TestRunCapability:
 
         assert result.version_stamp is not None
         assert isinstance(result.version_stamp.paxman_version, str)
-        assert len(result.version_stamp.replay_hash) == 64  # SHA-256 hex
+        assert len(result.candidates) == 1
+        assert {c.value for c in result.candidates} == {"user@example.com"}
+        assert {p.authority for c in result.candidates for p in c.provenance} == {
+            "IETF"
+        }
 
     @pytest.mark.integration
-    def test_replay_determinism(self):
+    def test_canonical_determinism(self):
         cap = EmailCapability()
         register_capability(cap)
 
@@ -105,8 +109,14 @@ class TestRunCapability:
         r1 = run_capability("user@example.com", contract)
         r2 = run_capability("user@example.com", contract)
 
-        assert r1.version_stamp.replay_hash == r2.version_stamp.replay_hash
+        assert r1 == r2
+        assert r1.status == r2.status
         assert r1.canonicalized_value == r2.canonicalized_value
+        assert [c.value for c in r1.candidates] == [c.value for c in r2.candidates]
+        assert len(r1.candidates) == 1
+        assert {c.value for c in r1.candidates} == {"user@example.com"}
+        assert {p.authority for c in r1.candidates for p in c.provenance} == {"IETF"}
+        assert isinstance(r1.version_stamp.paxman_version, str)
 
 
 # ---------------------------------------------------------------------------
@@ -242,9 +252,6 @@ class _ErrorContract:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "crash"}
-
 
 class _ExplodingContract(_ErrorContract):
     """Contract variant for ExplodingRuleCapability."""
@@ -256,9 +263,6 @@ class _ExplodingContract(_ErrorContract):
     @property
     def active_grammars(self) -> list[str]:
         return ["simple_grammar"]
-
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "exploding_rule_cap"}
 
 
 class TestErrorWrapping:
@@ -431,9 +435,6 @@ class _PhantomContract:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "phantom"}
-
 
 class TestGrammarRuleAffinity:
     """F1: grammar→rule affinity declared via Rule.target_grammars."""
@@ -503,14 +504,13 @@ class TestGrammarRuleAffinity:
             run_capability("test input", _PhantomContract())
 
 
-class TestReplayAndCandidateOrder:
-    """Replay determinism and candidate order across capabilities.
+class TestCanonicalDeterminismAndCandidateOrder:
+    """Canonical determinism and candidate order across capabilities.
 
     Each fixed input+contract is run twice; the second run must reproduce the
-    first run's status, canonicalized value, candidate tuple (order included),
-    and replay hash. The literal pre-migration snapshots in
-    ``test_default_replay_hashes.py`` are the separate byte-compatibility
-    guard; these regressions lock within-run determinism for formatted cases.
+    first run's status, canonicalized value, and candidate tuple (order
+    included). These regressions lock within-run determinism for formatted
+    cases.
     """
 
     @pytest.mark.integration
@@ -567,17 +567,19 @@ class TestReplayAndCandidateOrder:
         contract_factory: Callable[[], Contract],
         input_text: str,
     ) -> None:
-        """Running the same case twice yields identical results and hash."""
+        """Running the same case twice yields identical results."""
         register_capability(capability_cls())
         contract = contract_factory()
 
         first = run_capability(input_text, contract)
         second = run_capability(input_text, contract)
 
+        assert second == first
         assert second.status == first.status
         assert second.canonicalized_value == first.canonicalized_value
         assert second.candidates == first.candidates
-        assert second.version_stamp.replay_hash == first.version_stamp.replay_hash
+        assert len(second.candidates) >= 1
+        assert isinstance(second.version_stamp.paxman_version, str)
 
     @pytest.mark.integration
     def test_phone_formatting_precedes_dedup_two_extensions(self) -> None:

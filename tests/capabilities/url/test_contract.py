@@ -10,10 +10,6 @@ from paxman.core.errors import ContractError
 
 pytestmark = [pytest.mark.capability, pytest.mark.url]
 
-_STANDARD_KEYS = frozenset(
-    {"capability_name", "excluded_rules", "pinned_rules", "year", "output_format"}
-)
-
 
 @pytest.mark.capability
 class TestURLCapabilityContractDefaults:
@@ -61,25 +57,3 @@ class TestURLCapabilityContractOutputFormat:
         """Unoffered output_format values raise ContractError at construction."""
         with pytest.raises(ContractError):
             URLCapabilityContract(output_format=fmt)
-
-
-@pytest.mark.capability
-class TestURLCapabilityContractSerialization:
-    """as_dict surface."""
-
-    def test_extra_dict_fields_empty(self) -> None:
-        """D14 — no feature flags, so no extra contract keys."""
-        assert URLCapabilityContract()._extra_dict_fields() == {}
-
-    def test_contract_keys(self) -> None:
-        """asdict() keys are exactly the standard contract keys — guard that no
-        feature key leaks into the replay-hash surface (Traps 4.9)."""
-        assert set(dataclasses.asdict(URLCapabilityContract()).keys()) == _STANDARD_KEYS
-
-    def test_as_dict_deterministic_key_set(self) -> None:
-        """as_dict() emits the standard keys with no extras."""
-        assert set(URLCapabilityContract().as_dict().keys()) == _STANDARD_KEYS
-
-    def test_as_dict_includes_resolved_output_format(self) -> None:
-        """as_dict() emits the resolved (non-None) output_format."""
-        assert URLCapabilityContract().as_dict()["output_format"] == "url"

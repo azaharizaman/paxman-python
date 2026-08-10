@@ -123,17 +123,6 @@ class TestPhoneContract:
         assert "international_00_recognition" in grammars
         assert "national_recognition" in grammars
 
-    def test_as_dict_contains_all_fields(self) -> None:
-        """Verify as_dict serializes all fields."""
-        contract = PhoneContract()
-        d = contract.as_dict()
-        assert "capability_name" in d
-        assert "default_country" in d
-        assert "output_format" in d
-        assert "excluded_rules" in d
-        assert "pinned_rules" in d
-        assert "year" in d
-
     def test_is_frozen(self) -> None:
         """Verify immutability."""
         contract = PhoneContract()

@@ -173,9 +173,6 @@ class _ProbeContract:
     def output_format(self) -> str | None:
         return None
 
-    def as_dict(self) -> dict[str, object]:
-        return {"capability_name": "probe"}
-
 
 @pytest.fixture(autouse=True)
 def _clean_registry():

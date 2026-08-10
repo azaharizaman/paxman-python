@@ -24,6 +24,3 @@ class IPContract(CapabilityContract):
         if self.include_ipv6:
             grammars.append("ipv6_recognition")
         return grammars
-
-    def _extra_dict_fields(self) -> dict[str, object]:
-        return {"include_ipv6": self.include_ipv6}

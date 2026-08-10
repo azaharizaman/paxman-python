@@ -354,18 +354,26 @@ class TestCountryPipeline:
 
         assert result.version_stamp is not None
         assert isinstance(result.version_stamp.paxman_version, str)
-        assert len(result.version_stamp.replay_hash) == 64  # SHA-256 hex
+        assert len(result.candidates) == 2
+        assert {c.value for c in result.candidates} == {"US"}
+        assert {p.authority for c in result.candidates for p in c.provenance} == {"ISO"}
 
     @pytest.mark.integration
-    def test_replay_determinism(self) -> None:
-        """Same input + same contract = byte-identical replay hash."""
+    def test_canonical_determinism(self) -> None:
+        """Same input + same contract = identical canonical result."""
         register_capability(CountryCapability())
         contract = CountryCapability.create_contract()
         r1 = run_capability("US", contract)
         r2 = run_capability("US", contract)
 
-        assert r1.version_stamp.replay_hash == r2.version_stamp.replay_hash
+        assert r1 == r2
+        assert r1.status == r2.status
         assert r1.canonicalized_value == r2.canonicalized_value
+        assert [c.value for c in r1.candidates] == [c.value for c in r2.candidates]
+        assert len(r1.candidates) == 2
+        assert {c.value for c in r1.candidates} == {"US"}
+        assert {p.authority for c in r1.candidates for p in c.provenance} == {"ISO"}
+        assert isinstance(r1.version_stamp.paxman_version, str)
 
     @pytest.mark.integration
     def test_candidate_provenance(self) -> None:

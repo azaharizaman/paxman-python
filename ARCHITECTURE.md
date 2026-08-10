@@ -8,7 +8,7 @@ Paxman is a canonicalization authority resolver — a library that takes ambiguo
 
 ### Determinism
 
-Paxman never guesses. Given the same input and the same contract configuration, the output is always byte-identical. This property is enforced through deterministic computation at every stage — from grammar recognition to status determination to the final replay hash. The system is designed to be replay-safe: identical inputs always produce identical outputs, enabling auditability and reproducibility.
+Paxman never guesses. Given the same input, the same contract configuration, and the same library snapshot (fixed library version, registry contents, and rule-data tables), the output is always byte-identical. This property holds by construction: every pipeline stage is a pure, deterministic function of its inputs — grammar recognition, rule validation, capability formatting, candidate deduplication, and status determination include no clocks, no randomness, and no environment-dependent ordering. Identical inputs always produce identical outputs, enabling auditability and reproducibility. Across library snapshots, provenance or rule-routing changes may alter the resulting metadata; the byte-identical guarantee is scoped to a fixed snapshot.
 
 ### Provenance-First
 
@@ -88,17 +88,16 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 2. Looks up the requested capability by name
 3. Runs the recognition phase — iterating over active grammars to extract span-bearing recognition matches
 4. Runs the validation phase — testing each notation against active rules, which normalize to each capability's default canonical form and never inspect `output_format`
-5. Formats each validated value through the capability's `format_value()` seam — immediately after normalization and before deduplication, status determination, and replay hashing
+5. Formats each validated value through the capability's `format_value()` seam — immediately after normalization and before deduplication and status determination
 6. Deduplicates identical candidates
 7. Determines the resolution status based on candidate outcomes
-8. Computes a deterministic replay hash for integrity verification
-9. Assembles the final execution result
+8. Assembles the final execution result
 
 The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce span-bearing recognition matches and rules produce candidates.
 
 ### Public API
 
-The outermost layer exposes the user-facing interface. It is intentionally minimal — a single entry point that accepts input text and a contract, and returns a fully-resolved execution result with provenance and replay metadata.
+The outermost layer exposes the user-facing interface. It is intentionally minimal — a single entry point that accepts input text and a contract, and returns a fully-resolved execution result with full provenance.
 
 ---
 
@@ -135,9 +134,9 @@ These parameters are passed through the contract to rule methods (`matches()` an
 
 ### The Formatting Seam
 
-Validation and presentation are separated at the pipeline level. Rules own validation and default normalization only: `matches()` never consults `output_format`, and `normalize()` always returns the capability's default canonical form (e.g., `YYYY-MM-DD` for Date, E.164 `+CCNSN` for Phone, alpha-2 for Country). The engine then renders each validated value through the capability's `format_value(value, output_format, notation)` method — called immediately after `normalize()` and before candidate deduplication, status determination, and replay hashing:
+Validation and presentation are separated at the pipeline level. Rules own validation and default normalization only: `matches()` never consults `output_format`, and `normalize()` always returns the capability's default canonical form (e.g., `YYYY-MM-DD` for Date, E.164 `+CCNSN` for Phone, alpha-2 for Country). The engine then renders each validated value through the capability's `format_value(value, output_format, notation)` method — called immediately after `normalize()` and before candidate deduplication and status determination:
 
-**recognition → validation → default normalization → capability formatting → candidate deduplication → status → replay hash**
+**recognition → validation → default normalization → capability formatting → candidate deduplication → status → result**
 
 Formatting adds no provenance: `Candidate.provenance`, `recognition_rule`, and `validation_rule` are set from the rule that validated the notation, and the formatter only transforms the value. Date, Phone, and Country implement conversions; Email and IP inherit the identity implementation because they offer no alternative formats.
 
@@ -151,9 +150,15 @@ All domain objects are immutable. Once created, they cannot be modified. This is
 
 Rules carry a publication year from their authoritative specification. When a contract specifies a year, the engine filters out rules whose publication year exceeds that year. This allows users to pin to a specific historical version of a specification, excluding rules from newer revisions.
 
-### Replay Integrity
+### Determinism by Construction
 
-Every execution produces a VersionStamp containing a deterministic SHA-256 hash computed from the input text, contract configuration, resolution status, and the formatted candidate values (formatting runs before hashing, so an output-format change is reflected in the hash). This hash enables replay verification — confirming that the same input and configuration produce the same output, byte-for-byte.
+Determinism is a structural property of the layered pipeline, not a post-hoc artifact:
+
+- **Recognition layer.** Active grammars emit span-bearing `RecognitionMatch` objects from the input text, matching the `Grammar.recognize()` contract. Grammar output depends only on the input and the grammar itself.
+- **Validation layer.** Rules accept recognized representations and produce candidates, each carrying a canonical value and provenance. A rule's output depends only on the representation and the contract.
+- **Result layer.** The engine deduplicates identical candidates and folds the distinct candidate values into one of the resolution statuses: `SUCCESS` when all candidates agree on a single canonical value, `AMBIGUOUS` when they disagree, `INVALID` when nothing validated, and `MISSING` when no grammar recognized anything.
+
+Every stage is a pure function of its inputs — no clocks, no randomness, no environment-dependent ordering — so the same input, contract configuration, and library snapshot (fixed library version, registry contents, and rule-data tables) always produce the same output, byte-for-byte. The `VersionStamp` on each execution result records the library version for provenance; the byte-identical guarantee itself rests on this determinism-by-construction. Changes to provenance or rule routing across library snapshots can alter result metadata; the byte-identical guarantee is scoped to a fixed snapshot.
 
 ---
 

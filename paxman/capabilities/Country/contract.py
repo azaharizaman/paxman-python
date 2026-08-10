@@ -49,17 +49,6 @@ class CountryContract(CapabilityContract):
             "name_recognition",
         ]
 
-    def _extra_dict_fields(self) -> dict[str, object]:
-        """Serialize capability-specific fields for replay hash.
-
-        Returns:
-            Dictionary of include_localized and include_historical flags.
-        """
-        return {
-            "include_localized": self.include_localized,
-            "include_historical": self.include_historical,
-        }
-
 
 VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
     {CountryContract.DEFAULT_OUTPUT_FORMAT, *CountryContract.OFFERED_OUTPUT_FORMATS}

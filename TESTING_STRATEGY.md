@@ -62,8 +62,9 @@ Key scenarios:
 - **Obfuscated recognition.** Enabling `include_obfuscated=True` in the contract activates the obfuscated grammar, which then recognizes natural-language email representations.
 - **Localhost recognition.** `admin@localhost` resolves through the localhost grammar and RFC 6761 validation.
 - **Missing input.** Text with no email patterns produces `Resolution.MISSING` with zero candidates.
-- **Version stamp presence.** Every successful result carries a `VersionStamp` with a 64-character SHA-256 hex replay hash.
-- **Replay determinism.** Running the same input through the same contract twice produces identical replay hashes and identical canonical values. This directly tests the system's core determinism invariant.
+- **Version stamp presence.** Every successful result carries a `VersionStamp` recording the library version.
+- **Candidate-multiset determinism.** Running the same input through the same contract twice produces the same candidate multiset and identical canonical values. This directly tests the system's core determinism invariant.
+- **Provenance authority.** Each resolved value's candidates carry provenance citations; integration tests assert the authoritative specification behind a resolution (e.g. RFC 5322 for email), and that a recognized-but-unvalidated input stays `INVALID` rather than resolving without authority.
 - **Ambiguity detection.** Two different emails in one input produce `Resolution.AMBIGUOUS` with `canonicalized_value` set to `None`, even though each individual email resolves cleanly.
 - **Temporal filtering.** Setting `year=2007` excludes RFC 5322 (published 2008) and RFC 6761 (published 2012), producing `Resolution.INVALID` for input that would otherwise resolve. Setting `year=2010` includes RFC 5322 but excludes RFC 6761, narrowing the set of valid candidates.
 
@@ -121,7 +122,7 @@ uv run pytest --cov=paxman --cov-report=term-missing
 
 **Tests mirror architecture.** The four test layers correspond to the four structural layers of the system. Unit tests cover the core domain. Capability tests cover capability implementations. Integration tests cover the engine. E2e tests cover the public API.
 
-**Determinism is testable.** The replay determinism test in `test_pipeline.py` runs the same input twice and asserts identical output hashes. This is the most important single test in the suite, because it proves the system keeps its central promise.
+**Determinism is testable.** The determinism test in `test_pipeline.py` runs the same input through the same contract twice and asserts an identical candidate multiset and identical canonical values. This is the most important single test in the suite, because it proves the system keeps its central promise.
 
 **Isolation is mandatory.** Every layer that touches shared state (the registry) uses fixtures to reset it. Tests never depend on execution order.
 

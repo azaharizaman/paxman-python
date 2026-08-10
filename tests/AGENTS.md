@@ -9,7 +9,7 @@ tests/
 ├── conftest.py       # loads hypothesis "ci" profile
 ├── unit/             # -m unit        core domain, registry, contracts, purity scans
 ├── capabilities/     # -m capability  per-capability, lowercase dirs (country, currency, date, email, ip, isbn, money, phone, url)
-├── integration/      # -m integration pipeline, ambiguity, temporal, replay hashes, feature gating, format_value seam
+├── integration/      # -m integration pipeline, ambiguity, temporal, feature gating, format_value seam
 ├── property/         # -m property    hypothesis property tests
 └── e2e/              # -m e2e         canonicalize() end-to-end
 ```
@@ -27,7 +27,6 @@ tests/
 | Purity scans (bans `output_format` in rules, grammar↔rules imports) | `tests/unit/test_rule_output_format_purity.py`, `test_grammar_semantic_purity.py` |
 | Rule modules importable + metadata | `tests/unit/test_rule_metadata.py` |
 | Packaging / capability exports | `tests/unit/test_package_install.py`, `test_capability_exports.py`, `test_capability_surface.py` |
-| Baseline replay hashes (do not edit literals) | `tests/integration/test_default_replay_hashes.py` |
 | Full pipeline end-to-end | `tests/e2e/test_canonicalize.py` |
 
 ## CONVENTIONS
