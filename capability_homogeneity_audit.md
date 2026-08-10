@@ -281,17 +281,23 @@ was implemented there. Date rules now emit ISO defaults only, and
 original F4 severity for Date was overstated; the resolution is the uniform
 formatter seam described in the centralize-output-format addendum below.
 
-### B. F1 candidate multiset is byte-identical — the "watch out" risk did not materialize
+### B. F1 candidate multiset is identical — byte-identical output requires ordered comparison
 
 The audit's *Watch out for* warns that moving to grammar→rule affinity could change
 the candidate multiset via candidate multiplicity. In practice `target_grammars` was set equal
 to each rule's *effective acceptance domain* (the affinity map in F1), so the candidate
 multiset is identical to the cartesian product for every capability (Email / Date /
-Country / IP / Phone). The output is therefore byte-identical by construction. The
-`_dedup_candidates` step is a pure safety net for future over-declaration, not a
-behavior change. The plan's Step 6.7 determinism gate was satisfied *structurally*
-(target_grammars == effective domain ⇒ identical output) rather than by captured
-pre-change constants; the full 782-test suite passing is the empirical confirmation.
+Country / IP / Phone). That multiset equality alone does not prove byte-identical output:
+candidate ordering and observable metadata matter too. Byte-identical output is established
+only where the ordered candidate sequences compare equal — including recognition/validation
+rules and provenance — as asserted by the repeated-run determinism tests (e.g.
+`tests/integration/test_*_pipeline.py::test_canonical_determinism`, which now compare full
+`ExecutionResult` equality). Where only multiset equality is established, the claim is
+limited to multiset equality, not byte-identity. The `_dedup_candidates` step is a pure
+safety net for future over-declaration, not a behavior change. The plan's Step 6.7
+determinism gate was satisfied *structurally* (target_grammars == effective domain ⇒
+identical multiset) rather than by captured pre-change constants; the full 782-test suite
+passing is the empirical confirmation.
 
 ## Addendum — F3 completion: Country recognition/validation boundary restored (2026-08-03)
 

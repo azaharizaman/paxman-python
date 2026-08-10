@@ -8,7 +8,7 @@ Paxman is a canonicalization authority resolver — a library that takes ambiguo
 
 ### Determinism
 
-Paxman never guesses. Given the same input and the same contract configuration, the output is always byte-identical. This property holds by construction: every pipeline stage is a pure, deterministic function of its inputs — grammar recognition, rule validation, capability formatting, candidate deduplication, and status determination include no clocks, no randomness, and no environment-dependent ordering. Identical inputs always produce identical outputs, enabling auditability and reproducibility.
+Paxman never guesses. Given the same input, the same contract configuration, and the same library snapshot (fixed library version, registry contents, and rule-data tables), the output is always byte-identical. This property holds by construction: every pipeline stage is a pure, deterministic function of its inputs — grammar recognition, rule validation, capability formatting, candidate deduplication, and status determination include no clocks, no randomness, and no environment-dependent ordering. Identical inputs always produce identical outputs, enabling auditability and reproducibility. Across library snapshots, provenance or rule-routing changes may alter the resulting metadata; the byte-identical guarantee is scoped to a fixed snapshot.
 
 ### Provenance-First
 
@@ -154,11 +154,11 @@ Rules carry a publication year from their authoritative specification. When a co
 
 Determinism is a structural property of the layered pipeline, not a post-hoc artifact:
 
-- **Recognition layer.** Active grammars emit span-bearing `RecognizedRep`s from the input text. Grammar output depends only on the input and the grammar itself.
+- **Recognition layer.** Active grammars emit span-bearing `RecognitionMatch` objects from the input text, matching the `Grammar.recognize()` contract. Grammar output depends only on the input and the grammar itself.
 - **Validation layer.** Rules accept recognized representations and produce candidates, each carrying a canonical value and provenance. A rule's output depends only on the representation and the contract.
 - **Result layer.** The engine deduplicates identical candidates and folds the distinct candidate values into one of the resolution statuses: `SUCCESS` when all candidates agree on a single canonical value, `AMBIGUOUS` when they disagree, `INVALID` when nothing validated, and `MISSING` when no grammar recognized anything.
 
-Every stage is a pure function of its inputs — no clocks, no randomness, no environment-dependent ordering — so the same input and contract configuration always produce the same output, byte-for-byte. The `VersionStamp` on each execution result records the library version for provenance; the byte-identical guarantee itself rests on this determinism-by-construction.
+Every stage is a pure function of its inputs — no clocks, no randomness, no environment-dependent ordering — so the same input, contract configuration, and library snapshot (fixed library version, registry contents, and rule-data tables) always produce the same output, byte-for-byte. The `VersionStamp` on each execution result records the library version for provenance; the byte-identical guarantee itself rests on this determinism-by-construction. Changes to provenance or rule routing across library snapshots can alter result metadata; the byte-identical guarantee is scoped to a fixed snapshot.
 
 ---
 

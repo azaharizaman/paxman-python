@@ -14,7 +14,11 @@
 > not "improve" the design — D-decisions are locked (§1). The full suite is
 > only green after Task 12; the per-task verify commands are scoped so each
 > task is independently green. Commit with the exact message given for each
-> task.
+> task. **Deletion-only tasks are exempt from the RED step**: Tasks 3, 8, 9,
+> and 12 (deletions / docs sweep) have no failing test to write — their
+> task sections say "Step 1 GREEN (deletion — no RED step)" and that
+> instruction wins. Task 13 is a verify-only gate with **no commit**, so the
+> exact-commit-message requirement does not apply to it.
 
 ---
 
@@ -485,6 +489,7 @@ grep -rn "replay_hash\|replay-hash\|replay hash\|Replay Hash\|_extra_dict_fields
   --exclude-dir=plans --exclude-dir=report --exclude-dir=research \
   --exclude="0001-clean-architecture-pipeline.md" \
   --exclude="0002-remove-replay-hash.md" \
+  --exclude="README.md" \
   . | grep -v "docs/adr/" || echo "CLEAN"
 ```
 
