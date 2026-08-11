@@ -32,6 +32,7 @@ class AbsoluteUriRecognition(Grammar[URLNotation]):
     """Absolute-URI recognition: extracts scheme-anchored URI spans."""
 
     name = "absolute_uri_recognition"
+    semantics = "absolute_uri_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[URLNotation]]:
         """Extract absolute-URI spans from text.

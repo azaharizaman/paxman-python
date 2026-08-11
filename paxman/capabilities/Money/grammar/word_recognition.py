@@ -45,6 +45,7 @@ class WordRecognition(Grammar[MoneyNotation]):
     """
 
     name = "word_recognition"
+    semantics = "word_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[MoneyNotation]]:
         """Extract word+amount tokens from text.

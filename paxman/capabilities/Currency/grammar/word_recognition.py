@@ -38,6 +38,7 @@ class WordRecognition(Grammar[CurrencyNotation]):
     """
 
     name = "word_recognition"
+    semantics = "word_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[CurrencyNotation]]:
         """Extract standalone display-name word tokens from text.

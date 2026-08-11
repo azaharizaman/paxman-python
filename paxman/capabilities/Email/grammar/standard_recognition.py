@@ -16,6 +16,7 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
     """Standard email recognition: user@domain.tld."""
 
     name = "standard_recognition"
+    semantics = "standard_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         matches: list[RecognitionMatch[EmailNotation]] = []

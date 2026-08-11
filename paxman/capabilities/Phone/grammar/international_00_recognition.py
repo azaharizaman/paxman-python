@@ -37,6 +37,7 @@ class International00Grammar(Grammar[PhoneNotation]):
     """
 
     name = "international_00_recognition"
+    semantics = "international_00_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract 00-prefixed international patterns from text.

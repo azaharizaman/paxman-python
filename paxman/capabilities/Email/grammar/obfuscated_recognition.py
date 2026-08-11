@@ -21,6 +21,7 @@ class ObfuscatedEmailGrammar(Grammar[EmailNotation]):
     """Obfuscated email: 'user at domain dot tld' or 'user at domain.tld'."""
 
     name = "obfuscated_recognition"
+    semantics = "obfuscated_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         """Extract obfuscated email patterns from text.

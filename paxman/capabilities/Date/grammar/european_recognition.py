@@ -21,6 +21,7 @@ class EuropeanDateGrammar(Grammar[DateNotation]):
     """
 
     name = "european_recognition"
+    semantics = "european_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         """Extract European date patterns from text.

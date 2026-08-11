@@ -20,6 +20,7 @@ class ISO8601DateGrammar(Grammar[DateNotation]):
     """
 
     name = "iso8601_recognition"
+    semantics = "iso8601_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         """Extract ISO 8601 date patterns from text."""

@@ -26,6 +26,7 @@ class SlashISODateGrammar(Grammar[DateNotation]):
     """
 
     name = "slash_iso_recognition"
+    semantics = "slash_iso_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         """Extract YYYY/MM/DD date patterns from text."""
