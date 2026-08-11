@@ -15,6 +15,7 @@ class StubGrammar(Grammar):
     """Minimal concrete grammar for testing Capability."""
 
     name: str = "stub_grammar"
+    semantics = "stub_grammar"
 
     def recognize(self, text: str) -> list[Notation]:
         return []

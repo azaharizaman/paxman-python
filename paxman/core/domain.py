@@ -229,6 +229,18 @@ class Grammar(ABC, Generic[NotationT]):
     """Base class for recognition grammars."""
 
     name: str
+    semantics: ClassVar[str]
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        """Enforce Grammar metadata at class-definition time."""
+        super().__init_subclass__(**kwargs)
+        if not hasattr(cls, "semantics"):
+            raise TypeError(f"{cls.__name__} must define Grammar metadata: semantics")
+        semantics: Any = vars(cls).get("semantics", cls.semantics)
+        if type(semantics) is not str:
+            raise TypeError(f"{cls.__name__}.semantics must be str")
+        if not cls.semantics:
+            raise TypeError(f"{cls.__name__}.semantics must be non-empty")
 
     @abstractmethod
     def recognize(self, text: str) -> list[RecognitionMatch[NotationT]]:

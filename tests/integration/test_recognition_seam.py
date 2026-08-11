@@ -49,6 +49,7 @@ class _ProbeLongGrammar(Grammar[_ProbeNotation]):
     """
 
     name = "probe_long"
+    semantics = "probe_long"
     _patterns = (re.compile(r"AAAA"), re.compile(r"AA"))
 
     def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
@@ -70,6 +71,7 @@ class _ProbeShortGrammar(Grammar[_ProbeNotation]):
     """Recognizes 'AA' only."""
 
     name = "probe_short"
+    semantics = "probe_short"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
         return [
@@ -375,6 +377,7 @@ class TestDefaultGrammarSurface:
 
         class _CommunityGrammar(Grammar[_ProbeNotation]):
             name = "probe_community"
+            semantics = "probe_community"
 
             def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
                 calls.append(self.name)

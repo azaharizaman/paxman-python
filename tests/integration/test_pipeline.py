@@ -128,6 +128,7 @@ class CrashGrammar(Grammar[EmailNotation]):
     """Grammar whose recognize() always raises."""
 
     name = "crash_grammar"
+    semantics = "crash_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         raise RuntimeError("grammar crashed")
@@ -137,6 +138,7 @@ class SimpleGrammar(Grammar[EmailNotation]):
     """Grammar that returns a fixed notation."""
 
     name = "simple_grammar"
+    semantics = "simple_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         return [
@@ -358,6 +360,7 @@ class _PhantomGrammar(Grammar[EmailNotation]):
     """Grammar referenced by a rule that does not exist in the capability."""
 
     name = "phantom_grammar"
+    semantics = "phantom_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         return [

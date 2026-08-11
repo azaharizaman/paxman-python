@@ -36,6 +36,7 @@ class DotDateGrammar(Grammar[DateNotation]):
     """Community test double: recognizes YYYY.MM.DD (dot separator)."""
 
     name = "dot_date_recognition"
+    semantics = "dot_date_recognition"
     _PATTERN = re.compile(r"\b(\d{4})\.(\d{2})\.(\d{2})\b")
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
@@ -55,6 +56,7 @@ class SecondDateGrammar(Grammar[DateNotation]):
     """Second community test double — same shape, different normalization."""
 
     name = "second_recognition"
+    semantics = "second_recognition"
     _PATTERN = re.compile(r"\b(\d{4})\.(\d{2})\.(\d{2})\b")
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
@@ -74,6 +76,7 @@ class ClashingDateGrammar(Grammar[DateNotation]):
     """Community grammar whose name collides with a shipped Date grammar."""
 
     name = "iso8601_recognition"
+    semantics = "iso8601_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         return []

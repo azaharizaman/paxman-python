@@ -48,6 +48,7 @@ class _TokenGrammar(Grammar[_TokenNotation]):
     """Grammar that recognizes a single fixed token."""
 
     name = "token_grammar"
+    semantics = "token_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
         return [
@@ -144,6 +145,7 @@ class _DualTokenGrammar(Grammar[_TokenNotation]):
     """Grammar that recognizes two distinct tokens."""
 
     name = "dual_token_grammar"
+    semantics = "dual_token_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
         return [
