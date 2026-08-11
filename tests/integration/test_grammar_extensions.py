@@ -238,12 +238,12 @@ class TestCompositionGuards:
 
     @pytest.mark.integration
     def test_community_rule_dangling_target_raises(self) -> None:
-        """An opted-in community rule naming a missing grammar fails fast."""
+        """An opted-in community rule naming a missing semantics fails fast."""
         register_rule("date", DanglingDateRule)
         contract = DateContract(
             extra_grammars=("dot_date_recognition", "no_such_grammar")
         )
-        with pytest.raises(ContractError, match="unknown grammar"):
+        with pytest.raises(ContractError, match="unknown semantics"):
             run_capability("2024.01.01", contract)
 
     @pytest.mark.integration

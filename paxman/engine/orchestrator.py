@@ -62,9 +62,13 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
         *get_extended_grammars(capability.name),
     ]
     _assert_unique_names("grammar", all_grammars)
-    all_rules = [*capability.get_rules(), *_activated_rules(capability, contract)]
+    semantics_by_name = {g.name: g.semantics for g in all_grammars}
+    all_rules = [
+        *capability.get_rules(),
+        *_activated_rules(capability, contract, semantics_by_name),
+    ]
     _assert_unique_names("rule", all_rules)
-    _validate_affinity(all_grammars, all_rules)
+    _validate_affinity(semantics_by_name, all_rules)
     recognitions = _recognize(
         text,
         all_grammars,
@@ -74,7 +78,7 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     had_recognitions = len(recognitions) > 0
 
     rules = _filter_rules(all_rules, contract)
-    candidates = _collect_candidates(capability, recognitions, rules)
+    candidates = _collect_candidates(capability, recognitions, rules, semantics_by_name)
 
     status = _determine_status(candidates, had_recognitions)
     canonical_value = _extract_canonical_value(candidates, status)
@@ -93,8 +97,9 @@ def _assert_unique_names(kind: str, items: Sequence[Grammar[Any] | Rule[Any]]) -
     """Fail fast when a composed grammar or rule name is duplicated.
 
     Shipped names must never be shadowed or duplicated by community
-    extensions: a duplicate would make grammar-name routing and provenance
-    attribution ambiguous, so reject it at composition time (D4).
+    extensions: a duplicate would make provenance attribution ambiguous
+    (routing is semantic, but names remain the audit identity), so reject it
+    at composition time (D4).
     """
     names = [item.name for item in items]
     duplicates = sorted({name for name in names if names.count(name) > 1})
@@ -274,21 +279,21 @@ def _filter_rules(all_rules: list[Rule[Any]], contract: Contract) -> list[Rule[A
 
 
 def _validate_affinity(
-    all_grammars: Sequence[Grammar[Any]], rules: list[Rule[Any]]
+    semantics_by_name: dict[str, str], rules: list[Rule[Any]]
 ) -> None:
-    """Ensure every rule's declared grammars exist in the composition.
+    """Ensure every rule's declared semantics exist in the composition.
 
     The composition covers shipped and community grammars alike; a dangling
-    grammar name would silently exclude a rule from ever running, so fail
+    semantics would silently exclude a rule from ever running, so fail
     fast at pipeline start rather than producing a wrong (e.g. INVALID) result.
     """
-    known_grammars = {g.name for g in all_grammars}
+    known_semantics = set(semantics_by_name.values())
     for rule in rules:
-        unknown = [g for g in rule.target_semantics if g not in known_grammars]
+        unknown = [s for s in rule.target_semantics if s not in known_semantics]
         if unknown:
             raise ContractError(
-                f"Rule {rule.name!r} declares unknown grammar(s) "
-                f"{sorted(unknown)}; available: {sorted(known_grammars)}"
+                f"Rule {rule.name!r} declares unknown semantics "
+                f"{sorted(unknown)}; available: {sorted(known_semantics)}"
             )
 
 
@@ -296,20 +301,21 @@ def _collect_candidates(
     capability: Capability[Any],
     recognitions: list[RecognizedRep[Any]],
     rules: list[Rule[Any]],
+    semantics_by_name: dict[str, str],
 ) -> list[Candidate]:
     """Match recognitions against rules and collect candidates.
 
-    Routes each recognition only to rules whose ``target_semantics`` includes the
-    producing grammar's name (ARCHITECTURE.md:201), formats each validated
-    value through the capability's ``format_value()`` seam, then dedups
-    identical candidate tuples so the candidate multiset is stable regardless
-    of routing.
+    Routes each recognition only to rules whose ``target_semantics`` includes
+    the producing grammar's semantics (ARCHITECTURE.md:201), formats each
+    validated value through the capability's ``format_value()`` seam, then
+    dedups identical candidate tuples so the candidate multiset is stable
+    regardless of routing.
     """
     candidates: list[Candidate] = []
     for recognition in recognitions:
         grammar_name = recognition.grammar.grammar_name
         for rule in rules:
-            if grammar_name not in rule.target_semantics:
+            if semantics_by_name[grammar_name] not in rule.target_semantics:
                 continue
             try:
                 if rule.matches(recognition.notation, recognition.contract):
@@ -383,18 +389,23 @@ def _extract_canonical_value(
 
 
 def _activated_rules(
-    capability: Capability[Any], contract: Contract
+    capability: Capability[Any],
+    contract: Contract,
+    semantics_by_name: dict[str, str],
 ) -> list[Rule[Any]]:
     """Community rules opt in like grammars: a rule runs only when the
-    contract names one of its ``target_semantics`` in ``extra_grammars``.
+    contract's ``extra_grammars`` resolve to one of its ``target_semantics``.
 
-    An un-opted community rule — even one targeting a shipped grammar —
-    never affects results, keeping extension behavior deterministic per
-    contract.
+    An unknown extra name keeps its own string as the semantics key, so a
+    rule declaring it (a dangling target) still fails fast in affinity
+    validation instead of being silently excluded. An un-opted community
+    rule — even one targeting a shipped grammar — never affects results,
+    keeping extension behavior deterministic per contract.
     """
     extra_grammars = set(getattr(contract, "extra_grammars", ()))
+    extra_semantics = {semantics_by_name.get(n, n) for n in extra_grammars}
     return [
         rule
         for rule in get_extended_rules(capability.name)
-        if extra_grammars & rule.target_semantics
+        if extra_semantics & rule.target_semantics
     ]
