@@ -34,6 +34,8 @@ from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Date.rules.iso_8601_ed2019 import Section431CalendarDate
 from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
+from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.capabilities.Phone.rules.e164_ed2010 import Section6_1InternationalNumber
 from paxman.core.domain import Grammar, Rule
 
 _SHIPPED_CAPABILITIES = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
@@ -87,6 +89,21 @@ _PROBE_ROWS: dict[str, tuple[type[Rule[Any]], tuple[_ProbeRow, ...]]] = {
                     local_part="user", domain_part="example.com"
                 ),
                 expected_canonical="user@example.com",
+            ),
+        ),
+    ),
+    "e164_international": (
+        Section6_1InternationalNumber,
+        (
+            _ProbeRow(
+                input="+15551234567",
+                expected_notation=PhoneNotation(shape="e164", value="15551234567"),
+                expected_canonical="+15551234567",
+            ),
+            _ProbeRow(
+                input="0015551234567",
+                expected_notation=PhoneNotation(shape="e164", value="15551234567"),
+                expected_canonical="+15551234567",
             ),
         ),
     ),

@@ -28,6 +28,7 @@ _COALESCED_SEMANTICS: frozenset[str] = frozenset(
         "us_calendar_date",
         "european_calendar_date",
         "rfc5322_addr_spec",
+        "e164_international",
     }
 )
 
