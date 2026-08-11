@@ -56,6 +56,7 @@ class MoneyCapability(Capability[MoneyNotation]):
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        extra_grammars: Sequence[str] | None = None,
         precision: Literal["strict", "truncate", "round"] = "strict",
         dollar_sign_currency: str | None = None,
     ) -> MoneyContract:
@@ -69,6 +70,8 @@ class MoneyCapability(Capability[MoneyNotation]):
             output_format: Output format for canonical values. Optional;
                 None/"default"/"code_amount" resolve to "code_amount", or the
                 offered alternative "compact".
+            extra_grammars: Community grammar names (opt-in) to run alongside
+                the shipped grammars, in order.
             precision: Over-precision amount handling. "strict" rejects
                 amounts exceeding the currency's minor-unit precision (the
                 default); "truncate" cuts excess digits; "round" rounds
@@ -86,6 +89,7 @@ class MoneyCapability(Capability[MoneyNotation]):
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
+            extra_grammars=tuple(extra_grammars) if extra_grammars else (),
             precision=precision,
             dollar_sign_currency=dollar_sign_currency,
         )

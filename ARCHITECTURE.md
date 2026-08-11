@@ -95,6 +95,8 @@ The engine is the orchestration layer that coordinates the full pipeline. It:
 
 The engine is capability-agnostic. It does not know what a "grammar" or "rule" does — it only knows that grammars produce span-bearing recognition matches and rules produce candidates.
 
+Before the recognition phase, the engine composes each capability's shipped grammars and rules with any community extensions registered for that capability (see "Community Extensions" below). Composition is guarded: duplicate names fail fast, and every rule's declared `target_grammars` must resolve within the composed set.
+
 ### Public API
 
 The outermost layer exposes the user-facing interface. It is intentionally minimal — a single entry point that accepts input text and a contract, and returns a fully-resolved execution result with full provenance.
@@ -126,6 +128,7 @@ Contracts pass configuration parameters to validation rules, enabling rules to a
 **Base Contract Parameters:**
 - **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). `CapabilityContract.__post_init__` resolves `None`, `"default"`, and each capability's default format to a concrete string; the capability's `format_value()` seam applies the format to the rule-produced default canonical value. Validation rules never inspect `output_format` — they always normalize to the default canonical form. See "The Formatting Seam" below.
 - **`pinned_rules`**: Pins to specific validation rules by name. When set, ONLY those rules run — `excluded_rules` is ignored. Takes precedence over `excluded_rules`.
+- **`extra_grammars`**: Names community grammars (opt-in) to run alongside the capability's shipped `active_grammars`, in order. Unknown names are silently skipped; shipped names listed here are deduplicated. Registration happens through `paxman.register_grammar` / `paxman.register_rule` (see "Community Extensions" below).
 
 **Date-Specific Parameters:**
 - **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Only available on Date contracts, not part of the base Contract protocol. Used by US and European grammars to resolve ambiguous year values.
@@ -159,6 +162,16 @@ Determinism is a structural property of the layered pipeline, not a post-hoc art
 - **Result layer.** The engine deduplicates identical candidates and folds the distinct candidate values into one of the resolution statuses: `SUCCESS` when all candidates agree on a single canonical value, `AMBIGUOUS` when they disagree, `INVALID` when nothing validated, and `MISSING` when no grammar recognized anything.
 
 Every stage is a pure function of its inputs — no clocks, no randomness, no environment-dependent ordering — so the same input, contract configuration, and library snapshot (fixed library version, registry contents, and rule-data tables) always produce the same output, byte-for-byte. The `VersionStamp` on each execution result records the library version for provenance; the byte-identical guarantee itself rests on this determinism-by-construction. Changes to provenance or rule routing across library snapshots can alter result metadata; the byte-identical guarantee is scoped to a fixed snapshot.
+
+### Community Extensions
+
+Capabilities are closed for modification but open for extension. Community contributors register additional grammars (and the rules that validate them) against an existing capability through `paxman.core.extensions` — never by editing the capability package. The registries freeze with the capability registry at the first pipeline run.
+
+A contract opts a registered grammar in by naming it in `extra_grammars`, a base `CapabilityContract` field surfaced on every `create_contract` factory. The engine composes the shipped active set with the opted-in extras, deduplicating names while preserving order — shipped `active_grammars` slots first, extras after (unknown extra names are silently skipped). Opt-in preserves determinism: a contract that names no extras composes to exactly the shipped set, so non-opt-in behavior is byte-identical.
+
+Community rules follow the same opt-in discipline: a registered rule runs only when the contract names one of its `target_grammars` in `extra_grammars`. An un-opted community rule — even one targeting a shipped grammar — never affects results, so a default contract resolves with shipped rules only.
+
+Composition is guarded at pipeline start: a community grammar name colliding with a shipped name raises `CapabilityError`, and an opted-in community rule whose `target_grammars` names a missing grammar raises `ContractError` — failing fast rather than producing a silently wrong result. Community grammars and rules are pure functions of their inputs, and the composed set is fixed once the registries freeze, so the determinism guarantees of "Determinism by Construction" extend unchanged.
 
 ---
 

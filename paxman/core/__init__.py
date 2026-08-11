@@ -27,6 +27,14 @@ from paxman.core.errors import (
     RecognitionError,
     ValidationError,
 )
+from paxman.core.extensions import (
+    freeze_extensions,
+    get_extended_grammars,
+    get_extended_rules,
+    register_grammar,
+    register_rule,
+    reset_extensions,
+)
 
 __all__ = [
     "Capability",
@@ -47,9 +55,15 @@ __all__ = [
     "RuleStrategy",
     "ValidationError",
     "VersionStamp",
+    "freeze_extensions",
     "freeze_registry",
     "get_capability",
+    "get_extended_grammars",
+    "get_extended_rules",
     "is_registry_frozen",
     "register_capability",
+    "register_grammar",
+    "register_rule",
+    "reset_extensions",
     "reset_registry",
 ]

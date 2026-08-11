@@ -57,6 +57,7 @@ class CurrencyCapability(Capability[CurrencyNotation]):
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        extra_grammars: Sequence[str] | None = None,
         default_currency: str | None = None,
     ) -> CurrencyContract:
         """Factory method for creating contracts with proper defaults.
@@ -68,6 +69,8 @@ class CurrencyCapability(Capability[CurrencyNotation]):
             year: Year for temporal filtering.
             output_format: Output format for canonical values. Optional;
                 None/"default"/"code" resolve to "code".
+            extra_grammars: Community grammar names (opt-in) to run alongside
+                the shipped grammars, in order.
             default_currency: ISO 4217 alpha-3 code (opt-in) used to
                 resolve shared bare symbols (e.g. "$", "¥"). None (the
                 default) makes a shared symbol INVALID (recognized, but
@@ -82,6 +85,7 @@ class CurrencyCapability(Capability[CurrencyNotation]):
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
+            extra_grammars=tuple(extra_grammars) if extra_grammars else (),
             default_currency=default_currency,
         )
 

@@ -47,6 +47,9 @@ class CapabilityContract(ABC):
     pinned_rules: tuple[str, ...] | None = None
     year: int | None = None
     output_format: str | None = None
+    extra_grammars: tuple[str, ...] = ()
+    """Community grammar names to opt in, appended after ``active_grammars``.
+    Unknown names are silently skipped by the engine."""
 
     def __post_init__(self) -> None:
         """Validate and normalize ``output_format``.

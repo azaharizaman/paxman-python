@@ -49,6 +49,7 @@ class EmailCapability(Capability[EmailNotation]):
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        extra_grammars: Sequence[str] | None = None,
         include_obfuscated: bool = False,
         include_localhost: bool = True,
     ) -> EmailContract:
@@ -60,4 +61,5 @@ class EmailCapability(Capability[EmailNotation]):
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
+            extra_grammars=tuple(extra_grammars) if extra_grammars else (),
         )

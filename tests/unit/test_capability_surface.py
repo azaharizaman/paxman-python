@@ -7,11 +7,13 @@ Money, Phone, URL) must
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),
 - expose a keyword-only ``create_contract`` whose parameters begin with the
-  unanimous common block ``excluded_rules, pinned_rules, year, output_format``
-  (item 3 — guards the signature itself, which the runtime_checkable
-  protocol cannot),
+  unanimous common block ``excluded_rules, pinned_rules, year, output_format,
+  extra_grammars`` (item 3 — guards the signature itself, which the
+  runtime_checkable protocol cannot),
 - keep ``output_format`` optional and resolving to the concrete default
-  (item 4).
+  (item 4),
+- default ``extra_grammars`` to the empty tuple on every concrete contract
+  and forward any provided value through ``create_contract`` (item 5).
 """
 
 from __future__ import annotations
@@ -51,7 +53,13 @@ from paxman.capabilities.URL.notation import URLNotation
 from paxman.core.capability import ContractFactory
 from paxman.core.capability_contract import CapabilityContract
 
-_COMMON_BLOCK = ("excluded_rules", "pinned_rules", "year", "output_format")
+_COMMON_BLOCK = (
+    "excluded_rules",
+    "pinned_rules",
+    "year",
+    "output_format",
+    "extra_grammars",
+)
 
 _CAPABILITY_SURFACES = [
     pytest.param(
@@ -155,15 +163,15 @@ class TestContractHomogeneity:
 
         The runtime_checkable ``ContractFactory`` protocol only checks
         attribute presence, not the signature — so this test pins the actual
-        parameter shape: the first four parameters, in order, are
-        ``excluded_rules, pinned_rules, year, output_format`` and every
-        parameter is keyword-only.
+        parameter shape: the first five parameters, in order, are
+        ``excluded_rules, pinned_rules, year, output_format, extra_grammars``
+        and every parameter is keyword-only.
         """
         parameters = list(
             inspect.signature(_capability.create_contract).parameters.values()
         )
-        assert [parameter.name for parameter in parameters[:4]] == list(_COMMON_BLOCK)
-        assert len(parameters) >= 4
+        assert [parameter.name for parameter in parameters[:5]] == list(_COMMON_BLOCK)
+        assert len(parameters) >= 5
         assert all(parameter.kind == Parameter.KEYWORD_ONLY for parameter in parameters)
 
     @pytest.mark.unit
@@ -194,6 +202,35 @@ class TestContractHomogeneity:
     ) -> None:
         """A no-arg contract resolves output_format to the concrete default."""
         assert _contract_class().output_format == _default_format
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "_capability,_contract_class,_default_format",
+        _CAPABILITY_SURFACES,
+    )
+    def test_extra_grammars_defaults_to_empty_on_concrete_contracts(
+        self,
+        _capability: type[object],
+        _contract_class: type[object],
+        _default_format: str,
+    ) -> None:
+        """A no-arg contract opts into no community grammars."""
+        assert _contract_class().extra_grammars == ()
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "_capability,_contract_class,_default_format",
+        _CAPABILITY_SURFACES,
+    )
+    def test_create_contract_forwards_extra_grammars_in_order(
+        self,
+        _capability: type[object],
+        _contract_class: type[object],
+        _default_format: str,
+    ) -> None:
+        """create_contract passes extra_grammars through, order preserved."""
+        contract = _capability.create_contract(extra_grammars=["first", "second"])
+        assert contract.extra_grammars == ("first", "second")
 
     @pytest.mark.unit
     @pytest.mark.parametrize(

@@ -98,6 +98,7 @@ class ISBNCapability(Capability[ISBNNotation]):
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        extra_grammars: Sequence[str] | None = None,
         include_isbn10: bool = True,
         include_range_validation: bool = False,
     ) -> ISBNContract:
@@ -107,6 +108,7 @@ class ISBNCapability(Capability[ISBNNotation]):
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
+            extra_grammars=tuple(extra_grammars) if extra_grammars else (),
             include_isbn10=include_isbn10,
             include_range_validation=include_range_validation,
         )

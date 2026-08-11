@@ -392,6 +392,98 @@ result = paxman.canonicalize("2026-01-15", contract)
 
 ---
 
+## Community Extensions
+
+Paxman ships with nine built-in capabilities, but a capability is closed for modification yet open for extension: you can add recognition and validation without touching the library. Register a `Grammar` subclass and the `Rule` subclass that validates it, then opt a contract into them by naming the grammar in `extra_grammars`:
+
+```python
+import re
+from datetime import datetime
+
+import paxman
+from paxman.capabilities import Date
+from paxman.capabilities.Date.notation import DateNotation
+from paxman.core.contract import Contract
+from paxman.core.discovery import register_capability
+from paxman.core.domain import (
+    Grammar,
+    Provenance,
+    RecognitionMatch,
+    Rule,
+    RuleStrategy,
+)
+
+register_capability(Date())
+
+
+class DotDateGrammar(Grammar[DateNotation]):
+    """Recognize YYYY.MM.DD dates with dot separators."""
+
+    name = "dot_date_recognition"
+    _PATTERN = re.compile(r"\b(\d{4})\.(\d{2})\.(\d{2})\b")
+
+    def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
+        """Return span-bearing matches for dot-separated dates."""
+        return [
+            RecognitionMatch(
+                notation=DateNotation(N1=m.group(1), N2=m.group(2), N3=m.group(3)),
+                start=m.start(),
+                end=m.end(),
+                raw_text=m.group(0),
+            )
+            for m in self._PATTERN.finditer(text)
+        ]
+
+
+class DotDateRule(Rule[DateNotation]):
+    """Validate dot-separated dates, normalizing to ISO YYYY-MM-DD."""
+
+    name = "dot_date_rule"
+    strategy = RuleStrategy.PARSER
+    provenance = Provenance(
+        authority="ISO",
+        specification_name="ISO 8601",
+        kind="specification",
+        reference_url="https://www.iso.org/standard/70907.html",
+        version="2019",
+        lifecycle="active",
+        publication_year=2019,
+    )
+    citation = "Section 4.3.1 (calendar date)"
+    target_grammars = frozenset({"dot_date_recognition"})
+    requires_features = frozenset()
+
+    def matches(self, notation: DateNotation, contract: Contract) -> bool:
+        """Accept valid calendar dates."""
+        try:
+            datetime(int(notation.N1), int(notation.N2), int(notation.N3))
+            return True
+        except ValueError:
+            return False
+
+    def normalize(self, notation: DateNotation, contract: Contract) -> str:
+        """Normalize YYYY.MM.DD to ISO YYYY-MM-DD."""
+        return f"{int(notation.N1):04d}-{int(notation.N2):02d}-{int(notation.N3):02d}"
+
+
+paxman.register_grammar("date", DotDateGrammar)
+paxman.register_rule("date", DotDateRule)
+
+contract = Date.create_contract(extra_grammars=("dot_date_recognition",))
+result = paxman.canonicalize("2024.01.01", contract)
+print(result.canonicalized_value)  # → "2024-01-01"
+```
+
+Rules of the seam:
+
+- **Register before the first `canonicalize()` call** — the extension registries freeze with the capability registry.
+- **Opt-in only** — a registered grammar runs only when named in `extra_grammars` (available on every `create_contract` factory), and a registered rule runs only when the contract names one of its `target_grammars` there; un-named grammars and un-opted rules never affect results.
+- **Unknown `extra_grammars` names are silently skipped**, so a contract naming an uninstalled grammar still runs byte-identically.
+- **Names must be unique in the composed set** — a community grammar colliding with a shipped name fails fast with `CapabilityError`.
+- **Community rules declare `target_grammars`** and activate only when the contract names one of them in `extra_grammars`; an opted-in rule naming a missing grammar fails fast with `ContractError`.
+
+---
+
 ## Resolution Status
 
 | Status | Meaning |
