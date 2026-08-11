@@ -40,10 +40,14 @@ _SHIPPED_CAPABILITIES = [Country, Currency, Date, Email, IP, ISBN, Money, Phone,
 
 
 class _ProbeRow(NamedTuple):
-    """One input run through every member of a semantics group."""
+    """One input run through every member of a semantics group.
+
+    ``expected_notation`` is deliberately untyped: the probe table spans
+    capabilities, so each row's notation type is the group's own.
+    """
 
     input: str
-    expected_notation: DateNotation
+    expected_notation: object
     expected_canonical: str
 
 
