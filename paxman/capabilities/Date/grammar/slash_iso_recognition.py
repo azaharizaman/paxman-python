@@ -21,7 +21,7 @@ class SlashISODateGrammar(Grammar[DateNotation]):
     accepted and zero-padded by the validating rule. The leading 4-digit year
     keeps the pattern disjoint from the US and European grammars, which both
     require a leading month/day. Digit lookarounds keep the match disjoint
-    from surrounding digits, mirroring the 2-digit US/European patterns, so a
+    from surrounding digits, mirroring the other shipped date grammars, so a
     longer digit run (e.g. an ID like ``12026/01/15``) is never partially
     matched as a date.
 
