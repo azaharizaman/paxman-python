@@ -35,20 +35,6 @@ class CountryContract(CapabilityContract):
     include_localized: bool = False
     include_historical: bool = False
 
-    @property
-    def active_grammars(self) -> list[str]:
-        """All grammars active by default.
-
-        Returns:
-            List of grammar names to activate.
-        """
-        return [
-            "alpha2_recognition",
-            "alpha3_recognition",
-            "numeric_recognition",
-            "name_recognition",
-        ]
-
 
 VALID_OUTPUT_FORMATS: Final[frozenset[str]] = frozenset(
     {CountryContract.DEFAULT_OUTPUT_FORMAT, *CountryContract.OFFERED_OUTPUT_FORMATS}
