@@ -95,15 +95,3 @@ class MoneyContract(CapabilityContract):
                 f"got {self.precision!r}"
             )
         _validate_alpha3(self.dollar_sign_currency)
-
-    @property
-    def active_grammars(self) -> tuple[str, ...]:
-        """All grammars active by default.
-
-        All three recognition grammars are always active; Money has no
-        input-shape feature flags.
-
-        Returns:
-            The three recognition grammar names.
-        """
-        return ("code_recognition", "symbol_recognition", "word_recognition")

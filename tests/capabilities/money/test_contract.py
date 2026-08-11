@@ -5,6 +5,7 @@ import dataclasses
 
 import pytest
 
+from paxman.capabilities.Money.capability import MoneyCapability
 from paxman.capabilities.Money.contract import MoneyContract
 from paxman.core.errors import ContractError
 
@@ -33,13 +34,14 @@ class TestMoneyContractDefaults:
         """dollar_sign_currency defaults to None (bare $ stays INVALID)."""
         assert MoneyContract().dollar_sign_currency is None
 
-    def test_active_grammars(self) -> None:
-        """All three recognition grammars are active by default."""
-        assert MoneyContract().active_grammars == (
+    def test_active_grammars_defaults_to_all_shipped(self) -> None:
+        """No override: the engine runs every shipped grammar (fallback)."""
+        assert MoneyContract().active_grammars is None
+        assert [g.name for g in MoneyCapability().get_grammars()] == [
             "code_recognition",
             "symbol_recognition",
             "word_recognition",
-        )
+        ]
 
     def test_frozen(self) -> None:
         """Assigning a field raises FrozenInstanceError."""
