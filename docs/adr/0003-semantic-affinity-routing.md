@@ -202,10 +202,10 @@ is rule territory by design.
   never widen the set of meanings a rule validates. Mitigation: each
   coalescing step runs the per-capability pipeline tests; the migration lands
   one capability at a time.
-- **Incomplete docs sweep.** 55 files reference `target_grammars` (24 rule
-  files, 3 engine sites, 1 domain ABC, extension registries docstring, test
-  suites, and 6 documentation surfaces). Mitigation: this ADR lands before
-  code; the sweep is enumerated in Migration #4.
+- **Incomplete docs sweep.** 54 files referenced `target_grammars` at plan
+  time (pre-migration inventory; the plan's D10 re-count is authoritative —
+  superseded by the completed Migration #4 sweep). Mitigation: this ADR lands
+  before code; the sweep is enumerated in Migration #4.
 
 ## Alternatives Considered
 
