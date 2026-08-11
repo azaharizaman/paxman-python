@@ -52,6 +52,21 @@ class TestGrammarSemanticsMetadata:
                     or grammar.semantics in _COALESCED_SEMANTICS
                 )
 
+    @pytest.mark.unit
+    def test_renamed_singletons_pin_exact_semantics_ids(self) -> None:
+        """The renamed singleton grammars pin their exact ``semantics`` ids.
+
+        The allowlist above would accept a cross-swap (e.g. ``us_recognition``
+        declaring ``european_calendar_date``), and with dual-target date rules
+        such a swap is behaviorally inert today — but the moment any rule
+        targets a single id, a wrong declaration silently mis-canonicalizes
+        US/EU dates. Pin the name→id mapping explicitly (ADR-0003
+        consistency-guard rationale).
+        """
+        by_name = {grammar.name: grammar.semantics for grammar in Date().get_grammars()}
+        assert by_name["us_recognition"] == "us_calendar_date"
+        assert by_name["european_recognition"] == "european_calendar_date"
+
 
 class TestGrammarSemanticsEnforcement:
     @pytest.mark.unit

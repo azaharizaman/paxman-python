@@ -312,3 +312,27 @@ class TestCommunityRuleOptIn:
             c.validation_rule == "community_iso8601_rule"
             for c in activated_result.candidates
         )
+
+    @pytest.mark.integration
+    def test_rule_opt_in_via_raw_semantics_id_without_grammar(self) -> None:
+        """A raw semantics id in ``extra_grammars`` activates rules targeting it
+        without opting in any community grammar.
+
+        Locks the README-documented raw-name fallback
+        (``semantics_by_name.get(n, n)``): ``iso8601_calendar_date`` is a
+        known semantics id but not a grammar name, so the community rule
+        targeting it fires on shipped ISO recognitions while no community
+        grammar is activated (fail-fast ``ContractError`` applies only to ids
+        no grammar claims).
+        """
+        register_rule("date", CommunityISO8601Rule)
+
+        result = run_capability(
+            "2026-01-15", DateContract(extra_grammars=("iso8601_calendar_date",))
+        )
+        assert any(
+            c.validation_rule == "community_iso8601_rule" for c in result.candidates
+        )
+        assert all(
+            c.recognition_rule == "iso8601_recognition" for c in result.candidates
+        )
