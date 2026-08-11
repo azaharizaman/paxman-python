@@ -10,6 +10,7 @@ from typing import Any
 
 from paxman.core.capability import Capability
 from paxman.core.errors import CapabilityError
+from paxman.core.extensions import freeze_extensions, reset_extensions
 
 _registry: dict[str, Capability[Any]] = {}
 _frozen: bool = False
@@ -56,6 +57,7 @@ def freeze_registry() -> None:
     """Freeze the registry so no more capabilities can be registered."""
     global _frozen
     _frozen = True
+    freeze_extensions()
 
 
 def is_registry_frozen() -> bool:
@@ -68,3 +70,4 @@ def reset_registry() -> None:
     global _frozen
     _registry.clear()
     _frozen = False
+    reset_extensions()

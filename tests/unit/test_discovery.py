@@ -12,8 +12,9 @@ from paxman.core.discovery import (
     register_capability,
     reset_registry,
 )
-from paxman.core.domain import Grammar, Rule
+from paxman.core.domain import Grammar, RecognitionMatch, Rule
 from paxman.core.errors import CapabilityError
+from paxman.core.extensions import get_extended_grammars, register_grammar
 
 # --- Concrete test doubles ---
 
@@ -54,6 +55,15 @@ class AnotherCapability(Capability):
         return []
 
     def get_rules(self) -> list[Rule]:
+        return []
+
+
+class DotDateGrammar(Grammar):
+    """Minimal community grammar for extension delegation tests."""
+
+    name = "dot_date_recognition"
+
+    def recognize(self, text: str) -> list[RecognitionMatch]:
         return []
 
 
@@ -190,3 +200,17 @@ class TestResetRegistry:
     def test_reset_on_empty_registry_is_noop(self) -> None:
         reset_registry()  # should not raise
         assert is_registry_frozen() is False
+
+
+class TestExtensionFreezeDelegation:
+    @pytest.mark.unit
+    def test_freeze_registry_blocks_extension_registration(self) -> None:
+        freeze_registry()
+        with pytest.raises(CapabilityError, match="frozen"):
+            register_grammar("date", DotDateGrammar)
+
+    @pytest.mark.unit
+    def test_reset_registry_clears_extensions(self) -> None:
+        register_grammar("date", DotDateGrammar)
+        reset_registry()
+        assert get_extended_grammars("date") == []
