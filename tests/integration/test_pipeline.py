@@ -164,7 +164,7 @@ class StubRule(Rule[EmailNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"crash_grammar"})
+    target_semantics = frozenset({"crash_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: object) -> bool:
@@ -189,7 +189,7 @@ class ExplodingRule(Rule[EmailNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"simple_grammar"})
+    target_semantics = frozenset({"simple_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: object) -> bool:
@@ -371,7 +371,7 @@ class _PhantomGrammar(Grammar[EmailNotation]):
 
 
 class _PhantomRule(Rule[EmailNotation]):
-    """Rule whose target_grammars names a non-existent grammar."""
+    """Rule whose target_semantics names a non-existent grammar."""
 
     name = "phantom_rule"
     strategy = RuleStrategy.REGEX
@@ -385,7 +385,7 @@ class _PhantomRule(Rule[EmailNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"does_not_exist"})
+    target_semantics = frozenset({"does_not_exist"})
     requires_features = frozenset()
 
     def matches(self, notation: EmailNotation, contract: object) -> bool:
@@ -437,7 +437,7 @@ class _PhantomContract:
 
 
 class TestGrammarRuleAffinity:
-    """F1: grammar→rule affinity declared via Rule.target_grammars."""
+    """F1: grammar→rule affinity declared via Rule.target_semantics."""
 
     @pytest.mark.integration
     @pytest.mark.parametrize("output_format", [None, "ISO", "US"])

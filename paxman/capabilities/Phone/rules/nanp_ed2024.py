@@ -90,7 +90,7 @@ class Section1_1NANPStructure(Rule[PhoneNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "NANP numbering plan structure (NPA NXX-XXXX)"
-    target_grammars = frozenset({"national_recognition"})
+    target_semantics = frozenset({"national_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
@@ -145,7 +145,7 @@ class Section1_2ServiceNPA(Rule[PhoneNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "NANPA service NPA assignment table"
-    target_grammars = frozenset({"national_recognition"})
+    target_semantics = frozenset({"national_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:

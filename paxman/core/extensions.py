@@ -68,7 +68,7 @@ def register_rule(capability_name: str, rule: Any) -> None:
     The ``rule`` parameter is ``Any`` because this is a runtime validation
     entry point: untyped callers may pass non-classes or non-Rule classes
     and the isinstance guard below provides the safety net. Rule metadata
-    (``target_grammars``, ``requires_features``, ...) is enforced by
+    (``target_semantics``, ``requires_features``, ...) is enforced by
     ``Rule.__init_subclass__`` at class-definition time; this function
     validates the class type and name uniqueness only.
 

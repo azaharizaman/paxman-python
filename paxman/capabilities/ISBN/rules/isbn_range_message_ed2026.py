@@ -34,7 +34,7 @@ class Section4RegistrantRange(Rule[ISBNNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "Section 4 (registrant range)"
-    target_grammars = frozenset({"isbn13_recognition", "isbn10_recognition"})
+    target_semantics = frozenset({"isbn13_recognition", "isbn10_recognition"})
     requires_features = frozenset({"include_range_validation"})
 
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:

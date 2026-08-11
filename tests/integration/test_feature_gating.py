@@ -55,7 +55,7 @@ class _NameRecognitionGrammar(Grammar[CountryNotation]):
     """Grammar emitting the CLDR localized key "Estados Unidos".
 
     Uses the real ``name_recognition`` grammar name so
-    ``SectionLocalizedNames``' declared ``target_grammars`` resolves, without
+    ``SectionLocalizedNames``' declared ``target_semantics`` resolves, without
     relying on the real ``NameGrammar``'s English/historical/Chinese lookup
     tables (localized recognition remediation is F3 scope, not F2).
     """
@@ -145,7 +145,7 @@ class _DanglingFeatureRule(Rule[CountryNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"name_recognition"})
+    target_semantics = frozenset({"name_recognition"})
     requires_features = frozenset({"not_a_contract_field"})
 
     def matches(self, notation: CountryNotation, contract: object) -> bool:
@@ -211,7 +211,7 @@ class _DanglingGrammarRule(Rule[CountryNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"missing_grammar"})
+    target_semantics = frozenset({"missing_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: object) -> bool:

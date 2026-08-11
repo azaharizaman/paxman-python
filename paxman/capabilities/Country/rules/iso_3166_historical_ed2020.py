@@ -66,7 +66,7 @@ class SectionHistoricalNames(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-3:2020 (formerly used names)"
-    target_grammars = frozenset(
+    target_semantics = frozenset(
         {"name_recognition", "alpha2_recognition", "numeric_recognition"}
     )
     requires_features = frozenset({"include_historical"})

@@ -75,7 +75,7 @@ class _TokenRule(Rule[_TokenNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"token_grammar"})
+    target_semantics = frozenset({"token_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: _TokenNotation, contract: Contract) -> bool:
@@ -177,7 +177,7 @@ class _DualTokenRule(Rule[_TokenNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"dual_token_grammar"})
+    target_semantics = frozenset({"dual_token_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: _TokenNotation, contract: Contract) -> bool:

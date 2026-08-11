@@ -66,7 +66,7 @@ class Section6_1InternationalNumber(Rule[PhoneNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 6.1 (number structure)"
-    target_grammars = frozenset({"e164_recognition", "international_00_recognition"})
+    target_semantics = frozenset({"e164_recognition", "international_00_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:
@@ -108,7 +108,7 @@ class Section6_2CountryCode(Rule[PhoneNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "Annex A (table of assigned country codes)"
-    target_grammars = frozenset({"e164_recognition", "international_00_recognition"})
+    target_semantics = frozenset({"e164_recognition", "international_00_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: PhoneNotation, contract: Contract) -> bool:

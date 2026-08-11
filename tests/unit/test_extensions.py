@@ -82,7 +82,7 @@ class _DotDateRule(Rule[Any]):
     strategy = RuleStrategy.PARSER
     provenance = _PROVENANCE
     citation = "community test double"
-    target_grammars = frozenset({"dot_date_recognition"})
+    target_semantics = frozenset({"dot_date_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: Any, contract: Any) -> bool:
@@ -99,7 +99,7 @@ class _NamelessRule(Rule[Any]):
     strategy = RuleStrategy.PARSER
     provenance = _PROVENANCE
     citation = "community test double"
-    target_grammars = frozenset({"x"})
+    target_semantics = frozenset({"x"})
     requires_features = frozenset()
 
     def matches(self, notation: Any, contract: Any) -> bool:

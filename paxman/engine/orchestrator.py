@@ -284,7 +284,7 @@ def _validate_affinity(
     """
     known_grammars = {g.name for g in all_grammars}
     for rule in rules:
-        unknown = [g for g in rule.target_grammars if g not in known_grammars]
+        unknown = [g for g in rule.target_semantics if g not in known_grammars]
         if unknown:
             raise ContractError(
                 f"Rule {rule.name!r} declares unknown grammar(s) "
@@ -299,7 +299,7 @@ def _collect_candidates(
 ) -> list[Candidate]:
     """Match recognitions against rules and collect candidates.
 
-    Routes each recognition only to rules whose ``target_grammars`` includes the
+    Routes each recognition only to rules whose ``target_semantics`` includes the
     producing grammar's name (ARCHITECTURE.md:201), formats each validated
     value through the capability's ``format_value()`` seam, then dedups
     identical candidate tuples so the candidate multiset is stable regardless
@@ -309,7 +309,7 @@ def _collect_candidates(
     for recognition in recognitions:
         grammar_name = recognition.grammar.grammar_name
         for rule in rules:
-            if grammar_name not in rule.target_grammars:
+            if grammar_name not in rule.target_semantics:
                 continue
             try:
                 if rule.matches(recognition.notation, recognition.contract):
@@ -343,7 +343,7 @@ def _dedup_candidates(candidates: list[Candidate]) -> list[Candidate]:
 
     Provenance is deterministic per (rule, grammar) pair, so collapsing on this
     key preserves all information while keeping the candidate multiset stable
-    under any future over-declaration of ``target_grammars``.
+    under any future over-declaration of ``target_semantics``.
     """
     seen: set[tuple[str, str, str]] = set()
     deduped: list[Candidate] = []
@@ -386,7 +386,7 @@ def _activated_rules(
     capability: Capability[Any], contract: Contract
 ) -> list[Rule[Any]]:
     """Community rules opt in like grammars: a rule runs only when the
-    contract names one of its ``target_grammars`` in ``extra_grammars``.
+    contract names one of its ``target_semantics`` in ``extra_grammars``.
 
     An un-opted community rule — even one targeting a shipped grammar —
     never affects results, keeping extension behavior deterministic per
@@ -396,5 +396,5 @@ def _activated_rules(
     return [
         rule
         for rule in get_extended_rules(capability.name)
-        if extra_grammars & rule.target_grammars
+        if extra_grammars & rule.target_semantics
     ]

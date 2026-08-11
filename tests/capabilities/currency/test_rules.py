@@ -97,9 +97,9 @@ class TestSectionCode:
         """Verify the rule strategy enum."""
         assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
 
-    def test_target_grammars(self) -> None:
+    def test_target_semantics(self) -> None:
         """The code rule targets only the code grammar."""
-        assert self.rule.target_grammars == frozenset({"code_recognition"})
+        assert self.rule.target_semantics == frozenset({"code_recognition"})
 
     def test_requires_features_empty(self) -> None:
         """The ISO rule never gates on contract features (always runs)."""
@@ -236,9 +236,9 @@ class TestSectionSymbols:
         """Verify the rule strategy enum."""
         assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
 
-    def test_target_grammars(self) -> None:
+    def test_target_semantics(self) -> None:
         """The symbol rule targets only the symbol grammar."""
-        assert self.rule.target_grammars == frozenset({"symbol_recognition"})
+        assert self.rule.target_semantics == frozenset({"symbol_recognition"})
 
     def test_requires_features_empty(self) -> None:
         """Never gate on default_currency: a shared bare symbol yields
@@ -306,9 +306,9 @@ class TestSectionNames:
         """Verify the rule strategy enum."""
         assert self.rule.strategy == RuleStrategy.LOOKUP_TABLE
 
-    def test_target_grammars(self) -> None:
+    def test_target_semantics(self) -> None:
         """The word rule targets only the word grammar."""
-        assert self.rule.target_grammars == frozenset({"word_recognition"})
+        assert self.rule.target_semantics == frozenset({"word_recognition"})
 
     def test_requires_features_empty(self) -> None:
         """The CLDR name rule never gates on contract features."""

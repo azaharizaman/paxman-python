@@ -44,7 +44,7 @@ class TestWhatwgUrlStandard:
         """Rule metadata matches §1 (homogeneity contract, Money style)."""
         assert self.rule.name == "WHATWG URL Standard"
         assert self.rule.strategy == RuleStrategy.PARSER
-        assert self.rule.target_grammars == frozenset({"absolute_uri_recognition"})
+        assert self.rule.target_semantics == frozenset({"absolute_uri_recognition"})
         assert self.rule.requires_features == frozenset()
         assert (
             self.rule.citation

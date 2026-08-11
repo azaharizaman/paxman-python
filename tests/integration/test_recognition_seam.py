@@ -98,7 +98,7 @@ class _LongRule(Rule[_ProbeNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"probe_long"})
+    target_semantics = frozenset({"probe_long"})
     requires_features = frozenset()
 
     def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:
@@ -123,7 +123,7 @@ class _ShortRule(Rule[_ProbeNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"probe_short"})
+    target_semantics = frozenset({"probe_short"})
     requires_features = frozenset()
 
     def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:
@@ -400,7 +400,7 @@ class TestDefaultGrammarSurface:
                 publication_year=2024,
             )
             citation = "test"
-            target_grammars = frozenset({"probe_community"})
+            target_semantics = frozenset({"probe_community"})
             requires_features = frozenset()
 
             def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:

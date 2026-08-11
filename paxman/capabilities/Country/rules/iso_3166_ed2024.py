@@ -58,7 +58,7 @@ class SectionAlpha2Codes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 alpha-2 codes"
-    target_grammars = frozenset({"alpha2_recognition"})
+    target_semantics = frozenset({"alpha2_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
@@ -98,7 +98,7 @@ class SectionAlpha3Codes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 alpha-3 codes"
-    target_grammars = frozenset({"alpha3_recognition"})
+    target_semantics = frozenset({"alpha3_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:
@@ -138,7 +138,7 @@ class SectionNumericCodes(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 numeric (M49) codes"
-    target_grammars = frozenset({"numeric_recognition"})
+    target_semantics = frozenset({"numeric_recognition"})
     requires_features = frozenset()
 
     def _normalize_key(self, value: str) -> str:
@@ -186,7 +186,7 @@ class SectionNames(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 3166-1 official English short names"
-    target_grammars = frozenset({"name_recognition"})
+    target_semantics = frozenset({"name_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:

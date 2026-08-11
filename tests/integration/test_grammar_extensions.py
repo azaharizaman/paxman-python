@@ -86,7 +86,7 @@ class DotDateRule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"dot_date_recognition"})
+    target_semantics = frozenset({"dot_date_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -109,7 +109,7 @@ class SecondDateRule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"second_recognition"})
+    target_semantics = frozenset({"second_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -132,7 +132,7 @@ class CommunityISO8601Rule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"iso8601_recognition"})
+    target_semantics = frozenset({"iso8601_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -146,13 +146,13 @@ class CommunityISO8601Rule(Rule[DateNotation]):
 
 
 class DanglingDateRule(Rule[DateNotation]):
-    """Community rule whose target_grammars references a missing grammar."""
+    """Community rule whose target_semantics references a missing grammar."""
 
     name = "dangling_date_rule"
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"no_such_grammar"})
+    target_semantics = frozenset({"no_such_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:

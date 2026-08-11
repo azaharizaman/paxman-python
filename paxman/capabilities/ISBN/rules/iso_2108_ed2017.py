@@ -29,7 +29,7 @@ class Section53Isbn13CheckDigit(Rule[ISBNNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 5.3 (ISBN-13 check digit)"
-    target_grammars = frozenset({"isbn13_recognition"})
+    target_semantics = frozenset({"isbn13_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:
@@ -52,7 +52,7 @@ class Section42Gs1Prefix(Rule[ISBNNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "Section 4.2 (GS1 prefix)"
-    target_grammars = frozenset({"isbn13_recognition"})
+    target_semantics = frozenset({"isbn13_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:

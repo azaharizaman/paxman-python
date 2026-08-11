@@ -188,7 +188,7 @@ class Rule(ABC, Generic[NotationT]):
     strategy: RuleStrategy
     provenance: Provenance
     citation: str
-    target_grammars: ClassVar[frozenset[str]]
+    target_semantics: ClassVar[frozenset[str]]
     requires_features: ClassVar[frozenset[str]]
 
     def __init_subclass__(cls, **kwargs: object) -> None:
@@ -199,7 +199,7 @@ class Rule(ABC, Generic[NotationT]):
             "strategy",
             "provenance",
             "citation",
-            "target_grammars",
+            "target_semantics",
             "requires_features",
         )
         missing = [attr for attr in required if not hasattr(cls, attr)]
@@ -207,7 +207,7 @@ class Rule(ABC, Generic[NotationT]):
             raise TypeError(
                 f"{cls.__name__} must define Rule metadata: {', '.join(missing)}"
             )
-        for attribute in ("target_grammars", "requires_features"):
+        for attribute in ("target_semantics", "requires_features"):
             value: Any = vars(cls).get(attribute, getattr(cls, attribute))
             if type(value) is not frozenset:
                 raise TypeError(f"{cls.__name__}.{attribute} must be frozenset[str]")
@@ -215,8 +215,8 @@ class Rule(ABC, Generic[NotationT]):
                 vars(cls).get(attribute, getattr(cls, attribute))
             ):
                 raise TypeError(f"{cls.__name__}.{attribute} must be frozenset[str]")
-        if not cls.target_grammars:
-            raise TypeError(f"{cls.__name__}.target_grammars must be non-empty")
+        if not cls.target_semantics:
+            raise TypeError(f"{cls.__name__}.target_semantics must be non-empty")
 
     @abstractmethod
     def matches(self, notation: NotationT, contract: Contract) -> bool: ...

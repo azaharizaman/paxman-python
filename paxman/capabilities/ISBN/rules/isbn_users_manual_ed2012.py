@@ -31,7 +31,7 @@ class Section6Isbn10CheckDigit(Rule[ISBNNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 6 (ISBN-10 check digit)"
-    target_grammars = frozenset({"isbn10_recognition"})
+    target_semantics = frozenset({"isbn10_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: ISBNNotation, contract: Contract) -> bool:
