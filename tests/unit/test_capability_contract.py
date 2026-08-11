@@ -136,6 +136,20 @@ class TestCapabilityContract:
             contract.excluded_rules = ("x",)
 
 
+class TestExtraGrammars:
+    @pytest.mark.unit
+    def test_default_is_empty(self) -> None:
+        """extra_grammars defaults to an empty tuple."""
+        contract = _TestContract()
+        assert contract.extra_grammars == ()
+
+    @pytest.mark.unit
+    def test_accepts_extra_grammars(self) -> None:
+        """A contract can opt community grammars in by name."""
+        contract = _TestContract(extra_grammars=("dot_date_recognition",))
+        assert contract.extra_grammars == ("dot_date_recognition",)
+
+
 class TestContractFactory:
     @pytest.mark.unit
     def test_class_with_staticmethod_create_contract_passes(self) -> None:
