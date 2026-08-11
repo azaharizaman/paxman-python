@@ -404,15 +404,18 @@ from paxman.core.domain import Grammar, Rule
 
 register_capability(Date())
 
+
 class DotDateGrammar(Grammar):
     name = "dot_date_recognition"
     # recognize(text) -> list[RecognitionMatch] — span-bearing matches
+
 
 class DotDateRule(Rule):
     name = "dot_date_rule"
     target_grammars = frozenset({"dot_date_recognition"})
     requires_features = frozenset()
     # matches()/normalize() validate the dot-date format
+
 
 paxman.register_grammar("date", DotDateGrammar)
 paxman.register_rule("date", DotDateRule)
