@@ -21,7 +21,7 @@ Before starting, understand these concepts (all defined in depth in HOW_TO_ADD_N
 - **`semantics`** — the grammar metadata declaring the *meaning* the grammar assigns to its recognized notations: an identity id by default, or a coalesced id shared with grammars that carry the same meaning (e.g. both the ISO and slash-ISO Date grammars declare `"iso8601_calendar_date"`).
 - **`target_semantics`** — the rule metadata declaring which grammar semantics a rule validates. A recognition only routes to rules whose `target_semantics` includes its producing grammar's `semantics`.
 
-**The one sentence that matters:** a new grammar changes behavior only when it is (1) returned by `get_grammars()`, and (2) its `semantics` is claimed by at least one rule via `target_semantics` — plus (3) named in `active_grammars`, but **only for the gated capabilities (Email, IP, ISBN) that implement it**. For the other six capabilities, the contract has no `active_grammars` and the engine runs every shipped grammar, so `get_grammars()` alone activates the new grammar. Miss any condition and the grammar silently never runs — so a shipped grammar ships with a test that proves the difference (Step 5).
+**The one sentence that matters:** a new grammar changes behavior only when it is (1) returned by `get_grammars()`, and (2) its `semantics` is claimed by at least one rule via `target_semantics` — plus (3) named in `active_grammars`, but **only for the gated capabilities (Email, IP, ISBN) that implement it**. For the other six capabilities, the contract has no `active_grammars` and the engine runs every shipped grammar, so `get_grammars()` alone activates the new grammar. Miss condition (1) or (3) and the grammar never runs — input matching only it stays `MISSING`. Miss condition (2) and the grammar still runs, but its recognitions route to no rules, so input matching only it becomes `INVALID` (recognized, no authority rule validates) instead of resolving — never a candidate. Either way the resolved output is unchanged, which is why a shipped grammar ships with a test that proves the difference (Step 5).
 
 ---
 
@@ -107,7 +107,7 @@ import re
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
-_SLASH_ISO_PATTERN = re.compile(r"(\d{4})/(\d{1,2})/(\d{1,2})")
+_SLASH_ISO_PATTERN = re.compile(r"(?<!\d)(\d{4})/(\d{1,2})/(\d{1,2})(?!\d)")
 
 
 class SlashISODateGrammar(Grammar[DateNotation]):
@@ -132,7 +132,7 @@ class SlashISODateGrammar(Grammar[DateNotation]):
 
 **The `recognize()` contract is enforced by the engine.** Every match must satisfy `0 <= start <= end <= len(text)` and `raw_text == text[start:end]`; a grammar returning a malformed match raises `RecognitionError` naming the grammar (see `_recognize` in `paxman/engine/orchestrator.py`). The engine owns within-grammar containment dedup and total recognition ordering — the grammar only extracts and emits spans.
 
-**Guard boundaries against sibling grammars.** When two grammars could claim the same span, use lookarounds so each claims only its own representation. The slash-ISO pattern is naturally disjoint from the US/European grammars (a leading 4-digit year vs. a leading 1–2-digit month/day) — verify that with a negative test like `test_does_not_match_us_or_european_order`.
+**Guard boundaries against sibling grammars.** When two grammars could claim the same span, use lookarounds so each claims only its own representation. The slash-ISO pattern is naturally disjoint from the US/European grammars (a leading 4-digit year vs. a leading 1–2-digit month/day) — verify that with a negative test like `test_does_not_match_us_or_european_order`. Digit lookarounds (`(?<!\d)`/`(?!\d)`) additionally keep a date from being partially matched inside a longer digit run such as an ID (`12026/01/15` must not yield `2026/01/15`) — pin that with a negative test too.
 
 ---
 

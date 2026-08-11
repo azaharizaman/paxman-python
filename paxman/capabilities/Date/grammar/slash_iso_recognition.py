@@ -10,7 +10,7 @@ import re
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
-_SLASH_ISO_PATTERN = re.compile(r"(\d{4})/(\d{1,2})/(\d{1,2})")
+_SLASH_ISO_PATTERN = re.compile(r"(?<!\d)(\d{4})/(\d{1,2})/(\d{1,2})(?!\d)")
 
 
 class SlashISODateGrammar(Grammar[DateNotation]):
@@ -20,7 +20,10 @@ class SlashISODateGrammar(Grammar[DateNotation]):
     ``/`` delimiter instead of ``-``; single-digit month/day components are
     accepted and zero-padded by the validating rule. The leading 4-digit year
     keeps the pattern disjoint from the US and European grammars, which both
-    require a leading month/day.
+    require a leading month/day. Digit lookarounds keep the match disjoint
+    from surrounding digits, mirroring the 2-digit US/European patterns, so a
+    longer digit run (e.g. an ID like ``12026/01/15``) is never partially
+    matched as a date.
 
     Notation mapping: N1=year, N2=month, N3=day
     """

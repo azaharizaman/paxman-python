@@ -176,6 +176,17 @@ class TestSlashISODateGrammar:
         assert grammar.recognize("07/26/2026") == []
         assert grammar.recognize("26/07/2026") == []
 
+    def test_does_not_match_embedded_in_digits(self) -> None:
+        """A date run glued to surrounding digits is not recognized.
+
+        The digit lookarounds prevent partial matches inside longer digit
+        runs (e.g. IDs), mirroring the 2-digit US/European patterns.
+        """
+        grammar = SlashISODateGrammar()
+        assert grammar.recognize("12026/07/26") == []
+        assert grammar.recognize("2026/07/261") == []
+        assert grammar.recognize("12026/07/261") == []
+
     def test_grammar_name(self) -> None:
         grammar = SlashISODateGrammar()
         assert grammar.name == "slash_iso_recognition"
