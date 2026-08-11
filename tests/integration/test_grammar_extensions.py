@@ -135,7 +135,7 @@ class CommunityISO8601Rule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_semantics = frozenset({"iso8601_recognition"})
+    target_semantics = frozenset({"iso8601_calendar_date"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:

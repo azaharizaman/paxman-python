@@ -21,7 +21,7 @@ class USDateGrammar(Grammar[DateNotation]):
     """
 
     name = "us_recognition"
-    semantics = "us_recognition"
+    semantics = "us_calendar_date"
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         """Extract US date patterns from text.

@@ -19,17 +19,29 @@ from paxman.capabilities import (
 )
 from paxman.core.domain import Grammar, RecognitionMatch
 
+# Semantics ids that intentionally coalesce several grammars onto one shared
+# id (semantic affinity routing, ADR-0003): a grammar in this set legitimately
+# declares ``semantics`` differing from its ``name``.
+_COALESCED_SEMANTICS: frozenset[str] = frozenset(
+    {"iso8601_calendar_date", "us_calendar_date", "european_calendar_date"}
+)
+
 
 class TestGrammarSemanticsMetadata:
     @pytest.mark.unit
     def test_shipped_grammars_declare_semantics_identity(self) -> None:
-        """Every shipped grammar declares ``semantics`` equal to its name."""
+        """Every shipped grammar declares ``semantics``: identity with its name
+        for non-coalesced grammars, or one of the coalesced ids (an explicit
+        allowlist) for grammars sharing a semantic group."""
         capabilities = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
         for capability in capabilities:
             for grammar in capability().get_grammars():
                 assert isinstance(grammar.semantics, str)
                 assert grammar.semantics != ""
-                assert grammar.semantics == grammar.name
+                assert (
+                    grammar.semantics == grammar.name
+                    or grammar.semantics in _COALESCED_SEMANTICS
+                )
 
 
 class TestGrammarSemanticsEnforcement:

@@ -30,7 +30,7 @@ class Section4DateFormat(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 4 (date format)"
-    target_semantics = frozenset({"us_recognition", "european_recognition"})
+    target_semantics = frozenset({"us_calendar_date", "european_calendar_date"})
     requires_features = frozenset()
 
     def _interpret_two_digit_year(self, year_str: str, contract: Contract) -> int:
