@@ -149,7 +149,8 @@ class CommunityISO8601Rule(Rule[DateNotation]):
 
 
 class DanglingDateRule(Rule[DateNotation]):
-    """Community rule whose target_semantics references a missing grammar."""
+    """Community rule whose target_semantics references a semantics id that
+    no grammar claims."""
 
     name = "dangling_date_rule"
     strategy = RuleStrategy.PARSER

@@ -246,6 +246,27 @@ def test_every_shipped_grammar_belongs_to_one_semantics_group() -> None:
 
 
 @pytest.mark.unit
+def test_every_grammar_semantics_claimed_by_rule_target() -> None:
+    """Every shipped grammar's semantics is claimed by an in-capability rule.
+
+    A grammar whose semantics no rule declares routes every recognition to
+    zero rules — input matching only it yields INVALID instead of resolving,
+    silently. Requiring in-capability rule-target coverage keeps
+    ``_collect_candidates()`` free of unroutable shipped grammars; a grammar
+    added without a claiming rule fails here at test time.
+    """
+    for capability in _SHIPPED_CAPABILITIES:
+        instance = capability()
+        targets = {s for rule in instance.get_rules() for s in rule.target_semantics}
+        for grammar in instance.get_grammars():
+            assert grammar.semantics in targets, (
+                f"{capability.__name__} grammar {grammar.name!r} declares "
+                f"semantics {grammar.semantics!r} claimed by no shipped rule "
+                f"(rule targets: {sorted(targets)})"
+            )
+
+
+@pytest.mark.unit
 def test_every_multi_member_semantics_group_has_probe_rows() -> None:
     """A coalesced group must be seeded or the guard fails loudly.
 
