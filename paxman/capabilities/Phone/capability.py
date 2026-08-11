@@ -75,6 +75,7 @@ class PhoneCapability(Capability[PhoneNotation]):
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        extra_grammars: Sequence[str] | None = None,
         default_country: str | None = None,
     ) -> PhoneContract:
         """Factory method for creating contracts with proper defaults.
@@ -90,6 +91,8 @@ class PhoneCapability(Capability[PhoneNotation]):
                 and NANP inputs "national" works without default_country
                 (the country code is embedded in the value); for national-shaped
                 input it needs default_country to resolve the value.
+            extra_grammars: Community grammar names (opt-in) to run alongside
+                the shipped grammars, in order.
             default_country: ISO 3166-1 alpha-2 country code used to resolve
                 national-shaped numbers (e.g., "US"). Required for "national"
                 output from national-shaped input; optional otherwise.
@@ -102,6 +105,7 @@ class PhoneCapability(Capability[PhoneNotation]):
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
+            extra_grammars=tuple(extra_grammars) if extra_grammars else (),
             default_country=default_country,
         )
 
