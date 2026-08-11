@@ -10,12 +10,16 @@ import re
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
-_US_DATE_PATTERN_4DIGIT = re.compile(r"(\d{1,2})/(\d{1,2})/(\d{4})")
+_US_DATE_PATTERN_4DIGIT = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")
 _US_DATE_PATTERN_2DIGIT = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{2})(?!\d)")
 
 
 class USDateGrammar(Grammar[DateNotation]):
     """US date recognition: MM/DD/YYYY and MM/DD/YY.
+
+    Both year-length variants carry digit lookarounds, so a date glued to
+    surrounding digits (e.g. an ID like ``1201/02/2026``) is never partially
+    matched.
 
     Notation mapping: N1=month, N2=day, N3=year
     """
