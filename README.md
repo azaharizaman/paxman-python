@@ -471,7 +471,7 @@ paxman.register_rule("date", DotDateRule)
 
 contract = Date.create_contract(extra_grammars=("dot_date_recognition",))
 result = paxman.canonicalize("2024.01.01", contract)
-# → "2024-01-01"
+print(result.canonicalized_value)  # → "2024-01-01"
 ```
 
 Rules of the seam:
