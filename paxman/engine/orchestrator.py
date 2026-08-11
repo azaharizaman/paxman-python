@@ -12,6 +12,7 @@ from paxman.core.contract import Contract
 from paxman.core.discovery import freeze_registry, get_capability
 from paxman.core.domain import (
     Candidate,
+    Grammar,
     GrammarRule,
     RecognitionMatch,
     RecognizedRep,
@@ -19,7 +20,13 @@ from paxman.core.domain import (
     Rule,
     VersionStamp,
 )
-from paxman.core.errors import ContractError, RecognitionError, ValidationError
+from paxman.core.errors import (
+    CapabilityError,
+    ContractError,
+    RecognitionError,
+    ValidationError,
+)
+from paxman.core.extensions import get_extended_grammars, get_extended_rules
 
 
 def _resolve_version() -> str:
@@ -49,9 +56,15 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     freeze_registry()
     capability = get_capability(contract.capability_name)
 
-    all_rules = capability.get_rules()
-    _validate_affinity(capability, all_rules)
-    recognitions = _recognize(text, capability, contract)
+    all_grammars = [
+        *capability.get_grammars(),
+        *get_extended_grammars(capability.name),
+    ]
+    all_rules = [*capability.get_rules(), *get_extended_rules(capability.name)]
+    _assert_unique_names("grammar", all_grammars)
+    _assert_unique_names("rule", all_rules)
+    _validate_affinity(all_grammars, all_rules)
+    recognitions = _recognize(text, all_grammars, contract)
     had_recognitions = len(recognitions) > 0
 
     rules = _filter_rules(all_rules, contract)
@@ -70,8 +83,21 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     )
 
 
+def _assert_unique_names(kind: str, items: Sequence[Grammar[Any] | Rule[Any]]) -> None:
+    """Fail fast when a composed grammar or rule name is duplicated.
+
+    Shipped names must never be shadowed or duplicated by community
+    extensions: a duplicate would make grammar-name routing and provenance
+    attribution ambiguous, so reject it at composition time (D4).
+    """
+    names = [item.name for item in items]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise CapabilityError(f"Duplicate {kind} name(s): {duplicates}")
+
+
 def _recognize(
-    text: str, capability: Capability[Any], contract: Contract
+    text: str, all_grammars: Sequence[Grammar[Any]], contract: Contract
 ) -> list[RecognizedRep[Any]]:
     """Run active grammars, dedup contained matches per grammar, and order.
 
@@ -81,16 +107,24 @@ def _recognize(
     grammar. The engine owns all cross-match policy: containment dedup runs
     strictly within a single grammar's output (never across grammars, so
     cross-grammar ambiguity stays observable), and recognitions are emitted
-    in the total order (start, end, active_grammars index, grammar name)
-    where the index follows ``contract.active_grammars`` order.
+    in the total order (start, end, active set index, grammar name) where the
+    index follows the composed active set: ``contract.active_grammars`` first,
+    then any opt-in ``contract.extra_grammars`` names (unknown extra names are
+    silently skipped, D4).
     """
-    all_grammars = capability.get_grammars()
     supported_names = {g.name for g in all_grammars}
+    extra_grammars = getattr(contract, "extra_grammars", ())
     # Deduplicate contract names, keeping first occurrence: each supported
     # grammar runs at most once and grammar_index stays aligned with
     # active_grammars (a duplicate contract entry must not double-run it).
+    # Community grammars opt in via extra_grammars and keep their declared
+    # order after the shipped slots.
     active_names = list(
-        dict.fromkeys(n for n in contract.active_grammars if n in supported_names)
+        dict.fromkeys(
+            n
+            for n in [*contract.active_grammars, *extra_grammars]
+            if n in supported_names
+        )
     )
     grammar_index = {name: i for i, name in enumerate(active_names)}
     by_name = {g.name: g for g in all_grammars}
@@ -142,7 +176,8 @@ def _recognize(
     recognitions: list[RecognizedRep[Any]] = []
     for start, end, _index, grammar_name, match in ordered:
         grammar_ref = GrammarRule(
-            capability_name=capability.name, grammar_name=grammar_name
+            capability_name=contract.capability_name,
+            grammar_name=grammar_name,
         )
         recognitions.append(
             RecognizedRep(
@@ -223,13 +258,16 @@ def _filter_rules(all_rules: list[Rule[Any]], contract: Contract) -> list[Rule[A
     ]
 
 
-def _validate_affinity(capability: Capability[Any], rules: list[Rule[Any]]) -> None:
-    """Ensure every rule's declared grammars exist in the capability.
+def _validate_affinity(
+    all_grammars: Sequence[Grammar[Any]], rules: list[Rule[Any]]
+) -> None:
+    """Ensure every rule's declared grammars exist in the composition.
 
-    A dangling grammar name would silently exclude a rule from ever running, so
-    fail fast at pipeline start rather than producing a wrong (e.g. INVALID) result.
+    The composition covers shipped and community grammars alike; a dangling
+    grammar name would silently exclude a rule from ever running, so fail
+    fast at pipeline start rather than producing a wrong (e.g. INVALID) result.
     """
-    known_grammars = {g.name for g in capability.get_grammars()}
+    known_grammars = {g.name for g in all_grammars}
     for rule in rules:
         unknown = [g for g in rule.target_grammars if g not in known_grammars]
         if unknown:
