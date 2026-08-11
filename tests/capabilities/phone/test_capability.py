@@ -113,15 +113,16 @@ class TestPhoneContract:
         contract = PhoneContract(output_format="rfc3966")
         assert contract.output_format == "rfc3966"
 
-    def test_active_grammars_returns_all(self) -> None:
-        """Verify all 4 grammars are active by default."""
+    def test_active_grammars_defaults_to_all_shipped(self) -> None:
+        """No override: the engine runs every shipped grammar (fallback)."""
         contract = PhoneContract()
-        grammars = contract.active_grammars
-        assert len(grammars) == 4
-        assert "e164_recognition" in grammars
-        assert "tel_uri_recognition" in grammars
-        assert "international_00_recognition" in grammars
-        assert "national_recognition" in grammars
+        assert contract.active_grammars is None
+        assert [g.name for g in PhoneCapability().get_grammars()] == [
+            "e164_recognition",
+            "tel_uri_recognition",
+            "international_00_recognition",
+            "national_recognition",
+        ]
 
     def test_is_frozen(self) -> None:
         """Verify immutability."""

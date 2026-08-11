@@ -22,12 +22,3 @@ class URLCapabilityContract(CapabilityContract):
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset()
 
     capability_name: str = field(default="url", init=False)
-
-    @property
-    def active_grammars(self) -> tuple[str, ...]:
-        """All grammars active by default.
-
-        Returns:
-            The single recognition grammar name.
-        """
-        return ("absolute_uri_recognition",)

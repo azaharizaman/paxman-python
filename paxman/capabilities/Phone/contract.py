@@ -90,20 +90,3 @@ class PhoneContract(CapabilityContract):
         """
         super().__post_init__()
         _validate_alpha2(self.default_country)
-
-    @property
-    def active_grammars(self) -> list[str]:
-        """All grammars active by default.
-
-        All grammars are cheap regex scans; rules filter by shape and by
-        contract parameters (e.g., national rules gate on default_country).
-
-        Returns:
-            List of grammar names to activate.
-        """
-        return [
-            "e164_recognition",
-            "tel_uri_recognition",
-            "international_00_recognition",
-            "national_recognition",
-        ]
