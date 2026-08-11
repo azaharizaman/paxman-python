@@ -26,7 +26,7 @@ paxman/capabilities/
 | Build/extend a capability | root `HOW_TO_ADD_NEW_CAPABILITY.md` (62KB spec — read first) |
 | Wire grammars + rules | `<Name>/capability.py` → `get_grammars()`, `get_rules()`, static `create_contract()` |
 | Presentation | `<Name>/capability.py` → `format_value()` — the ONLY presentation seam |
-| Feature flags / active grammars | `<Name>/contract.py` → `include_*` fields + `active_grammars` property |
+| Feature flags / active grammars | `<Name>/contract.py` → `include_*` fields + `active_grammars` property (optional: only Email/IP/ISBN override it; `None` = run every shipped grammar) |
 | Token shape | `<Name>/notation.py` |
 | Recognition | `<Name>/grammar/` (+ `grammar/data/` for lexicon key tables) |
 | Validation | `<Name>/rules/` (+ `rules/data/` for authority tables) |
@@ -38,10 +38,10 @@ paxman/capabilities/
 Every capability must conform to the same structural surface. `CapabilityContract` and `Rule.__init_subclass__` make most of it structural rather than documentary:
 
 - **Notation** — `@dataclass(frozen=True, slots=True)`; one `str` field per component; the sole type parameter of the capability's `Grammar[NotationT]` / `Rule[NotationT]`.
-- **Contract** — `@dataclass(frozen=True)` extending `CapabilityContract`, NO `slots=True` (incompatible with the base `super()` pattern). Sets `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` class vars; `capability_name` via `field(init=False)`; inherits `output_format` (always optional; base `__post_init__` resolves it and validates offered alternatives); implements `active_grammars`.
+- **Contract** — `@dataclass(frozen=True)` extending `CapabilityContract`, NO `slots=True` (incompatible with the base `super()` pattern). Sets `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` class vars; `capability_name` via `field(init=False)`; inherits `output_format` (always optional; base `__post_init__` resolves it and validates offered alternatives); `active_grammars` is optional — only feature-gated capabilities (Email, IP, ISBN) override it, and the base `None` default runs every shipped grammar.
 - **Grammar** — one file = one recognizer; `name` = `{format}_recognition` (snake_case, unique per capability); emits span-bearing `RecognitionMatch` (half-open `[start, end)`, `raw_text`); syntax-only — extraction and sanitization, never validation, dedup, ordering, or token→canonical mapping. Two sanctioned strategies: Regex (shape) and Lexicon (key-only tables, kept in `grammar/data/` apart from recognition logic); see HOW_TO for the extended set.
 - **Rule** — one file = one publication (module-level `PUBLICATION` provenance constant); class = one spec section; declares `name` (`Section {X.Y.Z}-{description}`), `strategy`, `provenance`, `citation`, `target_grammars` (non-empty), `requires_features` — all six enforced at import time. Rule classes sharing one publication live in the same file; authority-backed lookup tables live in `rules/data/`, separated from rule logic.
-- **Feature gating — two loci, two statuses** — input-shape features toggle grammars via `active_grammars` (disabled grammar → `MISSING`); authority features gate rules via `requires_features` (dropped rule → `INVALID`). Never gate inside `matches()`; never cast to read `include_*` flags. `typing.cast` is only for validity-affecting parameters.
+- **Feature gating — two loci, two statuses** — input-shape features toggle grammars via `active_grammars` (disabled grammar → `MISSING`), implemented only by the gated capabilities (Email, IP, ISBN) — other contracts inherit the `None` default, which runs every shipped grammar; authority features gate rules via `requires_features` (dropped rule → `INVALID`). Never gate inside `matches()`; never cast to read `include_*` flags. `typing.cast` is only for validity-affecting parameters.
 - **Presentation-only invariant** — rules never reference `output_format` (CI-scanned); `normalize()` always returns the default canonical form; `format_value()` is the only presentation seam, overridden only when `OFFERED_OUTPUT_FORMATS` is non-empty; formatting adds no provenance; offered formats must preserve the capability's ambiguity contract.
 - **`create_contract()`** — static, keyword-only; fixed common block first (`excluded_rules`, `pinned_rules`, `year`, `output_format`), capability-specific params after.
 
