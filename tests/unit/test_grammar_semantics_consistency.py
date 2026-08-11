@@ -7,9 +7,13 @@ input, and its notation is routed to the group's shared rules. A group whose
 members map the same input to different notation fields (or whose shared rule
 canonicalizes differently) would resolve the same text differently depending
 on which member happened to recognize it — silent nondeterminism. This guard
-enumerates all shipped grammar classes, groups them by ``semantics``, and for
-every seeded group runs shared probe rows through each member's
-``recognize()`` asserting identical notation fields and canonical values.
+enumerates all shipped grammar classes, groups them by ``semantics`` within
+each capability, and pins every seeded group's members to a single canonical
+mapping: each member must recognize at least one probe row into the group's
+expected notation, and the group's shared rule must canonicalize every match
+identically. Group members may recognize disjoint input sets (e.g. the dash
+and slash ISO grammars), so agreement is asserted member-vs-table — no
+cross-member comparison is claimed.
 """
 
 from __future__ import annotations
@@ -32,10 +36,13 @@ from paxman.capabilities import (
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Date.rules.iso_8601_ed2019 import Section431CalendarDate
+from paxman.capabilities.Email.contract import EmailContract
 from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
+from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.Phone.rules.e164_ed2010 import Section6_1InternationalNumber
+from paxman.core.capability_contract import CapabilityContract
 from paxman.core.domain import Grammar, Rule
 
 _SHIPPED_CAPABILITIES = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
@@ -53,6 +60,15 @@ _NO_COALESCE_SEMANTICS = (
     "isbn13_recognition",
     "isbn10_recognition",
 )
+
+# Contract class used to drive each seeded group's shared rule ``normalize()``.
+# The right contract per group keeps the guard honest if a rule ever starts
+# reading contract fields.
+_CONTRACTS: dict[str, type[CapabilityContract]] = {
+    "iso8601_calendar_date": DateContract,
+    "rfc5322_addr_spec": EmailContract,
+    "e164_international": PhoneContract,
+}
 
 
 class _ProbeRow(NamedTuple):
@@ -124,42 +140,84 @@ _PROBE_ROWS: dict[str, tuple[type[Rule[Any]], tuple[_ProbeRow, ...]]] = {
 }
 
 
-def _group_shipped_grammars_by_semantics() -> dict[str, list[type[Grammar[Any]]]]:
-    """Group every shipped grammar class by its ``semantics`` id."""
-    groups: dict[str, list[type[Grammar[Any]]]] = {}
+def _group_shipped_grammars_by_capability_semantics() -> dict[
+    str, dict[str, list[type[Grammar[Any]]]]
+]:
+    """Group shipped grammar classes per capability by their ``semantics`` id.
+
+    The affinity-routing engine treats grammars as interchangeable only within
+    one capability, so groups are scoped per capability: a semantics id reused
+    across capabilities (Currency and Money both declaring ``code_recognition``
+    etc.) yields separate per-capability groups that never co-route and must
+    not be probed as one unit.
+    """
+    groups: dict[str, dict[str, list[type[Grammar[Any]]]]] = {}
     for capability in _SHIPPED_CAPABILITIES:
+        per_capability: dict[str, list[type[Grammar[Any]]]] = {}
         for grammar in capability().get_grammars():
-            groups.setdefault(grammar.semantics, []).append(type(grammar))
+            per_capability.setdefault(grammar.semantics, []).append(type(grammar))
+        groups[capability.__name__] = per_capability
     return groups
 
 
 @pytest.mark.unit
 def test_probe_keys_name_real_semantics_groups() -> None:
     """Every probe-table key must be a real semantics group in the enumeration."""
-    groups = _group_shipped_grammars_by_semantics()
-    assert set(_PROBE_ROWS) <= set(groups)
+    groups = _group_shipped_grammars_by_capability_semantics()
+    assert all(
+        any(key in per_capability for per_capability in groups.values())
+        for key in _PROBE_ROWS
+    )
 
 
 @pytest.mark.unit
 def test_same_semantics_grammars_agree_on_notation_and_canonical() -> None:
-    """Members of a seeded semantics group recognize probes identically.
+    """Members of a seeded semantics group pin the group's canonical mapping.
 
-    Groups without probe rows are skipped — the reverse coverage (that every
-    multi-member group is seeded) lands in a later task.
+    Every member must recognize at least one probe row into the group's
+    expected notation, and the group's shared rule must canonicalize every
+    match to the expected canonical value. Because members may recognize
+    disjoint input sets, agreement is asserted member-vs-table (against the
+    group's single expected mapping), not by comparing members on one input.
+    A member that recognizes none of the probes — or a probe that no member
+    recognizes — fails loudly instead of passing silently.
     """
-    groups = _group_shipped_grammars_by_semantics()
+    groups = _group_shipped_grammars_by_capability_semantics()
     for semantics, (rule_cls, probes) in _PROBE_ROWS.items():
         rule = rule_cls()
-        for member_cls in groups.get(semantics, ()):
+        member_lists = [
+            per_capability.get(semantics, ()) for per_capability in groups.values()
+        ]
+        assert sum(1 for members in member_lists if members) == 1, (
+            f"semantics {semantics!r} spans multiple capabilities; probe rows "
+            "must stay scoped to one capability"
+        )
+        members = [member for group_members in member_lists for member in group_members]
+        for member_cls in members:
             member = member_cls()
+            matched_any = False
             for probe in probes:
                 matches = member.recognize(probe.input)
                 if not matches:
                     continue
-                assert matches[0].notation == probe.expected_notation
-                assert rule.normalize(matches[0].notation, DateContract()) == (
-                    probe.expected_canonical
+                matched_any = True
+                assert all(m.notation == probe.expected_notation for m in matches), (
+                    f"{member_cls.__name__} mapped {probe.input!r} to "
+                    f"{[m.notation for m in matches]}, expected "
+                    f"{probe.expected_notation!r}"
                 )
+                assert (
+                    rule.normalize(matches[0].notation, _CONTRACTS[semantics]())
+                    == probe.expected_canonical
+                )
+            assert matched_any, (
+                f"{member_cls.__name__} (semantics {semantics!r}) recognized none "
+                "of the probe rows"
+            )
+        for probe in probes:
+            assert any(member_cls().recognize(probe.input) for member_cls in members), (
+                f"probe {probe.input!r} matched by no member of {semantics!r}"
+            )
 
 
 @pytest.mark.unit
@@ -170,12 +228,21 @@ def test_every_shipped_grammar_belongs_to_one_semantics_group() -> None:
     group with a non-empty semantics id; a dropped or double-counted grammar
     would break the member-count equality.
     """
-    groups = _group_shipped_grammars_by_semantics()
+    groups = _group_shipped_grammars_by_capability_semantics()
     shipped_count = sum(
         len(capability().get_grammars()) for capability in _SHIPPED_CAPABILITIES
     )
-    assert sum(len(members) for members in groups.values()) == shipped_count
-    assert all(semantics for semantics in groups)
+    assert (
+        sum(
+            len(members)
+            for per_capability in groups.values()
+            for members in per_capability.values()
+        )
+        == shipped_count
+    )
+    assert all(
+        semantics for per_capability in groups.values() for semantics in per_capability
+    )
 
 
 @pytest.mark.unit
@@ -207,8 +274,12 @@ def test_d7_no_coalesce_semantics_groups_stay_singleton() -> None:
 
     ``us_calendar_date``/``european_calendar_date`` are renamed singletons and
     the other six are identity singletons; coalescing any of them would change
-    what the shared semantics resolves to.
+    what the shared semantics resolves to. Each id must total exactly one
+    member across all capabilities.
     """
-    groups = _group_shipped_grammars_by_semantics()
+    groups = _group_shipped_grammars_by_capability_semantics()
     for semantics in _NO_COALESCE_SEMANTICS:
-        assert len(groups[semantics]) == 1
+        total = sum(
+            len(per_capability.get(semantics, ())) for per_capability in groups.values()
+        )
+        assert total == 1, f"{semantics!r} must stay a singleton, found {total}"

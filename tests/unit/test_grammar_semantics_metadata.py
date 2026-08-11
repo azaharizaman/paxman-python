@@ -19,9 +19,12 @@ from paxman.capabilities import (
 )
 from paxman.core.domain import Grammar, RecognitionMatch
 
-# Semantics ids that intentionally coalesce several grammars onto one shared
-# id (semantic affinity routing, ADR-0003): a grammar in this set legitimately
-# declares ``semantics`` differing from its ``name``.
+# Semantics ids that legitimately differ from a grammar's ``name`` (semantic
+# affinity routing, ADR-0003): coalesced ids shared by several grammars
+# (``iso8601_calendar_date``, ``rfc5322_addr_spec``, ``e164_international``)
+# and renamed singletons (``us_calendar_date``, ``european_calendar_date``).
+# A grammar in this set declares ``semantics`` differing from its ``name``
+# without failing the identity check.
 _COALESCED_SEMANTICS: frozenset[str] = frozenset(
     {
         "iso8601_calendar_date",
