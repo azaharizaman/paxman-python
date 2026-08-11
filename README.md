@@ -55,7 +55,7 @@ Paxman ships with nine built-in capabilities:
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
 | **Email** | Email addresses | 3 (standard, obfuscated, localhost) | 2 | RFC 5322, RFC 6761 |
-| **Date** | Dates | 3 (ISO, US, European) | 3 | ISO 8601, US federal, EN 50160 |
+| **Date** | Dates | 4 (ISO, US, European, slash-ISO) | 3 | ISO 8601, US federal, EN 50160 |
 | **Country** | Country codes/names | 4 (alpha-2, alpha-3, numeric, name) | 6 | ISO 3166, CLDR |
 | **Currency** | Currency identifiers | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **IP** | IP addresses | 2 (IPv4, IPv6) | 2 | RFC 791, RFC 5952 |
@@ -90,7 +90,7 @@ result = paxman.canonicalize("admin@localhost", contract)
 
 ### Date Capability
 
-Recognizes dates in ISO 8601 (`YYYY-MM-DD`), US (`MM/DD/YYYY`), and European (`DD/MM/YYYY`) formats.
+Recognizes dates in ISO 8601 (`YYYY-MM-DD`), slash-ISO (`YYYY/MM/DD`), US (`MM/DD/YYYY`), and European (`DD/MM/YYYY`) formats.
 
 ```python
 from paxman.capabilities import Date
@@ -100,6 +100,11 @@ register_capability(Date())
 # ISO format (unambiguous)
 contract = Date.create_contract()
 result = paxman.canonicalize("2026-01-15", contract)
+# → "2026-01-15"
+
+# Slash-ISO format (4-digit year first)
+contract = Date.create_contract()
+result = paxman.canonicalize("2026/01/15", contract)
 # → "2026-01-15"
 
 # US/European format (potentially ambiguous)
