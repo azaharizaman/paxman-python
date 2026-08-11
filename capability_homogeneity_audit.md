@@ -135,11 +135,20 @@ duplication and the Phone `_canonical` triplication. **Resolved 2026-08-04** by
 the centralize-output-format work — see the addendum below; the finding above is
 preserved as historical record.
 
-### F5. `active_grammars` toggleable (Email/IP) vs static (Date/Country/Phone) — `ACCEPTED`
+### F5. `active_grammars` toggleable (Email/IP) vs static (Date/Country/Phone) — `RESOLVED`
 
 Already adjudicated in plan `2026-08-02-capability-surface-homogeneity.md` and
 legitimized by `HOW_TO_ADD_NEW_CAPABILITY.md`. The property *shape* (`Sequence[str]`,
 consumed by `_recognize`) is unanimous. Low severity — not a defect.
+
+**Resolved 2026-08-11** by making `active_grammars` optional: the base
+`CapabilityContract.active_grammars` returns `None` and the engine falls back to
+running every shipped grammar in `get_grammars()` order. The static all-active
+overrides were deleted (Country, Currency, Date, Money, Phone, URL); only the
+feature-gated capabilities (Email, IP, ISBN) keep an override. A contract that
+returns `None` composes to the identical runnable set the deleted static lists
+declared, so behavior is byte-identical — and a future grammar added to
+`get_grammars()` activates without a contract edit.
 
 ---
 
@@ -214,7 +223,7 @@ Ranked defects (from the rule-comparison agent):
 | 9 | Grammar canonicalization-at-recognition spectrum | Defect-lite |
 | 10 | Grammar dedup / ordering inconsistent | Smell |
 | 11 | Dead/mislabeled data (`"EQUatorial GUINEA"`; wrong `reference_url`) | Data defect |
-| 12 | F5 static vs toggleable `active_grammars` | Accepted |
+| 12 | F5 static vs toggleable `active_grammars` | Resolved (2026-08-11) |
 | 13 | Phone `strip_separators`; Country rule-name prefix | Accepted |
 
 ---
