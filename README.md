@@ -425,6 +425,7 @@ class DotDateGrammar(Grammar[DateNotation]):
     """Recognize YYYY.MM.DD dates with dot separators."""
 
     name = "dot_date_recognition"
+    semantics = "dot_date_recognition"
     _PATTERN = re.compile(r"\b(\d{4})\.(\d{2})\.(\d{2})\b")
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
@@ -455,7 +456,7 @@ class DotDateRule(Rule[DateNotation]):
         publication_year=2019,
     )
     citation = "Section 4.3.1 (calendar date)"
-    target_grammars = frozenset({"dot_date_recognition"})
+    target_semantics = frozenset({"dot_date_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -482,10 +483,10 @@ print(result.canonicalized_value)  # → "2024-01-01"
 Rules of the seam:
 
 - **Register before the first `canonicalize()` call** — the extension registries freeze with the capability registry.
-- **Opt-in only** — a registered grammar runs only when named in `extra_grammars` (available on every `create_contract` factory), and a registered rule runs only when the contract names one of its `target_grammars` there; un-named grammars and un-opted rules never affect results.
-- **Unknown `extra_grammars` names are silently skipped**, so a contract naming an uninstalled grammar still runs byte-identically.
+- **Opt-in only** — a registered grammar runs only when named in `extra_grammars` (available on every `create_contract` factory), and a registered rule runs only when the contract's `extra_grammars` resolve to one of its `target_semantics` ids; un-named grammars and un-opted rules never affect results.
+- **Unknown `extra_grammars` names are silently skipped** for grammar activation, so a contract naming an uninstalled grammar still runs byte-identically; the unknown name is kept as-is as the semantics key for rule activation.
 - **Names must be unique in the composed set** — a community grammar colliding with a shipped name fails fast with `CapabilityError`.
-- **Community rules declare `target_grammars`** and activate only when the contract names one of them in `extra_grammars`; an opted-in rule naming a missing grammar fails fast with `ContractError`.
+- **Community rules declare `target_semantics`** and activate only when the contract's `extra_grammars` resolve to one of those ids; a rule opted in via an id that no grammar claims fails fast with `ContractError`, while a rule that is not opted in stays inert regardless of any dangling targets.
 
 ---
 

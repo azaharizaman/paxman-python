@@ -60,11 +60,11 @@ validate it." Each capability invented its own self-filter:
 This contradicts `ARCHITECTURE.md:201` ("Each grammar's notation flows to its
 corresponding validation rule").
 
-**Unanimous ideal:** declare affinity on the rule — `Rule.target_grammars:
+**Unanimous ideal:** declare affinity on the rule — `Rule.target_semantics:
 frozenset[str]` (ClassVar, enforced by the existing `__init_subclass__` metadata
-check); orchestrator adds one line `if grammar_name not in rule.target_grammars:
-continue`. Engine stays capability-agnostic (reads declared names, no shape
-knowledge). Replay-safe *if* `_collect_candidates` also dedups identical
+check); orchestrator adds one line `if semantics_by_name[grammar_name] not in
+rule.target_semantics: continue`. Engine stays capability-agnostic (reads declared
+semantics ids, no shape knowledge). Replay-safe *if* `_collect_candidates` also dedups identical
 `(value, recognition_rule, validation_rule)` tuples — otherwise Date candidate
 multiplicity changes the hash (semantics/status unchanged). Preserves Date
 ambiguity (each rule sees only its grammar's notation → 2 candidates →
@@ -230,7 +230,7 @@ Ranked defects (from the rule-comparison agent):
 
 ## Unanimous ideals — recommended build order
 
-1. **`Rule.target_grammars`** + one-line orchestrator filter (fixes F1; makes
+1. **`Rule.target_semantics`** + one-line orchestrator filter (fixes F1; makes
    `ARCHITECTURE.md:201` true; deterministic output with candidate dedup).
 2. **Move `include_*` feature-gating** to engine-enforced declared metadata, split
    by feature kind (fixes F2). **[DONE 2026-08-03]** — enforced via
@@ -293,7 +293,7 @@ formatter seam described in the centralize-output-format addendum below.
 ### B. F1 candidate multiset is identical — byte-identical output requires ordered comparison
 
 The audit's *Watch out for* warns that moving to grammar→rule affinity could change
-the candidate multiset via candidate multiplicity. In practice `target_grammars` was set equal
+the candidate multiset via candidate multiplicity. In practice `target_semantics` was set equal
 to each rule's *effective acceptance domain* (the affinity map in F1), so the candidate
 multiset is identical to the cartesian product for every capability (Email / Date /
 Country / IP / Phone). That multiset equality alone does not prove byte-identical output:
@@ -304,7 +304,7 @@ rules and provenance — as asserted by the repeated-run determinism tests (e.g.
 `ExecutionResult` equality). Where only multiset equality is established, the claim is
 limited to multiset equality, not byte-identity. The `_dedup_candidates` step is a pure
 safety net for future over-declaration, not a behavior change. The plan's Step 6.7
-determinism gate was satisfied *structurally* (target_grammars == effective domain ⇒
+determinism gate was satisfied *structurally* (target_semantics == effective domain ⇒
 identical multiset) rather than by captured pre-change constants; the full 782-test suite
 passing is the empirical confirmation.
 

@@ -169,6 +169,7 @@ class StandardMyDomainGrammar(Grammar[MyDomainNotation]):
     """Standard recognition for the MyDomain capability."""
 
     name = "standard_recognition"
+    semantics = "standard_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[MyDomainNotation]]:
         """Extract span-bearing matches from raw text.
@@ -289,7 +290,7 @@ Codebase examples: IP's IPv4 grammar is a loose regex (`\d{1,3}` octets) and `rf
 
 3. Set `provenance` to the `PUBLICATION` constant defined above
 4. Set `citation` to a human-readable citation (e.g., "Section 3.4.1 (addr-spec)")
-5. Set `target_grammars` to the `frozenset[str]` of grammar names whose notations this rule validates (e.g., `frozenset({"standard_recognition"})`)
+5. Set `target_semantics` to the `frozenset[str]` of grammar semantics whose notations this rule validates (e.g., `frozenset({"standard_recognition"})`)
 6. Set `requires_features` to the `frozenset[str]` of contract fields that must be truthy for the rule to run (`frozenset()` when it always runs)
 
 All six attributes are enforced by `Rule.__init_subclass__` at class-definition time; see the Rule metadata section in Step 7.
@@ -438,7 +439,7 @@ Capability-specific parameters come after the common block. Every capability sat
 
 **3. Rule metadata**
 
-Every `Rule` subclass must declare six class attributes: `name`, `strategy`, `provenance`, `citation`, `target_grammars`, and `requires_features`. `Rule.__init_subclass__` enforces this at class-definition time, and a subclass missing any of them fails to import with a `TypeError`:
+Every `Rule` subclass must declare six class attributes: `name`, `strategy`, `provenance`, `citation`, `target_semantics`, and `requires_features`. `Rule.__init_subclass__` enforces this at class-definition time, and a subclass missing any of them fails to import with a `TypeError`:
 
 ```python
 class SectionYourRule(Rule[YourDomainNotation]):
@@ -446,11 +447,11 @@ class SectionYourRule(Rule[YourDomainNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 1 (your-rule)"
-    target_grammars = frozenset({"your_recognition"})
+    target_semantics = frozenset({"your_recognition"})
     requires_features = frozenset()
 ```
 
-- **`target_grammars: ClassVar[frozenset[str]]`** is the non-empty set of grammar names whose notations this rule validates. The engine uses it for affinity routing: each recognition is validated only by rules whose `target_grammars` includes the producing grammar's name, and a rule declaring a grammar the capability does not have fails fast with a `ContractError` before any candidate is produced. `Rule.__init_subclass__` also rejects an empty set at import time, since such a rule could never match a recognition.
+- **`target_semantics: ClassVar[frozenset[str]]`** is the non-empty set of grammar `semantics` ids whose notations this rule validates. The engine uses it for affinity routing: each recognition is validated only by rules whose `target_semantics` includes the producing grammar's `semantics`, and a rule declaring a semantics id no grammar claims fails fast with a `ContractError` before any candidate is produced. `Rule.__init_subclass__` also rejects an empty set at import time, since such a rule could never match a recognition.
 - **`requires_features: ClassVar[frozenset[str]]`** is the set of Contract field names that must be truthy for the rule to run. An empty set is valid and is the common case: it means the rule always runs once selected. The engine validates that every named feature exists on the contract (a missing name raises `ContractError`) and applies the final feature filter *after* pinning, exclusion, and year selection: a rule whose required feature is present but `False` is dropped.
 
 **Feature gating has two loci, and they produce different `Resolution` statuses:**
@@ -569,7 +570,7 @@ The key invariant: `None`, `"default"`, and the default format string are **trea
 
 Example — Date input `"01/02/2026"` is recognized by both the US and European grammars and validated by both rules, yielding two distinct canonical values (`2026-01-02` and `2026-02-01`). The result is `AMBIGUOUS` regardless of `output_format`. `output_format="US"` merely renders those two values as `01/02/2026` and `02/01/2026`; it cannot and must not decide which interpretation is "correct".
 
-> Note: the grammar→rule routing decision (which rule validates which recognized notation) is an entirely separate concern from `output_format`. Routing is declared on the rule (e.g. `Rule.target_grammars`); it operates in the recognition→validation stage and never touches formatting. Keep the two orthogonal.
+> Note: the grammar→rule routing decision (which rule validates which recognized notation) is an entirely separate concern from `output_format`. Routing is declared on the rule (`Rule.target_semantics`) and matched against each grammar's `semantics`; it operates in the recognition→validation stage and never touches formatting. Keep the two orthogonal.
 
 Example wiring — inherited from `CapabilityContract`, you only set the class variables:
 
@@ -1032,7 +1033,7 @@ If your rule needs to read a capability-specific parameter (like `two_digit_base
 
 A shipped capability is closed for modification but open for extension: you can add recognition and validation without touching the capability package.
 
-1. **Author** a `Grammar` subclass (Step 4) and a `Rule` subclass (Step 5) for the capability's notation, exactly as you would for a new capability — the same contracts apply, including span-bearing `RecognitionMatch` output, `target_grammars`, and `requires_features`.
+1. **Author** a `Grammar` subclass (Step 4) and a `Rule` subclass (Step 5) for the capability's notation, exactly as you would for a new capability — the same contracts apply, including span-bearing `RecognitionMatch` output, `semantics` on the grammar, `target_semantics` on the rule, and `requires_features`.
 2. **Register** them before the first `canonicalize()` call:
 
    ```python
@@ -1053,7 +1054,7 @@ Semantics to rely on:
 
 - The extension registries freeze with the capability registry — registration after the first pipeline run raises `CapabilityError`.
 - Opt-in only: an un-named registered grammar never affects results, keeping shipped behavior byte-identical for non-opt-in contracts.
-- Community rules are opt-in too: a registered rule runs only when the contract names one of its `target_grammars` in `extra_grammars`; an un-opted rule — even one targeting a shipped grammar — never affects results.
+- Community rules are opt-in too: a registered rule runs only when the contract's `extra_grammars` resolve to one of its `target_semantics`; an un-opted rule — even one targeting a shipped grammar's semantics — never affects results.
 - Unknown `extra_grammars` names are silently skipped; shipped names listed in `extra_grammars` are deduplicated.
 - Composition is guarded: a grammar name colliding with a shipped name, or an opted-in community rule naming a missing grammar, fails fast at pipeline start.
 
@@ -1066,7 +1067,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Notation is a frozen dataclass with `as_list()` method
 - [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[RecognitionMatch[YourDomainNotation]]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
-- [ ] Each rule declares `target_grammars` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
+- [ ] Each rule declares `target_semantics` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
 - [ ] Each rule file has a `PUBLICATION` provenance constant
 - [ ] Capability extends `Capability` and implements `get_grammars()` and `get_rules()`
 - [ ] Contract inherits `CapabilityContract` (frozen dataclass, no `slots=True`) and satisfies the `Contract` protocol

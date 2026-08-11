@@ -137,7 +137,7 @@ class Section341AddrSpec(Rule[EmailNotation]):
     strategy = RuleStrategy.REGEX
     provenance = PUBLICATION
     citation = "Section 3.4.1 (addr-spec)"  # Human-readable citation
-    target_grammars = frozenset({"standard_recognition", "obfuscated_recognition"})
+    target_semantics = frozenset({"rfc5322_addr_spec"})
     requires_features = frozenset()  # authority features this rule gates on
 
     def matches(self, notation: EmailNotation, contract: Contract) -> bool:
@@ -152,7 +152,7 @@ class Section341AddrSpec(Rule[EmailNotation]):
         return f"{notation.local_part.lower()}@{notation.domain_part.lower()}"
 ```
 
-Every rule declares six metadata attrs — `name`, `strategy`, `provenance`, `citation`, `target_grammars` (non-empty `frozenset[str]`), `requires_features` (`frozenset[str]`) — enforced at import time by `Rule.__init_subclass__`. Rules never raise and never read `output_format`.
+Every rule declares six metadata attrs — `name`, `strategy`, `provenance`, `citation`, `target_semantics` (non-empty `frozenset[str]`), `requires_features` (`frozenset[str]`) — enforced at import time by `Rule.__init_subclass__`. Every grammar declares a `semantics` string — the meaning id its recognized notations carry (its identity id by default; a coalesced id shared by same-meaning grammars, e.g. the standard and obfuscated Email grammars both declare `"rfc5322_addr_spec"`) — enforced as a non-empty `str` at import time by `Grammar.__init_subclass__`. Rules never raise and never read `output_format`.
 
 ### Notation Purpose
 Notation exists for **placement-sensitive rules**:
@@ -179,7 +179,7 @@ class SectionCode(Rule[CurrencyNotation]):
     name = "Section 3-code"
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
-    target_grammars = frozenset({"code_recognition", "symbol_recognition", "word_recognition"})
+    target_semantics = frozenset({"code_recognition", "symbol_recognition", "word_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CurrencyNotation, contract: Contract) -> bool:
@@ -204,7 +204,7 @@ class Section431CalendarDate(Rule[DateNotation]):
     name = "Section 4.3.1-calendar-date"
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
-    target_grammars = frozenset({"iso8601_recognition"})
+    target_semantics = frozenset({"iso8601_calendar_date"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -244,6 +244,7 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
     """Standard email recognition: user@domain.tld"""
 
     name = "standard_recognition"
+    semantics = "rfc5322_addr_spec"  # coalesced — shared with obfuscated_recognition
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         """Extract span-bearing email matches from text."""

@@ -306,10 +306,14 @@ def _collect_candidates(
     """Match recognitions against rules and collect candidates.
 
     Routes each recognition only to rules whose ``target_semantics`` includes
-    the producing grammar's semantics (ARCHITECTURE.md:201), formats each
-    validated value through the capability's ``format_value()`` seam, then
-    dedups identical candidate tuples so the candidate multiset is stable
-    regardless of routing.
+    the producing grammar's semantics, formats each validated value through
+    the capability's ``format_value()`` seam, then dedups identical candidate
+    tuples so the candidate multiset is stable regardless of routing.
+
+    The ``semantics_by_name[grammar_name]`` lookup cannot KeyError:
+    recognitions are produced only by grammars in the composed ``all_grammars``
+    (``_recognize`` filters against ``supported_names``), the same list the map
+    is built from.
     """
     candidates: list[Candidate] = []
     for recognition in recognitions:
