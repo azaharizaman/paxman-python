@@ -16,14 +16,14 @@ class TestURLCapabilityContractDefaults:
     """Default field values."""
 
     def test_defaults(self) -> None:
-        """Every standard field takes its base default; grammar is the only one."""
+        """Every standard field takes its base default; active_grammars is None."""
         contract = URLCapabilityContract()
         assert contract.capability_name == "url"
         assert contract.excluded_rules == ()
         assert contract.pinned_rules is None
         assert contract.year is None
         assert contract.output_format == "url"
-        assert contract.active_grammars == ("absolute_uri_recognition",)
+        assert contract.active_grammars is None
 
     def test_frozen(self) -> None:
         """Assigning a field raises FrozenInstanceError."""

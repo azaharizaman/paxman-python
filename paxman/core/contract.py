@@ -17,8 +17,13 @@ class Contract(Protocol):
         ...
 
     @property
-    def active_grammars(self) -> Sequence[str]:
-        """Grammar names to activate."""
+    def active_grammars(self) -> Sequence[str] | None:
+        """Grammar names to activate.
+
+        ``None`` (the base-class default) means "all shipped grammars, in
+        ``get_grammars()`` declaration order" — the engine falls back to the
+        capability's shipped grammar list.
+        """
         ...
 
     @property

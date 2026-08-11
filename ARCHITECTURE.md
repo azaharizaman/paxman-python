@@ -37,7 +37,9 @@ all cross-match policy:
   same span (e.g. US vs European date reading of `01/02/2026`) are both
   preserved and ambiguity stays observable.
 - **Ordering:** recognitions are emitted in the total order
-  `(start, end, active_grammars index, grammar name)`, i.e. document order.
+  `(start, end, active-set index, grammar name)`, i.e. document order — where the
+  active set is `contract.active_grammars` or, when the contract returns `None`,
+  every shipped grammar in `get_grammars()` order.
 - **Candidate dedup** (`value, recognition_rule, validation_rule`) runs
   after validation as a stability net.
 
@@ -128,7 +130,7 @@ Contracts pass configuration parameters to validation rules, enabling rules to a
 **Base Contract Parameters:**
 - **`output_format`**: Controls the canonical value format (e.g., `"ISO"` for `YYYY-MM-DD`, `"US"` for `MM/DD/YYYY`). `CapabilityContract.__post_init__` resolves `None`, `"default"`, and each capability's default format to a concrete string; the capability's `format_value()` seam applies the format to the rule-produced default canonical value. Validation rules never inspect `output_format` — they always normalize to the default canonical form. See "The Formatting Seam" below.
 - **`pinned_rules`**: Pins to specific validation rules by name. When set, ONLY those rules run — `excluded_rules` is ignored. Takes precedence over `excluded_rules`.
-- **`extra_grammars`**: Names community grammars (opt-in) to run alongside the capability's shipped `active_grammars`, in order. Unknown names are silently skipped; shipped names listed here are deduplicated. Registration happens through `paxman.register_grammar` / `paxman.register_rule` (see "Community Extensions" below).
+- **`extra_grammars`**: Names community grammars (opt-in) to run alongside the capability's shipped active set — `contract.active_grammars`, or every shipped grammar when the contract returns `None` — in order. Unknown names are silently skipped; shipped names listed here are deduplicated. Registration happens through `paxman.register_grammar` / `paxman.register_rule` (see "Community Extensions" below).
 
 **Date-Specific Parameters:**
 - **`two_digit_base_year`**: Specifies the base year for interpreting two-digit years (e.g., `2000` means `"26"` becomes `2026`). Only available on Date contracts, not part of the base Contract protocol. Used by US and European grammars to resolve ambiguous year values.
@@ -167,7 +169,7 @@ Every stage is a pure function of its inputs — no clocks, no randomness, no en
 
 Capabilities are closed for modification but open for extension. Community contributors register additional grammars (and the rules that validate them) against an existing capability through `paxman.core.extensions` — never by editing the capability package. The registries freeze with the capability registry at the first pipeline run.
 
-A contract opts a registered grammar in by naming it in `extra_grammars`, a base `CapabilityContract` field surfaced on every `create_contract` factory. The engine composes the shipped active set with the opted-in extras, deduplicating names while preserving order — shipped `active_grammars` slots first, extras after (unknown extra names are silently skipped). Opt-in preserves determinism: a contract that names no extras composes to exactly the shipped set, so non-opt-in behavior is byte-identical.
+A contract opts a registered grammar in by naming it in `extra_grammars`, a base `CapabilityContract` field surfaced on every `create_contract` factory. The engine composes the shipped active set with the opted-in extras, deduplicating names while preserving order — shipped slots first, extras after (unknown extra names are silently skipped). The shipped slots are `contract.active_grammars` when the contract implements it (the gated capabilities), or every shipped grammar in `get_grammars()` order when it returns `None` (the base default). Opt-in preserves determinism: a contract that names no extras composes to exactly the shipped set, so non-opt-in behavior is byte-identical.
 
 Community rules follow the same opt-in discipline: a registered rule runs only when the contract names one of its `target_grammars` in `extra_grammars`. An un-opted community rule — even one targeting a shipped grammar — never affects results, so a default contract resolves with shipped rules only.
 

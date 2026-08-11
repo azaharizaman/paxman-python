@@ -92,7 +92,7 @@ Syntactic extraction rules that:
 - Scan raw text for patterns
 - Produce **span-bearing `RecognitionMatch` objects** (notation + half-open `[start, end)` span + matched `raw_text`) — never bare notations
 - Live in `capabilities/<CapabilityName>/grammar/`
-- Are **filtered by the orchestrator** based on the contract's `active_grammars`
+- Are **selected by the orchestrator** from the contract's `active_grammars`, or from every shipped `get_grammars()` entry when the contract returns `None` (the base default)
 - Do NOT validate, de-duplicate, or order — the engine owns containment dedup and document ordering
 - Only recognize (syntax, shape, lexicon keys) — never map tokens to canonical values, never import rule-layer data
 
@@ -283,17 +283,18 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
 
 ### Date Capability Details
 
-The Date capability has **3 grammars** and **3 validation rules**:
+The Date capability has **4 grammars** and **3 validation rules**:
 
 #### Grammars (Recognition)
 
 | Grammar | Delimiter | N1 (first) | N2 (second) | N3 (third) | Notes |
 |---------|-----------|------------|-------------|------------|-------|
 | ISO | `-` | year | month | day | 4-digit year only |
+| Slash-ISO | `/` | year | month | day | 4-digit year; shares ISO position mapping |
 | US | `/` | month | day | year | Supports 2-digit years |
 | European | `/` | day | month | year | Supports 2-digit years |
 
-**Note:** European and US grammars both use `/` as delimiter. The ambiguity arises from different position mappings, not delimiters.
+**Note:** European, US, and slash-ISO grammars use `/` as delimiter. The ambiguity arises from different position mappings, not delimiters; a leading 4-digit year is unambiguous (slash-ISO only), while a leading 1–2-digit field is ambiguous between US and European.
 
 #### Validation Rules
 
@@ -345,7 +346,7 @@ Presentation is a single seam, not a rule concern:
 ### Feature Gating — two loci, two statuses
 
 Input-shape and authority features gate at different points and produce different statuses:
-- **Input-shape features** (`include_*`) toggle grammars via the contract's `active_grammars` property. A disabled grammar never recognizes → its inputs are **`MISSING`**.
+- **Input-shape features** (`include_*`) toggle grammars via the contract's `active_grammars` property — implemented only by the gated capabilities (Email, IP, ISBN); other contracts inherit the base `None` default, which runs every shipped grammar. A disabled grammar never recognizes → its inputs are **`MISSING`**.
 - **Authority features** gate rules via `requires_features` (declared on the rule). The rule is dropped from the run → recognized but unvalidated input is **`INVALID`**.
 - Never gate inside `matches()` / `recognize()`; never cast a contract to read `include_*` flags inside a rule (`typing.cast` is only for validity-affecting parameters).
 
@@ -646,8 +647,8 @@ class Contract(Protocol):
         ...
 
     @property
-    def active_grammars(self) -> Sequence[str]:
-        """List of grammar names to activate."""
+    def active_grammars(self) -> Sequence[str] | None:
+        """Grammar names to activate; None runs every shipped grammar."""
         ...
 
     @property
@@ -675,7 +676,7 @@ class Contract(Protocol):
         ...
 ```
 
-Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and set `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS`, `capability_name` via `field`, and `active_grammars`.
+Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and set `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` and `capability_name` via `field`. `active_grammars` is optional: only feature-gated capabilities (Email, IP, ISBN) implement it; others inherit the base `None` default (run every shipped grammar).
 
 ---
 

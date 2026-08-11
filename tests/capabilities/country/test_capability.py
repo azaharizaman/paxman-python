@@ -96,15 +96,20 @@ class TestCountryContract:
         contract = CountryContract()
         assert contract.include_historical is False
 
-    def test_active_grammars_returns_all(self) -> None:
-        """Verify all 4 grammars are active by default."""
+    def test_active_grammars_defaults_to_all_shipped(self) -> None:
+        """No override: the engine runs every shipped grammar (fallback).
+
+        The contract declares no active_grammars (None — the base default),
+        and the capability ships exactly the four recognition grammars.
+        """
         contract = CountryContract()
-        grammars = contract.active_grammars
-        assert len(grammars) == 4
-        assert "alpha2_recognition" in grammars
-        assert "alpha3_recognition" in grammars
-        assert "numeric_recognition" in grammars
-        assert "name_recognition" in grammars
+        assert contract.active_grammars is None
+        assert [g.name for g in CountryCapability().get_grammars()] == [
+            "alpha2_recognition",
+            "alpha3_recognition",
+            "numeric_recognition",
+            "name_recognition",
+        ]
 
     def test_is_frozen(self) -> None:
         """Verify immutability."""

@@ -81,7 +81,7 @@ class TestURLCapabilityCreateContract:
             output_format="url",
         )
         assert contract.capability_name == "url"
-        assert contract.active_grammars == ("absolute_uri_recognition",)
+        assert contract.active_grammars is None
 
     def test_create_contract_excludes_rule(self) -> None:
         """Excluded rules propagate into the contract."""

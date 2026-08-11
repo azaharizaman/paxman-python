@@ -114,3 +114,36 @@ class TestDateCapabilityIntegration:
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "01/15/2026"
         assert result.candidates[0].value == "01/15/2026"
+
+    def test_slash_iso_date_resolves(self) -> None:
+        """YYYY/MM/DD input resolves via the slash-ISO grammar.
+
+        Before this grammar shipped, "2024/01/01" was not recognized by any
+        Date grammar (US/European require a leading month/day, ISO requires
+        dashes) and resolved MISSING; the slash-ISO grammar makes it SUCCESS.
+        """
+        contract = Date.create_contract()
+        result = paxman.canonicalize("2024/01/01", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "2024-01-01"
+        assert result.candidates[0].recognition_rule == "slash_iso_recognition"
+
+    def test_slash_iso_single_digit_components(self) -> None:
+        """Single-digit month/day are zero-padded in the canonical value."""
+        contract = Date.create_contract()
+        result = paxman.canonicalize("2024/1/5", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "2024-01-05"
+
+    def test_slash_iso_invalid_month_invalid(self) -> None:
+        """A slash-ISO shape with an impossible month is INVALID, not resolved."""
+        contract = Date.create_contract()
+        result = paxman.canonicalize("2024/13/01", contract)
+        assert result.status == Resolution.INVALID
+
+    def test_slash_iso_does_not_disturb_us_ambiguity(self) -> None:
+        """US/European slash formats still resolve exactly as before."""
+        contract = Date.create_contract()
+        result = paxman.canonicalize("07/26/2026", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "2026-07-26"

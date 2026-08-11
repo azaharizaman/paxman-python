@@ -23,11 +23,3 @@ class DateContract(CapabilityContract):
 
     capability_name: str = field(default="date", init=False)
     two_digit_base_year: int | None = None
-
-    @property
-    def active_grammars(self) -> list[str]:
-        return [
-            "iso8601_recognition",
-            "us_recognition",
-            "european_recognition",
-        ]

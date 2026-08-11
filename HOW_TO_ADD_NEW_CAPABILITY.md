@@ -412,7 +412,7 @@ Concretely, a `CapabilityContract` subclass:
 - Overrides `DEFAULT_OUTPUT_FORMAT` (a concrete string) and `OFFERED_OUTPUT_FORMATS` (a `frozenset[str]` of *alternative* formats) as class variables. The default format is **not** included in `OFFERED_OUTPUT_FORMATS`.
 - Sets `capability_name` via `field(default="<name>", init=False)`.
 - Declares `output_format` nowhere — the base field `output_format: str | None = None` is inherited. It is **never** a non-optional `str`. The base `__post_init__` resolves `None`, `"default"`, and the default format string to the concrete default, validates offered alternatives, and raises `ContractError` for anything else.
-- Implements the abstract `active_grammars` property.
+- Implements `active_grammars` **only when recognition is feature-gated** (the Email/IP/ISBN pattern). Otherwise the property is omitted entirely: the base returns `None` and the engine runs every shipped grammar in `get_grammars()` order.
 - Adds its own `__post_init__` validation by calling `super().__post_init__()` first. Use `@dataclass(frozen=True)` exactly like the base — do NOT add `slots=True` (incompatible with the base's `super()` pattern).
 
 `CapabilityContract` satisfies the `Contract` protocol structurally, so your subclass does too.
@@ -455,7 +455,7 @@ class SectionYourRule(Rule[YourDomainNotation]):
 
 **Feature gating has two loci, and they produce different `Resolution` statuses:**
 
-- **Input-shape features toggle grammars via `active_grammars`.** A flag like `include_obfuscated` decides whether the `obfuscated_recognition` grammar runs at all. A disabled grammar recognizes nothing, so input readable only by that grammar yields `MISSING`.
+- **Input-shape features toggle grammars via `active_grammars`** (implemented only by the gated capabilities — Email, IP, ISBN; other contracts inherit the base `None` default, which runs every shipped grammar). A flag like `include_obfuscated` decides whether the `obfuscated_recognition` grammar runs at all. A disabled grammar recognizes nothing, so input readable only by that grammar yields `MISSING`.
 - **Authority features use `requires_features`.** A flag like `include_localized` gates the CLDR rule that validates localized names, not the grammar. Recognition still runs and produces a notation, but the engine drops the gated rule, so the recognized-but-unvalidated input yields `INVALID`.
 
 **Hard rule: never gate inside `matches()`.** Do not read `include_*` feature-toggle flags, and do not `cast(Contract, ...)` to reach them, inside `matches()`. `matches()` must never consult `output_format` either; validity comes from the notation, the specification, and any legitimate validity-affecting parameters (e.g. `default_country`, `two_digit_base_year`). The engine owns feature routing: declare the dependency in `requires_features` and let the filter decide whether the rule runs.
@@ -473,7 +473,7 @@ Define the Contract in `paxman/capabilities/YourDomain/contract.py` (separate fi
 3. Override `DEFAULT_OUTPUT_FORMAT` (a concrete string) and `OFFERED_OUTPUT_FORMATS` (a `frozenset[str]` of alternative formats, excluding the default) as class variables
 4. Set `capability_name` via `field(default="yourdomain", init=False)` (users never set this)
 5. Add configuration fields for toggling grammars (e.g., `include_obfuscated: bool = False`)
-6. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags
+6. Implement `active_grammars` as a `@property` that builds the grammar list from configuration flags — only if recognition is feature-gated; otherwise omit it (base default: run every shipped grammar)
 
 `excluded_rules`, `pinned_rules`, `year`, and `output_format` are declared once on `CapabilityContract` — you don't redeclare them.
 
@@ -516,11 +516,11 @@ two_digit_base_year: int | None = None  # Date: base year for 2-digit year parsi
 - Pass parameters to rules (strings, ints, options)
 - Control output behavior (`output_format`)
 
-### Implementing `active_grammars`
+### Implementing `active_grammars` (optional)
 
-Two approaches exist for implementing `active_grammars`:
+`active_grammars` is **optional**: the base `CapabilityContract.active_grammars` returns `None`, and the engine falls back to running every shipped grammar returned by `get_grammars()`, in order. Implement it only when recognition is feature-gated — an `include_*` flag decides whether a grammar runs at all:
 
-1. **Conditional** (Email, IP): Build the list from boolean flags. Grammars are included only when their flag is `True`.
+1. **Conditional** (Email, IP, ISBN): Build the list from boolean flags. Grammars are included only when their flag is `True`.
 
 ```python
 @property
@@ -533,15 +533,7 @@ def active_grammars(self) -> list[str]:
     return grammars
 ```
 
-2. **Always-all** (Date, Country): Return all grammar names unconditionally. All grammars always run, and rules handle filtering via `notation.shape` or other discriminators.
-
-```python
-@property
-def active_grammars(self) -> list[str]:
-    return ["iso8601_recognition", "us_recognition", "european_recognition"]
-```
-
-Choose conditional when grammars are expensive or mutually exclusive. Choose always-all when grammars are cheap and rules need to see all representations.
+Do **not** implement a static "always-all" override returning every grammar name (the former Date/Country pattern). The base `None` default already runs every shipped grammar, so a static override adds maintenance with zero behavior change — and it silently excludes any future grammar added to `get_grammars()` unless someone remembers to extend the list. Choose conditional when grammars are expensive or mutually exclusive; otherwise omit the property entirely and let the fallback run all shipped grammars.
 
 ### Implementing `output_format` (always optional, homogeneous across capabilities)
 
@@ -608,7 +600,7 @@ def format_value(
 **The Contract must satisfy the `Contract` protocol** (inheriting `CapabilityContract` does this structurally):
 
 - `capability_name: str` — the capability this contract configures
-- `active_grammars: Sequence[str]` — list of grammar names to activate
+- `active_grammars: Sequence[str] | None` — grammar names to activate; `None` (base default) runs every shipped grammar in `get_grammars()` order
 - `excluded_rules: Sequence[str]` — list of rule names to exclude
 - `pinned_rules: Sequence[str] | None` — pin to specific rules (takes precedence over `excluded_rules` when set)
 - `year: int | None` — year for temporal filtering

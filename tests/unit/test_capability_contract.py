@@ -42,7 +42,7 @@ class _TestContract(CapabilityContract):
 
 @dataclass(frozen=True)
 class _MissingActiveGrammars(CapabilityContract):
-    """Subclass that forgets the abstract ``active_grammars`` property."""
+    """Subclass that omits the optional ``active_grammars`` property."""
 
     DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "test"
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset({"alt"})
@@ -113,10 +113,15 @@ class TestCapabilityContract:
         assert not hasattr(_TestContract(), "as_dict")
 
     @pytest.mark.unit
-    def test_active_grammars_is_abstract(self) -> None:
-        """CapabilityContract cannot be instantiated without active_grammars."""
-        with pytest.raises(TypeError):
-            _MissingActiveGrammars()
+    def test_active_grammars_defaults_to_none(self) -> None:
+        """active_grammars is optional; the default (None) means 'all shipped'.
+
+        A contract that omits the override is instantiable, and the engine
+        falls back to the capability's shipped grammar list — adding a
+        grammar to ``get_grammars()`` activates it with no contract edit.
+        """
+        contract = _MissingActiveGrammars()
+        assert contract.active_grammars is None
 
     @pytest.mark.unit
     def test_instance_satisfies_contract_protocol(self) -> None:

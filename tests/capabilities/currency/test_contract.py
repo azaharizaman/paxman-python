@@ -7,6 +7,7 @@ from typing import cast
 
 import pytest
 
+from paxman.capabilities.Currency.capability import CurrencyCapability
 from paxman.capabilities.Currency.contract import CurrencyContract
 from paxman.core.errors import ContractError
 
@@ -17,12 +18,14 @@ def test_capability_name() -> None:
     assert CurrencyContract().capability_name == "currency"
 
 
-def test_active_grammars() -> None:
-    assert CurrencyContract().active_grammars == (
+def test_active_grammars_defaults_to_all_shipped() -> None:
+    """No override: the engine runs every shipped grammar (fallback)."""
+    assert CurrencyContract().active_grammars is None
+    assert [g.name for g in CurrencyCapability().get_grammars()] == [
         "code_recognition",
         "symbol_recognition",
         "word_recognition",
-    )
+    ]
 
 
 def test_default_output_format_resolution() -> None:
