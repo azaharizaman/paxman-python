@@ -63,7 +63,13 @@ class TestDateCapability:
 
     def test_get_grammars_returns_all(self) -> None:
         cap = DateCapability()
-        assert len(cap.get_grammars()) == 3
+        assert len(cap.get_grammars()) == 4
+
+    def test_get_grammars_includes_slash_iso(self) -> None:
+        """The slash-ISO grammar is wired into the capability."""
+        cap = DateCapability()
+        names = {g.name for g in cap.get_grammars()}
+        assert "slash_iso_recognition" in names
 
     def test_get_rules_returns_all(self) -> None:
         cap = DateCapability()

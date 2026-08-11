@@ -22,6 +22,9 @@ PUBLICATION = Provenance(
 class Section431CalendarDate(Rule[DateNotation]):
     """ISO 8601 Section 4.3.1 — Calendar date.
 
+    Validates both the dash-delimited ISO grammar and the slash-delimited
+    variant (which shares the same position mapping and canonical form).
+
     Notation mapping (ISO 8601 grammar):
         N1 = year, N2 = month, N3 = day
     """
@@ -30,7 +33,7 @@ class Section431CalendarDate(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 4.3.1 (calendar date)"
-    target_grammars = frozenset({"iso8601_recognition"})
+    target_grammars = frozenset({"iso8601_recognition", "slash_iso_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:

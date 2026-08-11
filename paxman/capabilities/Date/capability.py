@@ -12,6 +12,9 @@ from paxman.capabilities.Date.grammar.european_recognition import (
 from paxman.capabilities.Date.grammar.iso8601_recognition import (
     ISO8601DateGrammar,
 )
+from paxman.capabilities.Date.grammar.slash_iso_recognition import (
+    SlashISODateGrammar,
+)
 from paxman.capabilities.Date.grammar.us_recognition import USDateGrammar
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Date.rules.en_50160_ed2010 import Section4DateFormat
@@ -36,6 +39,7 @@ class DateCapability(Capability[DateNotation]):
             ISO8601DateGrammar(),
             USDateGrammar(),
             EuropeanDateGrammar(),
+            SlashISODateGrammar(),
         ]
 
     def get_rules(self) -> list[Rule[DateNotation]]:
