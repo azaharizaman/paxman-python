@@ -484,7 +484,7 @@ Rules of the seam:
 
 - **Register before the first `canonicalize()` call** — the extension registries freeze with the capability registry.
 - **Opt-in only** — a registered grammar runs only when named in `extra_grammars` (available on every `create_contract` factory), and a registered rule runs only when the contract's `extra_grammars` resolve to one of its `target_semantics` ids; un-named grammars and un-opted rules never affect results.
-- **Unknown `extra_grammars` names are silently skipped** for grammar activation, so a contract naming an uninstalled grammar still runs byte-identically; the unknown name is kept as-is as the semantics key for rule activation.
+- **Unknown `extra_grammars` names are silently skipped** for grammar activation, so a contract naming an uninstalled grammar still runs byte-identically; the unknown name is kept as-is as the semantics key for rule activation. A name that is not a grammar name but matches a known semantics id therefore activates that semantics's rules without opting in a grammar — those rules fire only on recognitions carrying that semantics (fail-fast `ContractError` applies only to ids no grammar claims).
 - **Names must be unique in the composed set** — a community grammar colliding with a shipped name fails fast with `CapabilityError`.
 - **Community rules declare `target_semantics`** and activate only when the contract's `extra_grammars` resolve to one of those ids; a rule opted in via an id that no grammar claims fails fast with `ContractError`, while a rule that is not opted in stays inert regardless of any dangling targets.
 
