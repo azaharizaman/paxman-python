@@ -137,6 +137,10 @@ is rule territory by design.
    (ruff, pyright, import-linter, pytest) stays green with no test edits.
    Community rule metadata (`target_grammars` → `target_semantics`) is a
    breaking rename at 0.x, acceptable under the same policy as ADR-0002.
+   *Post-ADR correction:* during Migration #4 the four date grammars'
+   digit-lookaround bounds (`(?<!\d)...(?!\d)`) were tightened so digit-glued
+   ids like `12026-01-15` no longer partially match at offset 1. Deliberate
+   and post-ADR; Phase 1 is byte-identical for every other input class.
 2. **Phase 2 — coalescing.** Grammars that share meaning declare a common
    `semantics` id (e.g. both Date ISO grammars → `"iso8601_calendar_date"`),
    and the affected rules' `target_semantics` coalesce to the single id. Same
@@ -202,7 +206,7 @@ is rule territory by design.
   never widen the set of meanings a rule validates. Mitigation: each
   coalescing step runs the per-capability pipeline tests; the migration lands
   one capability at a time.
-- **Incomplete docs sweep.** 54 files referenced `target_grammars` at plan
+- **Incomplete docs sweep.** 55 files referenced `target_grammars` at plan
   time (pre-migration inventory; the plan's D10 re-count is authoritative —
   superseded by the completed Migration #4 sweep). Mitigation: this ADR lands
   before code; the sweep is enumerated in Migration #4.
