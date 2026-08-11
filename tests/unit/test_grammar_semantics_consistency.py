@@ -32,6 +32,8 @@ from paxman.capabilities import (
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Date.rules.iso_8601_ed2019 import Section431CalendarDate
+from paxman.capabilities.Email.notation import EmailNotation
+from paxman.capabilities.Email.rules.rfc_5322_ed2008 import Section341AddrSpec
 from paxman.core.domain import Grammar, Rule
 
 _SHIPPED_CAPABILITIES = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
@@ -62,6 +64,25 @@ _PROBE_ROWS: dict[str, tuple[type[Rule[Any]], tuple[_ProbeRow, ...]]] = {
                 input="2026/01/15",
                 expected_notation=DateNotation(N1="2026", N2="01", N3="15"),
                 expected_canonical="2026-01-15",
+            ),
+        ),
+    ),
+    "rfc5322_addr_spec": (
+        Section341AddrSpec,
+        (
+            _ProbeRow(
+                input="user@example.com",
+                expected_notation=EmailNotation(
+                    local_part="user", domain_part="example.com"
+                ),
+                expected_canonical="user@example.com",
+            ),
+            _ProbeRow(
+                input="user at example dot com",
+                expected_notation=EmailNotation(
+                    local_part="user", domain_part="example.com"
+                ),
+                expected_canonical="user@example.com",
             ),
         ),
     ),

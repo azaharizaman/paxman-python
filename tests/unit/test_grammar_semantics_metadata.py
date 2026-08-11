@@ -23,7 +23,12 @@ from paxman.core.domain import Grammar, RecognitionMatch
 # id (semantic affinity routing, ADR-0003): a grammar in this set legitimately
 # declares ``semantics`` differing from its ``name``.
 _COALESCED_SEMANTICS: frozenset[str] = frozenset(
-    {"iso8601_calendar_date", "us_calendar_date", "european_calendar_date"}
+    {
+        "iso8601_calendar_date",
+        "us_calendar_date",
+        "european_calendar_date",
+        "rfc5322_addr_spec",
+    }
 )
 
 
