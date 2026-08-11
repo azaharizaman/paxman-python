@@ -173,13 +173,16 @@ The resolver **consumes notation** and outputs a canonical_value (not notation).
 ```python
 # capabilities/Currency/rules/iso_4217_ed2015.py
 
+
 class SectionCode(Rule[CurrencyNotation]):
     """ISO 4217 Section 3 - Currency and funds codes"""
 
     name = "Section 3-code"
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
-    target_semantics = frozenset({"code_recognition", "symbol_recognition", "word_recognition"})
+    target_semantics = frozenset(
+        {"code_recognition", "symbol_recognition", "word_recognition"}
+    )
     requires_features = frozenset()
 
     def matches(self, notation: CurrencyNotation, contract: Contract) -> bool:

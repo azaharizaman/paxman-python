@@ -184,7 +184,9 @@ class SlashISODateGrammar(Grammar[DateNotation]):
     """Slash-delimited ISO date recognition: YYYY/MM/DD."""
 
     name = "slash_iso_recognition"
-    semantics = "iso8601_calendar_date"  # the shipped id — same meaning as the dash ISO grammar
+    semantics = (
+        "iso8601_calendar_date"  # the shipped id — same meaning as the dash ISO grammar
+    )
 ```
 
 Same-meaning grammars **share** a semantics id (a *coalesced* id). The shipped Date rule `Section431CalendarDate` already declares `target_semantics = frozenset({"iso8601_calendar_date"})`, so the slash-ISO grammar joins the ISO grammar under that one id and nothing in `rules/` changes.
