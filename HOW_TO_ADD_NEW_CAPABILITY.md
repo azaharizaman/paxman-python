@@ -1035,6 +1035,36 @@ If your rule needs to read a capability-specific parameter (like `two_digit_base
 
 ---
 
+## Extending an Existing Capability with Community Grammars
+
+A shipped capability is closed for modification but open for extension: you can add recognition and validation without touching the capability package.
+
+1. **Author** a `Grammar` subclass (Step 4) and a `Rule` subclass (Step 5) for the capability's notation, exactly as you would for a new capability — the same contracts apply, including span-bearing `RecognitionMatch` output, `target_grammars`, and `requires_features`.
+2. **Register** them before the first `canonicalize()` call:
+
+   ```python
+   import paxman
+
+   paxman.register_grammar("date", DotDateGrammar)
+   paxman.register_rule("date", DotDateRule)
+   ```
+
+3. **Opt in** per contract via `extra_grammars` — a base `CapabilityContract` field surfaced on every `create_contract` factory:
+
+   ```python
+   contract = Date.create_contract(extra_grammars=("dot_date_recognition",))
+   result = paxman.canonicalize("2024.01.01", contract)
+   ```
+
+Semantics to rely on:
+
+- The extension registries freeze with the capability registry — registration after the first pipeline run raises `CapabilityError`.
+- Opt-in only: an un-named registered grammar never affects results, keeping shipped behavior byte-identical for non-opt-in contracts.
+- Unknown `extra_grammars` names are silently skipped; shipped names listed in `extra_grammars` are deduplicated.
+- Composition is guarded: a grammar name colliding with a shipped name, or a community rule naming a missing grammar, fails fast at pipeline start.
+
+---
+
 ## Checklist
 
 Use this checklist to verify your capability is complete:
@@ -1048,6 +1078,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Contract inherits `CapabilityContract` (frozen dataclass, no `slots=True`) and satisfies the `Contract` protocol
 - [ ] Contract inherits `pinned_rules: tuple[str, ...] | None = None` from `CapabilityContract`
 - [ ] Contract inherits `output_format` from `CapabilityContract` (always optional; base `__post_init__` validates via `resolve_output_format`)
+- [ ] Contract inherits `extra_grammars` from `CapabilityContract` (opt-in community grammar names; unknown names silently skipped)
 - [ ] Contract declares a `DEFAULT_OUTPUT_FORMAT` (concrete string) and `OFFERED_OUTPUT_FORMATS` (alternatives only, excluding the default)
 - [ ] Rules never reference `output_format`: `normalize()` returns only the default canonical form, and presentation lives in `Capability.format_value()`; any lossy offered format is explicitly documented against the capability's input/ambiguity contract (see presentational-only invariant)
 - [ ] If using lookup tables: `rules/data/` directory contains data files

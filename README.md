@@ -392,6 +392,46 @@ result = paxman.canonicalize("2026-01-15", contract)
 
 ---
 
+## Community Extensions
+
+Paxman ships with nine built-in capabilities, but a capability is closed for modification yet open for extension: you can add recognition and validation without touching the library. Register a `Grammar` subclass and the `Rule` subclass that validates it, then opt a contract into them by naming the grammar in `extra_grammars`:
+
+```python
+import paxman
+from paxman.capabilities import Date
+from paxman.core.discovery import register_capability
+from paxman.core.domain import Grammar, Rule
+
+register_capability(Date())
+
+class DotDateGrammar(Grammar):
+    name = "dot_date_recognition"
+    # recognize(text) -> list[RecognitionMatch] — span-bearing matches
+
+class DotDateRule(Rule):
+    name = "dot_date_rule"
+    target_grammars = frozenset({"dot_date_recognition"})
+    requires_features = frozenset()
+    # matches()/normalize() validate the dot-date format
+
+paxman.register_grammar("date", DotDateGrammar)
+paxman.register_rule("date", DotDateRule)
+
+contract = Date.create_contract(extra_grammars=("dot_date_recognition",))
+result = paxman.canonicalize("2024.01.01", contract)
+# → "2024-01-01"
+```
+
+Rules of the seam:
+
+- **Register before the first `canonicalize()` call** — the extension registries freeze with the capability registry.
+- **Opt-in only** — a registered grammar runs only when named in `extra_grammars` (available on every `create_contract` factory); un-named grammars never affect results.
+- **Unknown `extra_grammars` names are silently skipped**, so a contract naming an uninstalled grammar still runs byte-identically.
+- **Names must be unique in the composed set** — a community grammar colliding with a shipped name fails fast with `CapabilityError`.
+- **Community rules declare `target_grammars`** against the composed set; naming a missing grammar fails fast with `ContractError`.
+
+---
+
 ## Resolution Status
 
 | Status | Meaning |
