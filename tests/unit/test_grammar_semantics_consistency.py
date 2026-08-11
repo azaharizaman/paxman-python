@@ -40,6 +40,20 @@ from paxman.core.domain import Grammar, Rule
 
 _SHIPPED_CAPABILITIES = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
 
+# D7 no-coalesce ids: groups that must NEVER grow a second member. The
+# date formats and the six identity singletons are distinct enough that
+# coalescing them would silently change what they resolve.
+_NO_COALESCE_SEMANTICS = (
+    "us_calendar_date",
+    "european_calendar_date",
+    "name_recognition",
+    "alpha2_recognition",
+    "alpha3_recognition",
+    "numeric_recognition",
+    "isbn13_recognition",
+    "isbn10_recognition",
+)
+
 
 class _ProbeRow(NamedTuple):
     """One input run through every member of a semantics group.
@@ -146,3 +160,55 @@ def test_same_semantics_grammars_agree_on_notation_and_canonical() -> None:
                 assert rule.normalize(matches[0].notation, DateContract()) == (
                     probe.expected_canonical
                 )
+
+
+@pytest.mark.unit
+def test_every_shipped_grammar_belongs_to_one_semantics_group() -> None:
+    """No shipped grammar is dropped or duplicated by the semantics grouping.
+
+    Every grammar enumerated via ``get_grammars()`` must land in exactly one
+    group with a non-empty semantics id; a dropped or double-counted grammar
+    would break the member-count equality.
+    """
+    groups = _group_shipped_grammars_by_semantics()
+    shipped_count = sum(
+        len(capability().get_grammars()) for capability in _SHIPPED_CAPABILITIES
+    )
+    assert sum(len(members) for members in groups.values()) == shipped_count
+    assert all(semantics for semantics in groups)
+
+
+@pytest.mark.unit
+def test_every_multi_member_semantics_group_has_probe_rows() -> None:
+    """A coalesced group must be seeded or the guard fails loudly.
+
+    The affinity-routing engine only treats grammars as interchangeable within
+    one capability, so a multi-member group arises only from a coalescing
+    inside a capability. Cross-capability id reuse (Currency and Money both
+    declaring ``code_recognition`` etc.) is per-capability identity — those
+    grammars never co-route — and must not demand probe rows. A future
+    coalescing that adds a group without probe rows bypasses the same-notation
+    field-mapping guarantee and fails here.
+    """
+    multi_member_ids: set[str] = set()
+    for capability in _SHIPPED_CAPABILITIES:
+        counts: dict[str, int] = {}
+        for grammar in capability().get_grammars():
+            counts[grammar.semantics] = counts.get(grammar.semantics, 0) + 1
+        multi_member_ids.update(
+            semantics for semantics, count in counts.items() if count > 1
+        )
+    assert multi_member_ids <= set(_PROBE_ROWS)
+
+
+@pytest.mark.unit
+def test_d7_no_coalesce_semantics_groups_stay_singleton() -> None:
+    """The D7-locked groups must never grow a second member.
+
+    ``us_calendar_date``/``european_calendar_date`` are renamed singletons and
+    the other six are identity singletons; coalescing any of them would change
+    what the shared semantics resolves to.
+    """
+    groups = _group_shipped_grammars_by_semantics()
+    for semantics in _NO_COALESCE_SEMANTICS:
+        assert len(groups[semantics]) == 1
