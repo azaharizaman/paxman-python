@@ -60,8 +60,8 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
         *capability.get_grammars(),
         *get_extended_grammars(capability.name),
     ]
-    all_rules = [*capability.get_rules(), *get_extended_rules(capability.name)]
     _assert_unique_names("grammar", all_grammars)
+    all_rules = [*capability.get_rules(), *_activated_rules(capability, contract)]
     _assert_unique_names("rule", all_rules)
     _validate_affinity(all_grammars, all_rules)
     recognitions = _recognize(text, all_grammars, contract)
@@ -365,3 +365,21 @@ def _extract_canonical_value(
     if status == Resolution.SUCCESS and candidates:
         return candidates[0].value
     return None
+
+
+def _activated_rules(
+    capability: Capability[Any], contract: Contract
+) -> list[Rule[Any]]:
+    """Community rules opt in like grammars: a rule runs only when the
+    contract names one of its ``target_grammars`` in ``extra_grammars``.
+
+    An un-opted community rule — even one targeting a shipped grammar —
+    never affects results, keeping extension behavior deterministic per
+    contract.
+    """
+    extra_grammars = set(getattr(contract, "extra_grammars", ()))
+    return [
+        rule
+        for rule in get_extended_rules(capability.name)
+        if extra_grammars & rule.target_grammars
+    ]

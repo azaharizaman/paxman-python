@@ -122,7 +122,27 @@ class SecondDateRule(Rule[DateNotation]):
 
     def normalize(self, notation: DateNotation, contract: Contract) -> str:
         """Normalize to day-first DD-MM-YYYY."""
-        return f"{int(notation.N3):04d}-{int(notation.N2):02d}-{int(notation.N1):02d}"
+        return f"{int(notation.N3):02d}-{int(notation.N2):02d}-{int(notation.N1):04d}"
+
+
+class CommunityISO8601Rule(Rule[DateNotation]):
+    """Community rule targeting the shipped ``iso8601_recognition`` grammar."""
+
+    name = "community_iso8601_rule"
+    strategy = RuleStrategy.PARSER
+    provenance = PUBLICATION
+    citation = "community test double"
+    target_grammars = frozenset({"iso8601_recognition"})
+    requires_features = frozenset()
+
+    def matches(self, notation: DateNotation, contract: Contract) -> bool:
+        """Docstring-only method."""
+
+        return True
+
+    def normalize(self, notation: DateNotation, contract: Contract) -> str:
+        """Normalize to a distinctive value if this rule ever runs."""
+        return "0000-00-00"
 
 
 class DanglingDateRule(Rule[DateNotation]):
@@ -215,9 +235,11 @@ class TestCompositionGuards:
 
     @pytest.mark.integration
     def test_community_rule_dangling_target_raises(self) -> None:
-        """A community rule naming a missing grammar fails fast."""
+        """An opted-in community rule naming a missing grammar fails fast."""
         register_rule("date", DanglingDateRule)
-        contract = DateContract(extra_grammars=("dot_date_recognition",))
+        contract = DateContract(
+            extra_grammars=("dot_date_recognition", "no_such_grammar")
+        )
         with pytest.raises(ContractError, match="unknown grammar"):
             run_capability("2024.01.01", contract)
 
@@ -243,6 +265,8 @@ class TestRecognitionOrdering:
         assert result.status == Resolution.AMBIGUOUS
         assert result.candidates[0].recognition_rule == "dot_date_recognition"
         assert result.candidates[1].recognition_rule == "second_recognition"
+        assert result.candidates[0].value == "2024-01-01"
+        assert result.candidates[1].value == "01-01-2024"
 
     @pytest.mark.integration
     def test_shipped_grammar_in_extra_is_deduped(self) -> None:
@@ -262,3 +286,25 @@ class TestRecognitionOrdering:
         assert result.status == Resolution.AMBIGUOUS
         assert result.candidates[0].recognition_rule == "iso8601_recognition"
         assert result.candidates[1].recognition_rule == "dot_date_recognition"
+
+
+class TestCommunityRuleOptIn:
+    @pytest.mark.integration
+    def test_community_rule_on_shipped_grammar_requires_activation(self) -> None:
+        """A community rule targeting a shipped grammar is inert until opted in."""
+        register_rule("date", CommunityISO8601Rule)
+
+        default_result = run_capability("2026-01-15", DateContract())
+        assert default_result.status == Resolution.SUCCESS
+        assert default_result.canonicalized_value == "2026-01-15"
+        assert not any(
+            c.validation_rule == "community_iso8601_rule"
+            for c in default_result.candidates
+        )
+
+        opted_in = DateContract(extra_grammars=("iso8601_recognition",))
+        activated_result = run_capability("2026-01-15", opted_in)
+        assert any(
+            c.validation_rule == "community_iso8601_rule"
+            for c in activated_result.candidates
+        )

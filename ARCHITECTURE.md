@@ -169,7 +169,9 @@ Capabilities are closed for modification but open for extension. Community contr
 
 A contract opts a registered grammar in by naming it in `extra_grammars`, a base `CapabilityContract` field surfaced on every `create_contract` factory. The engine composes the shipped active set with the opted-in extras, deduplicating names while preserving order — shipped `active_grammars` slots first, extras after (unknown extra names are silently skipped). Opt-in preserves determinism: a contract that names no extras composes to exactly the shipped set, so non-opt-in behavior is byte-identical.
 
-Composition is guarded at pipeline start: a community grammar name colliding with a shipped name raises `CapabilityError`, and a community rule whose `target_grammars` names a missing grammar raises `ContractError` — failing fast rather than producing a silently wrong result. Community grammars and rules are pure functions of their inputs, and the composed set is fixed once the registries freeze, so the determinism guarantees of "Determinism by Construction" extend unchanged.
+Community rules follow the same opt-in discipline: a registered rule runs only when the contract names one of its `target_grammars` in `extra_grammars`. An un-opted community rule — even one targeting a shipped grammar — never affects results, so a default contract resolves with shipped rules only.
+
+Composition is guarded at pipeline start: a community grammar name colliding with a shipped name raises `CapabilityError`, and an opted-in community rule whose `target_grammars` names a missing grammar raises `ContractError` — failing fast rather than producing a silently wrong result. Community grammars and rules are pure functions of their inputs, and the composed set is fixed once the registries freeze, so the determinism guarantees of "Determinism by Construction" extend unchanged.
 
 ---
 

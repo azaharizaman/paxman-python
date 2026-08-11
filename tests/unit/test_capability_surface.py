@@ -13,7 +13,7 @@ Money, Phone, URL) must
 - keep ``output_format`` optional and resolving to the concrete default
   (item 4),
 - default ``extra_grammars`` to the empty tuple on every concrete contract
-  (item 5).
+  and forward any provided value through ``create_contract`` (item 5).
 """
 
 from __future__ import annotations
@@ -216,6 +216,21 @@ class TestContractHomogeneity:
     ) -> None:
         """A no-arg contract opts into no community grammars."""
         assert _contract_class().extra_grammars == ()
+
+    @pytest.mark.unit
+    @pytest.mark.parametrize(
+        "_capability,_contract_class,_default_format",
+        _CAPABILITY_SURFACES,
+    )
+    def test_create_contract_forwards_extra_grammars_in_order(
+        self,
+        _capability: type[object],
+        _contract_class: type[object],
+        _default_format: str,
+    ) -> None:
+        """create_contract passes extra_grammars through, order preserved."""
+        contract = _capability.create_contract(extra_grammars=["first", "second"])
+        assert contract.extra_grammars == ("first", "second")
 
     @pytest.mark.unit
     @pytest.mark.parametrize(
