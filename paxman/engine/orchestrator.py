@@ -56,15 +56,21 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     freeze_registry()
     capability = get_capability(contract.capability_name)
 
+    shipped_grammars = capability.get_grammars()
     all_grammars = [
-        *capability.get_grammars(),
+        *shipped_grammars,
         *get_extended_grammars(capability.name),
     ]
     _assert_unique_names("grammar", all_grammars)
     all_rules = [*capability.get_rules(), *_activated_rules(capability, contract)]
     _assert_unique_names("rule", all_rules)
     _validate_affinity(all_grammars, all_rules)
-    recognitions = _recognize(text, all_grammars, contract)
+    recognitions = _recognize(
+        text,
+        all_grammars,
+        [g.name for g in shipped_grammars],
+        contract,
+    )
     had_recognitions = len(recognitions) > 0
 
     rules = _filter_rules(all_rules, contract)
@@ -97,7 +103,10 @@ def _assert_unique_names(kind: str, items: Sequence[Grammar[Any] | Rule[Any]]) -
 
 
 def _recognize(
-    text: str, all_grammars: Sequence[Grammar[Any]], contract: Contract
+    text: str,
+    all_grammars: Sequence[Grammar[Any]],
+    shipped_names: Sequence[str],
+    contract: Contract,
 ) -> list[RecognizedRep[Any]]:
     """Run active grammars, dedup contained matches per grammar, and order.
 
@@ -108,12 +117,20 @@ def _recognize(
     strictly within a single grammar's output (never across grammars, so
     cross-grammar ambiguity stays observable), and recognitions are emitted
     in the total order (start, end, active set index, grammar name) where the
-    index follows the composed active set: ``contract.active_grammars`` first,
-    then any opt-in ``contract.extra_grammars`` names (unknown extra names are
-    silently skipped, D4).
+    index follows the composed active set: ``contract.active_grammars``
+    first, then any opt-in ``contract.extra_grammars`` names (unknown extra
+    names are silently skipped, D4).
+
+    A contract whose ``active_grammars`` is ``None`` (the base-class default)
+    falls back to ``shipped_names`` — every shipped grammar in
+    ``get_grammars()`` declaration order — so adding a shipped grammar to a
+    capability activates it with no contract edit. Community grammars stay
+    opt-in via ``extra_grammars`` in both cases.
     """
     supported_names = {g.name for g in all_grammars}
     extra_grammars = getattr(contract, "extra_grammars", ())
+    declared = contract.active_grammars
+    active_source = shipped_names if declared is None else declared
     # Deduplicate contract names, keeping first occurrence: each supported
     # grammar runs at most once and grammar_index stays aligned with
     # active_grammars (a duplicate contract entry must not double-run it).
@@ -121,9 +138,7 @@ def _recognize(
     # order after the shipped slots.
     active_names = list(
         dict.fromkeys(
-            n
-            for n in [*contract.active_grammars, *extra_grammars]
-            if n in supported_names
+            n for n in [*active_source, *extra_grammars] if n in supported_names
         )
     )
     grammar_index = {name: i for i, name in enumerate(active_names)}

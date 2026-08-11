@@ -32,6 +32,7 @@ from paxman.core.domain import (
     Rule,
     RuleStrategy,
 )
+from paxman.core.extensions import register_grammar, register_rule
 from paxman.engine.orchestrator import run_capability
 
 
@@ -144,18 +145,32 @@ class _ProbeCapability(Capability[_ProbeNotation]):
 
 
 class _ProbeContract:
-    """Minimal contract; default active_grammars order is long=0, short=1."""
+    """Minimal contract.
 
-    def __init__(self, active_grammars: list[str] | None = None) -> None:
-        self._active_grammars = active_grammars or ["probe_long", "probe_short"]
+    ``active_grammars=None`` (the default) exercises the engine fallback:
+    the capability's shipped ``get_grammars()`` names run in declaration
+    order. Passing an explicit list overrides the fallback.
+    """
+
+    def __init__(
+        self,
+        active_grammars: list[str] | None = None,
+        extra_grammars: tuple[str, ...] = (),
+    ) -> None:
+        self._active_grammars = active_grammars
+        self._extra_grammars = extra_grammars
 
     @property
     def capability_name(self) -> str:
         return "probe"
 
     @property
-    def active_grammars(self) -> list[str]:
+    def active_grammars(self) -> list[str] | None:
         return self._active_grammars
+
+    @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return self._extra_grammars
 
     @property
     def excluded_rules(self) -> list[str]:
@@ -321,3 +336,94 @@ class TestRecognitionSeam:
         assert calls == ["probe_long"]
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "L:AAAA"
+
+
+class TestDefaultGrammarSurface:
+    """The engine fallback when a contract omits ``active_grammars``.
+
+    Option B: ``active_grammars`` becomes optional. A contract returning
+    ``None`` (the base-class default) activates every **shipped** grammar in
+    ``get_grammars()`` declaration order — so adding a new shipped grammar
+    activates it with no contract edit. Community grammars stay opt-in via
+    ``extra_grammars``.
+    """
+
+    @pytest.mark.integration
+    def test_contract_without_active_grammars_runs_all_shipped(self) -> None:
+        """The None fallback activates every shipped grammar, in order."""
+        register_capability(_ProbeCapability())
+        result = run_capability("AA AAAA", _ProbeContract())
+
+        # Both shipped grammars ran via the fallback; same-span tiebreak
+        # follows get_grammars() order (long=0, short=1).
+        assert [c.value for c in result.candidates] == [
+            "L:AA",
+            "S:AA",
+            "L:AAAA",
+        ]
+
+    @pytest.mark.integration
+    def test_fallback_never_activates_community_grammars(self) -> None:
+        """The fallback covers shipped grammars only; community stays opt-in.
+
+        This distinguishes "fallback to shipped get_grammars()" from a naive
+        "fallback to every supported grammar": a registered community grammar
+        must NOT run under the None fallback — only ``extra_grammars`` opts
+        it in (D4).
+        """
+        calls: list[str] = []
+
+        class _CommunityGrammar(Grammar[_ProbeNotation]):
+            name = "probe_community"
+
+            def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
+                calls.append(self.name)
+                return [
+                    RecognitionMatch(
+                        notation=_ProbeNotation("COMMUNITY"),
+                        start=0,
+                        end=len(text),
+                        raw_text=text,
+                    )
+                ]
+
+        class _CommunityRule(Rule[_ProbeNotation]):
+            name = "community_rule"
+            strategy = RuleStrategy.REGEX
+            provenance = Provenance(
+                authority="test",
+                specification_name="test",
+                kind="test",
+                reference_url="https://test",
+                version=None,
+                lifecycle="active",
+                publication_year=2024,
+            )
+            citation = "test"
+            target_grammars = frozenset({"probe_community"})
+            requires_features = frozenset()
+
+            def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:
+                return True
+
+            def normalize(self, notation: _ProbeNotation, contract: Contract) -> str:
+                return "COMMUNITY"
+
+        register_grammar("probe", _CommunityGrammar)
+        register_rule("probe", _CommunityRule)
+        register_capability(_ProbeCapability())
+
+        # "XXXX" matches no shipped grammar, so any recognition here could
+        # only come from the community grammar — the fallback must not run it.
+        result = run_capability("XXXX", _ProbeContract())
+        assert calls == []
+        assert result.status == Resolution.MISSING
+        assert result.candidates == ()
+
+        # Same contract opted in via extra_grammars: community grammar runs.
+        result = run_capability(
+            "XXXX", _ProbeContract(extra_grammars=("probe_community",))
+        )
+        assert calls == ["probe_community"]
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "COMMUNITY"

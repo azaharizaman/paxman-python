@@ -10,7 +10,7 @@ existed.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import ClassVar
@@ -24,17 +24,20 @@ class CapabilityContract(ABC):
 
     - ``output_format`` is **always optional** and validated/normalized by a
       single base ``__post_init__`` via :func:`resolve_output_format`.
-    - ``active_grammars`` is capability-specific and must be implemented by
-      each subclass.
+    - ``active_grammars`` is optional: the base-class default (``None``)
+      activates every shipped grammar in ``get_grammars()`` declaration
+      order, so adding a grammar to a capability is a single-edit change.
 
     Subclasses MUST:
 
     - Override the ``DEFAULT_OUTPUT_FORMAT`` and ``OFFERED_OUTPUT_FORMATS``
       class variables.
     - Set ``capability_name`` via ``field(default="<name>", init=False)``.
-    - Implement the abstract ``active_grammars`` property.
     - Call ``super().__post_init__()`` first if they add their own
       ``__post_init__`` validation.
+
+    Subclasses MAY override ``active_grammars`` to narrow the surface —
+    typically to gate grammars behind ``include_*`` feature flags.
 
     The class satisfies the :class:`Contract` protocol structurally.
     """
@@ -81,7 +84,12 @@ class CapabilityContract(ABC):
         )
 
     @property
-    @abstractmethod
-    def active_grammars(self) -> Sequence[str]:
-        """Grammar names to activate."""
-        ...
+    def active_grammars(self) -> Sequence[str] | None:
+        """Grammar names to activate.
+
+        ``None`` — the base-class default — tells the engine to activate
+        every shipped grammar in the capability's ``get_grammars()``
+        declaration order. Override to narrow the surface (e.g. gate
+        grammars behind ``include_*`` feature flags).
+        """
+        return None
