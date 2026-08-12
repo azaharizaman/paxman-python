@@ -9,6 +9,7 @@ from paxman.capabilities.Currency.capability import CurrencyCapability
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
+from paxman.capabilities.SIUnit.capability import SIUnitCapability
 from paxman.capabilities.URL.capability import URLCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
@@ -356,4 +357,251 @@ class TestCurrencyCapabilityE2E:
         register_capability(CurrencyCapability())
         contract = CurrencyCapability.create_contract()
         result = canonicalize("", contract)
+        assert result.status == Resolution.MISSING
+
+
+class TestSIUnitCapabilityE2E:
+    """End-to-end tests for the SI Unit capability through paxman.canonicalize.
+
+    Rows are the full plan §1 e2e contract (27 rows, plan lines 192–219):
+    the three Milestone rows first, then the SUCCESS/INVALID/MISSING/
+    AMBIGUOUS remainder, ending with the cross-capability "USD" row.
+    """
+
+    @pytest.mark.e2e
+    def test_si_unit_milestone_name_kilogram(self) -> None:
+        """Milestone: "Kilogram" resolves to "kg" via the name fold (D4)."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("Kilogram", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "kg"
+
+    @pytest.mark.e2e
+    def test_si_unit_milestone_prefixed_name_megahertz(self) -> None:
+        """Milestone: "megahertz" resolves to "MHz" via the generated prefix name."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("megahertz", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "MHz"
+
+    @pytest.mark.e2e
+    def test_si_unit_milestone_compound(self) -> None:
+        """Milestone: "m/s²" resolves to "m/s2" via the compound rule."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("m/s²", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "m/s2"
+
+    @pytest.mark.e2e
+    def test_si_unit_name_kelvin(self) -> None:
+        """The name "Kelvin" resolves to "K" via the BIPM Table 1 name rule."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("Kelvin", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "K"
+
+    @pytest.mark.e2e
+    def test_si_unit_base_symbol_metre(self) -> None:
+        """Base-unit symbol "m" resolves to itself."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("m", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "m"
+
+    @pytest.mark.e2e
+    def test_si_unit_base_symbol_kilogram(self) -> None:
+        """Base-unit symbol "kg" resolves to itself."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("kg", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "kg"
+
+    @pytest.mark.e2e
+    def test_si_unit_base_symbol_candela(self) -> None:
+        """Base-unit symbol "cd" resolves to itself."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("cd", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "cd"
+
+    @pytest.mark.e2e
+    def test_si_unit_derived_symbol_pascal(self) -> None:
+        """Derived special-name symbol "Pa" resolves to itself."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("Pa", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "Pa"
+
+    @pytest.mark.e2e
+    def test_si_unit_nonsi_symbol_degree_celsius(self) -> None:
+        """Non-SI symbol "°C" resolves to itself."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("°C", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "°C"
+
+    @pytest.mark.e2e
+    def test_si_unit_litre_lowercase_l(self) -> None:
+        """D3: the lowercase written form "l" canonicalizes to "L"."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("l", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "L"
+
+    @pytest.mark.e2e
+    def test_si_unit_litre_uppercase_l(self) -> None:
+        """Non-SI symbol "L" resolves to itself."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("L", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "L"
+
+    @pytest.mark.e2e
+    def test_si_unit_prefixed_symbol_km(self) -> None:
+        """Prefixed symbol "km" resolves to itself (BIPM §3.2)."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("km", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "km"
+
+    @pytest.mark.e2e
+    def test_si_unit_prefixed_symbol_microgram(self) -> None:
+        """Prefixed symbol "µg" resolves to itself (BIPM §3.2)."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("µg", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "µg"
+
+    @pytest.mark.e2e
+    def test_si_unit_compound_km_per_hour(self) -> None:
+        """Compound "km/h" resolves to itself (ISO 80000-1 §6.5)."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("km/h", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "km/h"
+
+    @pytest.mark.e2e
+    def test_si_unit_compound_newton_metre(self) -> None:
+        """Compound "N·m" resolves to itself via the middle-dot separator."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("N·m", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "N·m"
+
+    @pytest.mark.e2e
+    def test_si_unit_compound_kg_m_per_s2(self) -> None:
+        """Compound "kg·m/s²" resolves with its superscript folded to ASCII."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("kg·m/s²", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "kg·m/s2"
+
+    @pytest.mark.e2e
+    def test_si_unit_compound_g_per_cm3(self) -> None:
+        """Compound "g/cm³" resolves with its superscript folded to ASCII."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("g/cm³", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "g/cm3"
+
+    @pytest.mark.e2e
+    def test_si_unit_compound_m_per_s_minus2(self) -> None:
+        """Compound "m·s⁻²" resolves with its superscript minus folded to "-"."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("m·s⁻²", contract)
+        assert result.status == Resolution.SUCCESS
+        assert result.canonicalized_value == "m·s-2"
+
+    @pytest.mark.e2e
+    def test_si_unit_bare_prefix_da_invalid(self) -> None:
+        """Bare prefix "da" is recognized but no rule validates it — INVALID."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("da", contract)
+        assert result.status == Resolution.INVALID
+        assert result.canonicalized_value is None
+
+    @pytest.mark.e2e
+    def test_si_unit_bare_prefix_k_invalid(self) -> None:
+        """Bare prefix "k" is recognized but no rule validates it — INVALID."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("k", contract)
+        assert result.status == Resolution.INVALID
+        assert result.canonicalized_value is None
+
+    @pytest.mark.e2e
+    def test_si_unit_unknown_compound_invalid(self) -> None:
+        """Compound shape "QQQ/zzz" is recognized but the groups are unknown."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("QQQ/zzz", contract)
+        assert result.status == Resolution.INVALID
+        assert result.canonicalized_value is None
+
+    @pytest.mark.e2e
+    def test_si_unit_case_mismatch_pa_missing(self) -> None:
+        """D6: "pa" is not the case-exact symbol — nothing is recognized."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("pa", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_si_unit_case_mismatch_khz_missing(self) -> None:
+        """R1: "KHz" (wrong case) never falls back to a prefix+Hz split."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("KHz", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_si_unit_case_mismatch_kg_missing(self) -> None:
+        """D6: "Kg" (wrong case) is never partial-matched to "K"+"g"."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("Kg", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_si_unit_quantity_glued_missing(self) -> None:
+        """D7: quantity-glued "25°C" is never partial-matched to "°C"."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("25°C", contract)
+        assert result.status == Resolution.MISSING
+
+    @pytest.mark.e2e
+    def test_si_unit_space_separated_ambiguous(self) -> None:
+        """R2: "m s" yields two candidates ("m" and "s") — AMBIGUOUS."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("m s", contract)
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+
+    @pytest.mark.e2e
+    def test_si_unit_foreign_token_missing(self) -> None:
+        """Cross-capability: "USD" is not an SI token — MISSING."""
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("USD", contract)
         assert result.status == Resolution.MISSING
