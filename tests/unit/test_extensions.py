@@ -43,6 +43,7 @@ class _DotDateGrammar(Grammar[Any]):
     """Minimal community grammar test double."""
 
     name = "dot_date_recognition"
+    semantics = "dot_date_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[Any]]:
         return []
@@ -52,6 +53,7 @@ class _SecondGrammar(Grammar[Any]):
     """Second grammar — tests registration order."""
 
     name = "second_recognition"
+    semantics = "second_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[Any]]:
         return []
@@ -61,6 +63,7 @@ class _NamelessGrammar(Grammar[Any]):
     """Grammar with an empty name — tests name validation."""
 
     name = ""
+    semantics = "nameless_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[Any]]:
         return []
@@ -70,6 +73,7 @@ class _MixedCaseGrammar(Grammar[Any]):
     """Grammar with a mixed-case name — tests lowercase enforcement."""
 
     name = "DotDateRecognition"
+    semantics = "DotDateRecognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[Any]]:
         return []
@@ -82,7 +86,7 @@ class _DotDateRule(Rule[Any]):
     strategy = RuleStrategy.PARSER
     provenance = _PROVENANCE
     citation = "community test double"
-    target_grammars = frozenset({"dot_date_recognition"})
+    target_semantics = frozenset({"dot_date_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: Any, contract: Any) -> bool:
@@ -99,7 +103,7 @@ class _NamelessRule(Rule[Any]):
     strategy = RuleStrategy.PARSER
     provenance = _PROVENANCE
     citation = "community test double"
-    target_grammars = frozenset({"x"})
+    target_semantics = frozenset({"x"})
     requires_features = frozenset()
 
     def matches(self, notation: Any, contract: Any) -> bool:

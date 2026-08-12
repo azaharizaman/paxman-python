@@ -62,6 +62,7 @@ class DotDateGrammar(Grammar):
     """Minimal community grammar for extension delegation tests."""
 
     name = "dot_date_recognition"
+    semantics = "dot_date_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch]:
         return []

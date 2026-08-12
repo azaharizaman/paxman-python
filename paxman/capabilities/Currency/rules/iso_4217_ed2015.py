@@ -42,7 +42,7 @@ class SectionCode(Rule[CurrencyNotation]):
         "ISO 4217:2015 alpha-3 currency codes, as amended by the ISO 4217 "
         "Maintenance Agency amendment series (SIX List One, 2026-01-01)"
     )
-    target_grammars = frozenset({"code_recognition"})
+    target_semantics = frozenset({"code_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CurrencyNotation, contract: Contract) -> bool:

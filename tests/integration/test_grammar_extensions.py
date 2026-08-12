@@ -36,6 +36,7 @@ class DotDateGrammar(Grammar[DateNotation]):
     """Community test double: recognizes YYYY.MM.DD (dot separator)."""
 
     name = "dot_date_recognition"
+    semantics = "dot_date_recognition"
     _PATTERN = re.compile(r"\b(\d{4})\.(\d{2})\.(\d{2})\b")
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
@@ -55,6 +56,7 @@ class SecondDateGrammar(Grammar[DateNotation]):
     """Second community test double — same shape, different normalization."""
 
     name = "second_recognition"
+    semantics = "second_recognition"
     _PATTERN = re.compile(r"\b(\d{4})\.(\d{2})\.(\d{2})\b")
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
@@ -74,6 +76,7 @@ class ClashingDateGrammar(Grammar[DateNotation]):
     """Community grammar whose name collides with a shipped Date grammar."""
 
     name = "iso8601_recognition"
+    semantics = "iso8601_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         return []
@@ -86,7 +89,7 @@ class DotDateRule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"dot_date_recognition"})
+    target_semantics = frozenset({"dot_date_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -109,7 +112,7 @@ class SecondDateRule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"second_recognition"})
+    target_semantics = frozenset({"second_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -132,7 +135,7 @@ class CommunityISO8601Rule(Rule[DateNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"iso8601_recognition"})
+    target_semantics = frozenset({"iso8601_calendar_date"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -146,13 +149,14 @@ class CommunityISO8601Rule(Rule[DateNotation]):
 
 
 class DanglingDateRule(Rule[DateNotation]):
-    """Community rule whose target_grammars references a missing grammar."""
+    """Community rule whose target_semantics references a semantics id that
+    no grammar claims."""
 
     name = "dangling_date_rule"
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "community test double"
-    target_grammars = frozenset({"no_such_grammar"})
+    target_semantics = frozenset({"no_such_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: DateNotation, contract: Contract) -> bool:
@@ -235,12 +239,12 @@ class TestCompositionGuards:
 
     @pytest.mark.integration
     def test_community_rule_dangling_target_raises(self) -> None:
-        """An opted-in community rule naming a missing grammar fails fast."""
+        """An opted-in community rule naming a missing semantics fails fast."""
         register_rule("date", DanglingDateRule)
         contract = DateContract(
             extra_grammars=("dot_date_recognition", "no_such_grammar")
         )
-        with pytest.raises(ContractError, match="unknown grammar"):
+        with pytest.raises(ContractError, match="unknown semantics"):
             run_capability("2024.01.01", contract)
 
     @pytest.mark.integration
@@ -307,4 +311,28 @@ class TestCommunityRuleOptIn:
         assert any(
             c.validation_rule == "community_iso8601_rule"
             for c in activated_result.candidates
+        )
+
+    @pytest.mark.integration
+    def test_rule_opt_in_via_raw_semantics_id_without_grammar(self) -> None:
+        """A raw semantics id in ``extra_grammars`` activates rules targeting it
+        without opting in any community grammar.
+
+        Locks the README-documented raw-name fallback
+        (``semantics_by_name.get(n, n)``): ``iso8601_calendar_date`` is a
+        known semantics id but not a grammar name, so the community rule
+        targeting it fires on shipped ISO recognitions while no community
+        grammar is activated (fail-fast ``ContractError`` applies only to ids
+        no grammar claims).
+        """
+        register_rule("date", CommunityISO8601Rule)
+
+        result = run_capability(
+            "2026-01-15", DateContract(extra_grammars=("iso8601_calendar_date",))
+        )
+        assert any(
+            c.validation_rule == "community_iso8601_rule" for c in result.candidates
+        )
+        assert all(
+            c.recognition_rule == "iso8601_recognition" for c in result.candidates
         )

@@ -49,6 +49,7 @@ class _ProbeLongGrammar(Grammar[_ProbeNotation]):
     """
 
     name = "probe_long"
+    semantics = "probe_long"
     _patterns = (re.compile(r"AAAA"), re.compile(r"AA"))
 
     def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
@@ -70,6 +71,7 @@ class _ProbeShortGrammar(Grammar[_ProbeNotation]):
     """Recognizes 'AA' only."""
 
     name = "probe_short"
+    semantics = "probe_short"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
         return [
@@ -98,7 +100,7 @@ class _LongRule(Rule[_ProbeNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"probe_long"})
+    target_semantics = frozenset({"probe_long"})
     requires_features = frozenset()
 
     def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:
@@ -123,7 +125,7 @@ class _ShortRule(Rule[_ProbeNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"probe_short"})
+    target_semantics = frozenset({"probe_short"})
     requires_features = frozenset()
 
     def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:
@@ -375,6 +377,7 @@ class TestDefaultGrammarSurface:
 
         class _CommunityGrammar(Grammar[_ProbeNotation]):
             name = "probe_community"
+            semantics = "probe_community"
 
             def recognize(self, text: str) -> list[RecognitionMatch[_ProbeNotation]]:
                 calls.append(self.name)
@@ -400,7 +403,7 @@ class TestDefaultGrammarSurface:
                 publication_year=2024,
             )
             citation = "test"
-            target_grammars = frozenset({"probe_community"})
+            target_semantics = frozenset({"probe_community"})
             requires_features = frozenset()
 
             def matches(self, notation: _ProbeNotation, contract: Contract) -> bool:

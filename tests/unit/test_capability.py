@@ -15,6 +15,7 @@ class StubGrammar(Grammar):
     """Minimal concrete grammar for testing Capability."""
 
     name: str = "stub_grammar"
+    semantics = "stub_grammar"
 
     def recognize(self, text: str) -> list[Notation]:
         return []
@@ -35,7 +36,7 @@ class StubRule(Rule):
         publication_year=2024,
     )
     citation: str = "test citation"
-    target_grammars = frozenset({"stub_grammar"})
+    target_semantics = frozenset({"stub_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: Notation, contract: Contract) -> bool:

@@ -14,6 +14,7 @@ class IPv4Grammar(Grammar[IPNotation]):
     """IPv4 recognition: dotted-decimal format (e.g., 192.168.1.1)."""
 
     name = "ipv4_recognition"
+    semantics = "ipv4_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[IPNotation]]:
         """Extract IPv4 dotted-decimal patterns from text."""

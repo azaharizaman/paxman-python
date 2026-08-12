@@ -30,7 +30,7 @@ class Section3Dot2IPv4Address(Rule[IPNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 3.2 (internet addressing)"
-    target_grammars = frozenset({"ipv4_recognition"})
+    target_semantics = frozenset({"ipv4_recognition"})
     requires_features = frozenset()
 
     @staticmethod

@@ -47,6 +47,7 @@ class NationalGrammar(Grammar[PhoneNotation]):
     """
 
     name = "national_recognition"
+    semantics = "national_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract national patterns from text.

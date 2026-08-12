@@ -41,6 +41,17 @@ class TestISO8601DateGrammar:
         result = grammar.recognize("No dates here")
         assert result == []
 
+    def test_does_not_match_embedded_in_digits(self) -> None:
+        """A date glued to surrounding digits is not recognized.
+
+        The digit lookarounds prevent partial matches inside longer digit
+        runs (e.g. IDs).
+        """
+        grammar = ISO8601DateGrammar()
+        assert grammar.recognize("12026-07-26") == []
+        assert grammar.recognize("2026-07-261") == []
+        assert grammar.recognize("12026-07-261") == []
+
     def test_grammar_name(self) -> None:
         grammar = ISO8601DateGrammar()
         assert grammar.name == "iso8601_recognition"
@@ -88,6 +99,18 @@ class TestUSDateGrammar:
         grammar = USDateGrammar()
         assert grammar.name == "us_recognition"
 
+    def test_does_not_match_embedded_in_digits(self) -> None:
+        """A date glued to surrounding digits is not recognized.
+
+        Both year-length variants carry digit lookarounds, preventing
+        partial matches inside longer digit runs (e.g. IDs).
+        """
+        grammar = USDateGrammar()
+        assert grammar.recognize("1207/26/2026") == []
+        assert grammar.recognize("07/26/20261") == []
+        assert grammar.recognize("1207/26/26") == []
+        assert grammar.recognize("07/26/261") == []
+
     def test_emits_spans(self) -> None:
         result = self.grammar.recognize("x 07/26/2026 y")
         assert len(result) == 1
@@ -125,6 +148,18 @@ class TestEuropeanDateGrammar:
     def test_grammar_name(self) -> None:
         grammar = EuropeanDateGrammar()
         assert grammar.name == "european_recognition"
+
+    def test_does_not_match_embedded_in_digits(self) -> None:
+        """A date glued to surrounding digits is not recognized.
+
+        Both year-length variants carry digit lookarounds, preventing
+        partial matches inside longer digit runs (e.g. IDs).
+        """
+        grammar = EuropeanDateGrammar()
+        assert grammar.recognize("1226/07/2026") == []
+        assert grammar.recognize("26/07/20261") == []
+        assert grammar.recognize("1226/07/26") == []
+        assert grammar.recognize("26/07/261") == []
 
     def test_emits_spans(self) -> None:
         result = self.grammar.recognize("x 26/07/2026 y")
@@ -175,6 +210,17 @@ class TestSlashISODateGrammar:
         grammar = SlashISODateGrammar()
         assert grammar.recognize("07/26/2026") == []
         assert grammar.recognize("26/07/2026") == []
+
+    def test_does_not_match_embedded_in_digits(self) -> None:
+        """A date run glued to surrounding digits is not recognized.
+
+        The digit lookarounds prevent partial matches inside longer digit
+        runs (e.g. IDs), mirroring the 2-digit US/European patterns.
+        """
+        grammar = SlashISODateGrammar()
+        assert grammar.recognize("12026/07/26") == []
+        assert grammar.recognize("2026/07/261") == []
+        assert grammar.recognize("12026/07/261") == []
 
     def test_grammar_name(self) -> None:
         grammar = SlashISODateGrammar()

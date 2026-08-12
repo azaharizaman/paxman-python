@@ -179,25 +179,25 @@ class TestRuleConventions:
         assert self.isbn13.name == "Section 5.3-isbn13-check-digit"
         assert self.isbn13.strategy == RuleStrategy.PARSER
         assert self.isbn13.citation == "Section 5.3 (ISBN-13 check digit)"
-        assert self.isbn13.target_grammars == frozenset({"isbn13_recognition"})
+        assert self.isbn13.target_semantics == frozenset({"isbn13_recognition"})
         assert self.isbn13.requires_features == frozenset()
 
         assert self.gs1.name == "Section 4.2-gs1-prefix"
         assert self.gs1.strategy == RuleStrategy.LOOKUP_TABLE
         assert self.gs1.citation == "Section 4.2 (GS1 prefix)"
-        assert self.gs1.target_grammars == frozenset({"isbn13_recognition"})
+        assert self.gs1.target_semantics == frozenset({"isbn13_recognition"})
         assert self.gs1.requires_features == frozenset()
 
         assert self.isbn10.name == "Section 6-isbn10-check-digit"
         assert self.isbn10.strategy == RuleStrategy.PARSER
         assert self.isbn10.citation == "Section 6 (ISBN-10 check digit)"
-        assert self.isbn10.target_grammars == frozenset({"isbn10_recognition"})
+        assert self.isbn10.target_semantics == frozenset({"isbn10_recognition"})
         assert self.isbn10.requires_features == frozenset()
 
         assert self.range.name == "Section 4-registrant-range"
         assert self.range.strategy == RuleStrategy.LOOKUP_TABLE
         assert self.range.citation == "Section 4 (registrant range)"
-        assert self.range.target_grammars == frozenset(
+        assert self.range.target_semantics == frozenset(
             {"isbn13_recognition", "isbn10_recognition"}
         )
 

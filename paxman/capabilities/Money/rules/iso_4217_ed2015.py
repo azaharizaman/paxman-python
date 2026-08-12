@@ -73,7 +73,7 @@ class SectionCode(Rule[MoneyNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "ISO 4217 currency codes"
-    target_grammars = frozenset({"code_recognition"})
+    target_semantics = frozenset({"code_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: MoneyNotation, contract: Contract) -> bool:

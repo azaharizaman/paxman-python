@@ -18,9 +18,10 @@ Before starting, understand these concepts (all defined in depth in HOW_TO_ADD_N
 - **Rule** — a validation unit that checks a notation against an authoritative specification and produces the canonical value with provenance. Semantics.
 - **Notation** — the intermediate token grammars produce and rules consume.
 - **`active_grammars`** — the *optional* contract property naming which grammars run. A contract that does not implement it runs every shipped grammar returned by `get_grammars()`; only the gated capabilities (Email, IP, ISBN) implement it to name a subset.
-- **`target_grammars`** — the rule metadata declaring which grammar(s) a rule validates. A recognition only routes to rules that name its producing grammar.
+- **`semantics`** — the grammar metadata declaring the *meaning* the grammar assigns to its recognized notations: an identity id by default, or a coalesced id shared with grammars that carry the same meaning (e.g. both the ISO and slash-ISO Date grammars declare `"iso8601_calendar_date"`).
+- **`target_semantics`** — the rule metadata declaring which grammar semantics a rule validates. A recognition only routes to rules whose `target_semantics` includes its producing grammar's `semantics`.
 
-**The one sentence that matters:** a new grammar changes behavior only when it is (1) returned by `get_grammars()`, and (2) targeted by at least one rule via `target_grammars` — plus (3) named in `active_grammars`, but **only for the gated capabilities (Email, IP, ISBN) that implement it**. For the other six capabilities, the contract has no `active_grammars` and the engine runs every shipped grammar, so `get_grammars()` alone activates the new grammar. Miss any condition and the grammar silently never runs — so a shipped grammar ships with a test that proves the difference (Step 5).
+**The one sentence that matters:** a new grammar changes behavior only when it is (1) returned by `get_grammars()`, and (2) its `semantics` is claimed by at least one rule via `target_semantics` — plus (3) named in `active_grammars`, but **only for the gated capabilities (Email, IP, ISBN) that implement it**. For the other six capabilities, the contract has no `active_grammars` and the engine runs every shipped grammar, so `get_grammars()` alone activates the new grammar. Miss condition (1) or (3) and the grammar never runs — input matching only it stays `MISSING`. Miss condition (2) and the grammar still runs, but its recognitions route to no rules, so input matching only it becomes `INVALID` (recognized, no authority rule validates) instead of resolving — never a candidate. Either way the resolved output is unchanged, which is why a shipped grammar ships with a test that proves the difference (Step 5).
 
 ---
 
@@ -30,7 +31,7 @@ Before writing code, answer these questions:
 
 1. **What new representation are you recognizing?** Write down examples of real human input, including edge cases (`2024/1/5`, not just `2024/01/01`).
 2. **Does an existing notation already fit it?** If the representation decomposes into the same fields as an existing grammar (e.g., Date's `DateNotation(N1, N2, N3)`), reuse it. Only extend the notation when the new format genuinely carries different components.
-3. **Does an existing rule already assign the same meaning?** If the new format means the same thing and normalizes the same way as an already-validated format (e.g., `2024/01/01` *is* ISO 8601's calendar date), you may only need to extend an existing rule's `target_grammars` (Step 4, option A).
+3. **Does an existing rule already assign the same meaning?** If the new format means the same thing and normalizes the same way as an already-validated format (e.g., `2024/01/01` *is* ISO 8601's calendar date), declare that meaning's shipped `semantics` id on the new grammar and stop — no rule edit (Step 4, option A).
 4. **Which recognition strategy fits the representation?**
 
 Every grammar follows one of two core strategies (see HOW_TO_ADD_NEW_CAPABILITY.md Step 4 for the extended set):
@@ -90,7 +91,7 @@ Create `paxman/capabilities/<Cap>/grammar/<format>_recognition.py`:
 
 1. Import `Grammar` and `RecognitionMatch` from `paxman.core.domain`, and the capability's notation.
 2. Compile the regex once at module scope — never inside `recognize()` (it runs for every input).
-3. Define a class extending `Grammar[Notation]` with a `name` of the form `{format}_recognition` (snake_case, unique within the capability).
+3. Define a class extending `Grammar[Notation]` with a `name` of the form `{format}_recognition` (snake_case, unique within the capability) and a non-empty `semantics` string declaring the meaning its notations carry.
 4. Implement `recognize(text) -> list[RecognitionMatch[Notation]]` — one `RecognitionMatch` per `finditer()` hit, carrying the notation, the half-open `[start, end)` span, and `raw_text`.
 
 ```python
@@ -106,13 +107,14 @@ import re
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
-_SLASH_ISO_PATTERN = re.compile(r"(\d{4})/(\d{1,2})/(\d{1,2})")
+_SLASH_ISO_PATTERN = re.compile(r"(?<!\d)(\d{4})/(\d{1,2})/(\d{1,2})(?!\d)")
 
 
 class SlashISODateGrammar(Grammar[DateNotation]):
     """Slash-delimited ISO date recognition: YYYY/MM/DD."""
 
     name = "slash_iso_recognition"
+    semantics = "iso8601_calendar_date"  # same meaning as the dash ISO grammar (Step 4)
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         """Extract YYYY/MM/DD date patterns from text."""
@@ -130,7 +132,7 @@ class SlashISODateGrammar(Grammar[DateNotation]):
 
 **The `recognize()` contract is enforced by the engine.** Every match must satisfy `0 <= start <= end <= len(text)` and `raw_text == text[start:end]`; a grammar returning a malformed match raises `RecognitionError` naming the grammar (see `_recognize` in `paxman/engine/orchestrator.py`). The engine owns within-grammar containment dedup and total recognition ordering — the grammar only extracts and emits spans.
 
-**Guard boundaries against sibling grammars.** When two grammars could claim the same span, use lookarounds so each claims only its own representation. The slash-ISO pattern is naturally disjoint from the US/European grammars (a leading 4-digit year vs. a leading 1–2-digit month/day) — verify that with a negative test like `test_does_not_match_us_or_european_order`.
+**Guard boundaries against sibling grammars.** When two grammars could claim the same span, use lookarounds so each claims only its own representation. The slash-ISO pattern is naturally disjoint from the US/European grammars (a leading 4-digit year vs. a leading 1–2-digit month/day) — verify that with a negative test like `test_does_not_match_us_or_european_order`. Digit lookarounds (`(?<!\d)`/`(?!\d)`) additionally keep a date from being partially matched inside a longer digit run such as an ID (`12026/01/15` must not yield `2026/01/15`) — pin that with a negative test too.
 
 ---
 
@@ -171,35 +173,29 @@ Recognition order (and the same-span tiebreak) follows the runnable set — `get
 
 ## Step 4: Make a Rule Validate It
 
-A recognition only becomes a candidate when a rule names its grammar in `target_grammars`. Two options:
+A recognition only becomes a candidate when a rule's `target_semantics` includes the producing grammar's `semantics`. Whether you need to touch a rule at all depends on whether the new grammar's *meaning* is genuinely new. Two options:
 
-### Option A — Extend an existing rule (same meaning, same normalization)
+### Option A — Reuse an existing rule's meaning (declare the shipped semantics id and stop)
 
-When the new representation means the same thing and normalizes to the same canonical form as a format an existing rule already validates (the slash-ISO date *is* ISO 8601's calendar date), extend that rule's `target_grammars`. This is the minimal change: `matches()` and `normalize()` already handle the notation.
+When the new representation means the same thing and normalizes to the same canonical form as a format an existing rule already validates (the slash-ISO date *is* ISO 8601's calendar date), declare the *shipped* `semantics` id on the new grammar — and **stop**. No rule edit and no new rule: the existing rule's `target_semantics` already includes that id, so its `matches()` and `normalize()` — which already handle the notation — validate the new grammar's recognitions unchanged. This is the minimal change:
 
 ```python
-class Section431CalendarDate(Rule[DateNotation]):
-    """ISO 8601 Section 4.3.1 — Calendar date.
+class SlashISODateGrammar(Grammar[DateNotation]):
+    """Slash-delimited ISO date recognition: YYYY/MM/DD."""
 
-    Validates both the dash-delimited ISO grammar and the slash-delimited
-    variant (which shares the same position mapping and canonical form).
-    """
-
-    name = "Section 4.3.1-calendar-date"
-    strategy = RuleStrategy.PARSER
-    provenance = PUBLICATION
-    citation = "Section 4.3.1 (calendar date)"
-    target_grammars = frozenset(
-        {"iso8601_recognition", "slash_iso_recognition"}  # extended
+    name = "slash_iso_recognition"
+    semantics = (
+        "iso8601_calendar_date"  # the shipped id — same meaning as the dash ISO grammar
     )
-    requires_features = frozenset()
 ```
+
+Same-meaning grammars **share** a semantics id (a *coalesced* id). The shipped Date rule `Section431CalendarDate` already declares `target_semantics = frozenset({"iso8601_calendar_date"})`, so the slash-ISO grammar joins the ISO grammar under that one id and nothing in `rules/` changes.
 
 ### Option B — Add a new rule (new meaning, different normalization, or different authority)
 
-When the new format needs its own validation or provenance, add a rule file — one file per publication, one class per spec section (see HOW_TO_ADD_NEW_CAPABILITY.md Step 5 for the full rule template). `Rule.__init_subclass__` enforces the six metadata attributes (`name`, `strategy`, `provenance`, `citation`, `target_grammars`, `requires_features`) at class-definition time, and `target_grammars` must be a non-empty `frozenset[str]`.
+When the new format means something genuinely new, give the grammar its own identity `semantics` id and add a rule file whose `target_semantics` names it — one file per publication, one class per spec section (see HOW_TO_ADD_NEW_CAPABILITY.md Step 5 for the full rule template). `Rule.__init_subclass__` enforces the six metadata attributes (`name`, `strategy`, `provenance`, `citation`, `target_semantics`, `requires_features`) at class-definition time, and `target_semantics` must be a non-empty `frozenset[str]`.
 
-Whichever option you choose, the engine **fails fast** if you get it wrong: `_validate_affinity` raises `ContractError` when a rule's `target_grammars` names a grammar that is not in the composed set (shipped + opted-in community), so a dangling name can never silently disable a rule.
+Whichever option you choose, the engine **fails fast** if you get it wrong: `_validate_affinity` raises `ContractError` when a rule's `target_semantics` names an id that no grammar claims in the composed set (shipped + opted-in community), so a dangling target can never silently disable a rule.
 
 ---
 
@@ -281,10 +277,10 @@ This guide's every snippet is drawn from a real change: the **slash-ISO date gra
 | Step | File | Change |
 |------|------|--------|
 | 2a | `tests/capabilities/date/test_grammar.py` | `TestSlashISODateGrammar` (failing first) |
-| 2b | `paxman/capabilities/Date/grammar/slash_iso_recognition.py` | New `SlashISODateGrammar` (`name = "slash_iso_recognition"`) |
+| 2b | `paxman/capabilities/Date/grammar/slash_iso_recognition.py` | New `SlashISODateGrammar` (`name = "slash_iso_recognition"`, `semantics = "iso8601_calendar_date"`) |
 | 3 | `paxman/capabilities/Date/capability.py` | `SlashISODateGrammar()` appended to `get_grammars()` |
 | 3 | `paxman/capabilities/Date/contract.py` | No change — Date is all-active; the engine runs every `get_grammars()` entry |
-| 4 | `paxman/capabilities/Date/rules/iso_8601_ed2019.py` | `Section431CalendarDate.target_grammars` extended to include the new grammar |
+| 4 | `paxman/capabilities/Date/rules/iso_8601_ed2019.py` | No change — `Section431CalendarDate.target_semantics` already covers the shared `"iso8601_calendar_date"` semantics |
 | 5 | `tests/capabilities/date/test_capability.py` | Grammar count 3 → 4; new name wired |
 | 5 | `tests/integration/test_date_capability.py` | `"2024/01/01"` → `SUCCESS "2024-01-01"` (was `MISSING`) |
 | 6 | `README.md`, `CONTEXT.md` | Counts, format list, grammar table row |

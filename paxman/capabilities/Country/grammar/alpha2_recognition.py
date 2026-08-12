@@ -18,6 +18,7 @@ class Alpha2Grammar(Grammar[CountryNotation]):
     """
 
     name = "alpha2_recognition"
+    semantics = "alpha2_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
         """Extract alpha-2 patterns from text.

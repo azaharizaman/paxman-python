@@ -122,7 +122,7 @@ class SectionSymbols(Rule[CurrencyNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "CLDR v47 currency symbols"
-    target_grammars = frozenset({"symbol_recognition"})
+    target_semantics = frozenset({"symbol_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CurrencyNotation, contract: Contract) -> bool:
@@ -166,7 +166,7 @@ class SectionNames(Rule[CurrencyNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "CLDR v47 currency display names"
-    target_grammars = frozenset({"word_recognition"})
+    target_semantics = frozenset({"word_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: CurrencyNotation, contract: Contract) -> bool:

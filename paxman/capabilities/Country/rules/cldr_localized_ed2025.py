@@ -45,7 +45,7 @@ class SectionLocalizedNames(Rule[CountryNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "CLDR v45 localized country names"
-    target_grammars = frozenset({"name_recognition"})
+    target_semantics = frozenset({"name_recognition"})
     requires_features = frozenset({"include_localized"})
 
     def matches(self, notation: CountryNotation, contract: Contract) -> bool:

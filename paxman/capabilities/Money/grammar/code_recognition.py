@@ -38,6 +38,7 @@ class CodeRecognition(Grammar[MoneyNotation]):
     """
 
     name = "code_recognition"
+    semantics = "code_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[MoneyNotation]]:
         """Extract code+amount tokens from text.

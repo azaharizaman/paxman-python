@@ -17,6 +17,7 @@ class ISBN13RecognitionGrammar(Grammar[ISBNNotation]):
     """ISBN-13 recognition: 13-digit ISBN with optional label and separators."""
 
     name = "isbn13_recognition"
+    semantics = "isbn13_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[ISBNNotation]]:
         matches: list[RecognitionMatch[ISBNNotation]] = []

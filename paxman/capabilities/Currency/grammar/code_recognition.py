@@ -33,6 +33,7 @@ class CodeRecognition(Grammar[CurrencyNotation]):
     """
 
     name = "code_recognition"
+    semantics = "code_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[CurrencyNotation]]:
         """Extract standalone 3-letter code tokens from text.

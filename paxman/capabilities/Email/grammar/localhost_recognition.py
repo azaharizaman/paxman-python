@@ -17,6 +17,7 @@ class LocalhostEmailGrammar(Grammar[EmailNotation]):
     """Localhost email recognition: user@localhost."""
 
     name = "localhost_recognition"
+    semantics = "localhost_recognition"
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         matches: list[RecognitionMatch[EmailNotation]] = []

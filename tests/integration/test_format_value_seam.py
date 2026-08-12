@@ -48,6 +48,7 @@ class _TokenGrammar(Grammar[_TokenNotation]):
     """Grammar that recognizes a single fixed token."""
 
     name = "token_grammar"
+    semantics = "token_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
         return [
@@ -75,7 +76,7 @@ class _TokenRule(Rule[_TokenNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"token_grammar"})
+    target_semantics = frozenset({"token_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: _TokenNotation, contract: Contract) -> bool:
@@ -144,6 +145,7 @@ class _DualTokenGrammar(Grammar[_TokenNotation]):
     """Grammar that recognizes two distinct tokens."""
 
     name = "dual_token_grammar"
+    semantics = "dual_token_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
         return [
@@ -177,7 +179,7 @@ class _DualTokenRule(Rule[_TokenNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_grammars = frozenset({"dual_token_grammar"})
+    target_semantics = frozenset({"dual_token_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: _TokenNotation, contract: Contract) -> bool:

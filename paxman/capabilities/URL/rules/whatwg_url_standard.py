@@ -40,7 +40,7 @@ class WhatwgUrlStandard(Rule[URLNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "Section 4.4 (basic URL parser); RFC 3986 §3.1 / RFC 3987 §2 grammar"
-    target_grammars = frozenset({"absolute_uri_recognition"})
+    target_semantics = frozenset({"absolute_uri_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: URLNotation, contract: Contract) -> bool:

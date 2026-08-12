@@ -17,7 +17,7 @@ _RULE_METADATA_ATTRS = (
     "strategy",
     "provenance",
     "citation",
-    "target_grammars",
+    "target_semantics",
     "requires_features",
 )
 
@@ -93,8 +93,8 @@ class TestRuleMetadataEnforcement:
                     provenance = _TEST_PROVENANCE
                 if missing != "citation":
                     citation = "test citation"
-                if missing != "target_grammars":
-                    target_grammars = frozenset({"test_grammar"})
+                if missing != "target_semantics":
+                    target_semantics = frozenset({"test_grammar"})
                 if missing != "requires_features":
                     requires_features = frozenset()
 
@@ -105,17 +105,17 @@ class TestRuleMetadataEnforcement:
                     return ""
 
     @pytest.mark.unit
-    def test_empty_target_grammars_raises(self) -> None:
-        """An empty target_grammars frozenset is valid type-wise but a bug:
+    def test_empty_target_semantics_raises(self) -> None:
+        """An empty target_semantics frozenset is valid type-wise but a bug:
         the rule would match nothing. The runtime guard must reject it."""
         with pytest.raises(TypeError, match="non-empty"):
 
-            class _EmptyTargetGrammars(Rule[str]):
+            class _EmptyTargetSemantics(Rule[str]):
                 name = "test_rule"
                 strategy = RuleStrategy.REGEX
                 provenance = _TEST_PROVENANCE
                 citation = "test citation"
-                target_grammars = frozenset()
+                target_semantics = frozenset()
                 requires_features = frozenset()
 
                 def matches(self, notation: str, contract: Contract) -> bool:
@@ -128,8 +128,8 @@ class TestRuleMetadataEnforcement:
     @pytest.mark.parametrize(
         ("attribute", "value"),
         [
-            ("target_grammars", "test_grammar"),
-            ("target_grammars", ["test_grammar"]),
+            ("target_semantics", "test_grammar"),
+            ("target_semantics", ["test_grammar"]),
             ("requires_features", frozenset({1})),
         ],
     )
@@ -142,7 +142,7 @@ class TestRuleMetadataEnforcement:
             "strategy": RuleStrategy.REGEX,
             "provenance": _TEST_PROVENANCE,
             "citation": "test citation",
-            "target_grammars": frozenset({"test_grammar"}),
+            "target_semantics": frozenset({"test_grammar"}),
             "requires_features": frozenset(),
             "matches": lambda self, notation, contract: True,
             "normalize": lambda self, notation, contract: "",
