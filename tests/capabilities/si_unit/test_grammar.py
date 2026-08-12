@@ -140,6 +140,16 @@ class TestNameRecognition:
     def test_rejects(self, text: str) -> None:
         assert self.grammar.recognize(text) == []
 
+    @pytest.mark.parametrize(
+        "text",
+        ["5kilogram", "kilogram5", "_kilogram", "kilogram_"],
+    )
+    def test_rejects_quantity_adjacent_names(self, text: str) -> None:
+        # The grammar boundary blocks digit/underscore-adjacent names so a
+        # quantity-prefixed unit name is not recognized (identity-only: no
+        # quantities). Mirrors the symbol grammar's digit boundary.
+        assert self.grammar.recognize(text) == []
+
     def test_multiple_spans(self) -> None:
         _assert_spans(
             "kelvin pascal",

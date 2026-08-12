@@ -599,6 +599,20 @@ class TestSIUnitCapabilityE2E:
         assert result.canonicalized_value is None
 
     @pytest.mark.e2e
+    def test_si_unit_name_compound_ambiguous(self) -> None:
+        """R2 analogue: "metre per second" is not a compound — AMBIGUOUS.
+
+        The name grammar recognizes "metre" and "second" independently, so the
+        words surface as two distinct canonical values rather than one compound.
+        """
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("metre per second", contract)
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+        assert {c.value for c in result.candidates} == {"m", "s"}
+
+    @pytest.mark.e2e
     def test_si_unit_foreign_token_missing(self) -> None:
         """Cross-capability: "USD" is not an SI token — MISSING."""
         register_capability(SIUnitCapability())

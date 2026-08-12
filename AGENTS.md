@@ -78,7 +78,7 @@ uv run import-linter lint                             # layer boundaries
 uv run pytest                                         # all tests
 uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, currency, isbn, money, url, si_unit)
 uv run pytest --cov=paxman --cov-report=term-missing --tb=short -q
-uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fail-under=95
+uv run coverage report --include="paxman/core/*,paxman/capabilities/*,paxman/engine/*,paxman/api/*" --fail-under=95
 uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN range message module
 uv run python tools/regenerate_si_prefix_data.py      # regenerate SIUnit prefixed-unit modules
 uv run python tools/regenerate_idna_uts46_data.py     # regenerate URL IDNA UTS #46 mapping

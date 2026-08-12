@@ -14,11 +14,13 @@ from paxman.capabilities.SIUnit.grammar.data.unit_name_tokens import NAME_TOKENS
 from paxman.capabilities.SIUnit.notation import SIUnitNotation
 from paxman.core.domain import Grammar, RecognitionMatch
 
-# Same split-boundary structure as symbol_recognition: a combined
-# `(?<!X)(?!X)` assertion before the token would reject it — the lookahead
-# runs first and sees the token's own first letter (always [a-z] here).
-_LOOKBEHIND = r"(?<![a-z])"
-_LOOKAHEAD = r"(?![a-z])"
+# Same split-boundary structure as symbol_recognition: a lookbehind guards
+# the left edge and a lookahead the right, so a token never merges with an
+# adjacent word/separator/sign. Digits and underscore are blocked too (via
+# \w), keeping quantity-adjacent names (e.g. "5kilogram") from being
+# recognized — consistent with the symbol grammar's digit boundary.
+_LOOKBEHIND = r"(?<![°\w\-+\u2212/·⋅])"
+_LOOKAHEAD = r"(?![\w\-+\u2212/·⋅])"
 _ALTERNATION = "|".join(re.escape(t) for t in NAME_TOKENS)
 _NAME_RE = re.compile(
     _LOOKBEHIND + r"(?P<name>" + _ALTERNATION + r")" + _LOOKAHEAD, re.IGNORECASE

@@ -1,8 +1,8 @@
 """Guard tests for the unanimous capability contract & rule surface.
 
 These tests lock the homogeneity mandate so it cannot regress: every one of
-the nine built-in capabilities (Country, Currency, Date, Email, IP, ISBN,
-Money, Phone, URL) must
+the ten built-in capabilities (Country, Currency, Date, Email, IP, ISBN,
+Money, Phone, SI Unit, URL) must
 
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),

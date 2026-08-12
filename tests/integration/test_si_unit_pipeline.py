@@ -83,6 +83,8 @@ class TestSIUnitPipeline:
             ("USD", Resolution.MISSING, None),  # not an SI token
             # --- AMBIGUOUS row ---
             ("m s", Resolution.AMBIGUOUS, None),  # refinement R2
+            # name-compound: words recognized separately -> AMBIGUOUS (R2 analogue)
+            ("metre per second", Resolution.AMBIGUOUS, None),
         ],
     )
     def test_e2e_contract(
@@ -172,3 +174,58 @@ class TestSIUnitPipeline:
         assert first.canonicalized_value == "kg"
         assert second.status == Resolution.SUCCESS
         assert second.canonicalized_value == "m"
+
+    @pytest.mark.integration
+    def test_ambiguous_name_compound_metre_per_second(self) -> None:
+        """R2 analogue: a name-compound yields AMBIGUOUS, never SUCCESS.
+
+        "metre per second" is not a compound — the name grammar recognizes
+        "metre" and "second" independently, so two distinct canonical values
+        ("m", "s") survive into the candidate set and the status is
+        AMBIGUOUS. This is the documented headline case; it must stay locked.
+        """
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+        result = canonicalize("metre per second", contract)
+        assert result.status == Resolution.AMBIGUOUS
+        assert result.canonicalized_value is None
+        assert {c.value for c in result.candidates} == {"m", "s"}
+
+    @pytest.mark.integration
+    def test_determinism_byte_identical_output(self) -> None:
+        """Same input + contract yields byte-identical output across calls.
+
+        The project mandate is byte-identical canonicalization; this locks it
+        for an AMBIGUOUS input (also pins candidate ordering, not just the
+        value set) and a SUCCESS input.
+        """
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract()
+
+        first = canonicalize("m s", contract)
+        second = canonicalize("m s", contract)
+        assert first.status == second.status
+        assert first.canonicalized_value == second.canonicalized_value
+        assert [c.value for c in first.candidates] == [
+            c.value for c in second.candidates
+        ]
+
+        third = canonicalize("Kilogram", contract)
+        fourth = canonicalize("Kilogram", contract)
+        assert third.status == fourth.status
+        assert third.canonicalized_value == fourth.canonicalized_value
+
+    @pytest.mark.integration
+    def test_temporal_filter_year_excludes_base_units(self) -> None:
+        """The `year` common param gates rules by publication year.
+
+        All BIPM SI Brochure rules carry publication_year 2019, so a contract
+        with year=2018 disables them: "kg" is still recognized by the grammar
+        but no rule validates it -> INVALID (not MISSING, not SUCCESS).
+        """
+        register_capability(SIUnitCapability())
+        contract = SIUnitCapability.create_contract(year=2018)
+        result = canonicalize("kg", contract)
+        assert result.status == Resolution.INVALID
+        assert result.canonicalized_value is None
+        assert result.candidates == ()

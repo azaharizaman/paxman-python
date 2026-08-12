@@ -2,7 +2,7 @@
 
 The SI Brochure defines the base units (Table 1), derived units with
 special names (Tables 3–4), non-SI units accepted for use with the SI
-(Tables 8–9), and the prefix symbols (Table 5). Each section validates
+(Table 8 and §4.2), and the prefix symbols (Table 5). Each section validates
 the corresponding symbol shape against its authority table. Syntax-only
 recognition is the grammars' job; the rules resolve the canonical
 symbol and provide provenance.
