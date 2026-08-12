@@ -4,6 +4,8 @@
 
 **Goal:** Implement the **Money capability** that canonicalizes ambiguous currency-amount input to the canonical `CODE + " " + amount` form (e.g. `USD 500.00`) with full provenance. Design source: `docs/research/2026-08-05-money-canonicalization.md` (its §9 "Locked Decisions" is authoritative for reasoning; the cross-part contract below is authoritative for shapes). This plan covers Tasks 1–11 in order: package skeleton, `MoneyNotation`, `MoneyContract`, data tables, rules, grammars, parsing helper, capability wiring, registration, integration/property/replay-hash tests, and documentation.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 **Architecture:** A seventh self-contained capability package `paxman/capabilities/Money/` following the unanimous surface: three recognition grammars (`code_recognition`, `symbol_recognition`, `word_recognition`) emit span-bearing `RecognitionMatch[MoneyNotation]`; three authority rules (`SectionCode`, `SectionSymbols`, `SectionNames`) validate against ISO 4217 / CLDR data modules and normalize to the canonical `CODE amount` string; `format_value()` renders `"code_amount"` (identity, the default) or `"compact"` (removes the single space). The contract carries `precision` ("strict"/"truncate"/"round") and `dollar_sign_currency` (uppercase ISO 4217 alpha-3 or `None`; `None` is the default — bare `$`-style symbols only resolve when a currency is explicitly opted in); rules receive the contract, so they read `precision` and `dollar_sign_currency` directly.
 
 **Tech Stack:** Python 3.11, standard library only (re-based grammars, frozen dataclasses). Tests: pytest with the `capability` marker; a `-m money` marker is added in Task 7, so every command in this task runs by path. Gates unchanged: ruff (line-length 88, target py311), pyright strict (`include = ["paxman"]` — tests are excluded), import-linter layers, pytest at 95% coverage.
@@ -539,6 +541,8 @@ class MoneyContract(CapabilityContract):
 
     def _extra_dict_fields(self) -> dict[str, object]:
         """Serialize capability-specific fields for replay hash.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
         Returns:
             Dictionary of precision and dollar_sign_currency fields.
@@ -4707,6 +4711,8 @@ class TestMoneyPipeline:
         assert len(result1.version_stamp.replay_hash) == 64  # SHA-256 hex
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Run:
 
 ```bash
@@ -4754,6 +4760,8 @@ full pipeline using an independently derived expectation:
   exactly the code's ISO 4217 minor units.
 """
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 from __future__ import annotations
 
 import re
@@ -4798,6 +4806,7 @@ def test_replay_determinism(text: str) -> None:
     assert result1 == result2
     assert result1.version_stamp.replay_hash == result2.version_stamp.replay_hash
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 @pytest.mark.property
 @given(
@@ -4834,6 +4843,7 @@ def test_fuzz_random_text_never_raises(text: str) -> None:
     )
     assert len(result.version_stamp.replay_hash) == 64
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 @pytest.mark.property
 @given(text=st.text(alphabet=string.printable, max_size=120))
@@ -4885,14 +4895,22 @@ git commit -m "test(money): add property-based invariants for parsing and pipeli
 
 ### Task 10: Replay-hash baseline
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 **Files:**
 - Modify: `tests/integration/test_default_replay_hashes.py`
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 The replay hash is the engine's behavioral contract: any pipeline change that alters the candidate set, provenance set, or serialized contract shifts a hash and fails here. Adding Money to the baseline is an *addition* — the six existing literals must not change (nothing about the existing pipelines changed in Tasks 7–9). The Money literal is captured from the engine, not invented; this plan cannot (and must not) predict it.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 1: RED — add the Money case with a placeholder**
 
 Edit `tests/integration/test_default_replay_hashes.py`:
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 1. Add the import between ISBN and Phone (alphabetical):
 
@@ -4932,7 +4950,11 @@ Run:
 uv run pytest tests/integration/test_default_replay_hashes.py -v
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Expected: `1 failed, 6 passed` — the `money` case fails with `assert <64-char actual hash> == '0000000000000000000000000000000000000000000000000000000000000000'`. The failure output shows the engine's real replay hash for `("money", MoneyCapability, "USD500")`.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 2: GREEN — capture the actual hash**
 
@@ -4948,6 +4970,8 @@ Re-run:
 uv run pytest tests/integration/test_default_replay_hashes.py -v
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Expected: `7 passed`. Do NOT touch the six existing literals — if any of them fail, stop and investigate the regression (a Money change must not shift existing pipelines' hashes).
 
 - [ ] **Step 3: Verify + commit**
@@ -4958,6 +4982,8 @@ uv run ruff check tests/integration/test_default_replay_hashes.py
 uv run ruff format --check tests/integration/test_default_replay_hashes.py
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Expected: the whole integration suite passes; ruff clean; format clean.
 
 Commit:
@@ -4966,6 +4992,8 @@ Commit:
 git add tests/integration/test_default_replay_hashes.py
 git commit -m "test(money): baseline replay hash for the Money capability"
 ```
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ---
 
@@ -5060,6 +5088,8 @@ uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fai
 ```
 
 Expected: ruff clean; format clean; pyright strict clean; import-linter clean (Money imports only from `paxman.core` — no cross-capability imports); the whole test suite passes (existing six capabilities' replay hashes unchanged, money suite included); coverage ≥ 95% overall and per package. If the Money package reports below 95%, add targeted unit cases under `tests/capabilities/money/` to cover the gaps — never lower the gate.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 4: Commit**
 

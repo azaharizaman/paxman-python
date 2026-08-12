@@ -8,7 +8,7 @@ the capability registry (see ``paxman.core.discovery``).
 A contract opts a registered grammar in by naming it in
 ``CapabilityContract.extra_grammars``. Unknown names in ``extra_grammars`` are
 silently skipped so a contract that names an uninstalled grammar still runs
-byte-identically.
+identically (deterministically).
 """
 
 from __future__ import annotations

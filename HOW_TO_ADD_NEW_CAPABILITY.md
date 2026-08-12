@@ -1053,7 +1053,7 @@ A shipped capability is closed for modification but open for extension: you can 
 Semantics to rely on:
 
 - The extension registries freeze with the capability registry — registration after the first pipeline run raises `CapabilityError`.
-- Opt-in only: an un-named registered grammar never affects results, keeping shipped behavior byte-identical for non-opt-in contracts.
+- Opt-in only: an un-named registered grammar never affects results, so shipped behavior stays identical (deterministic) for non-opt-in contracts.
 - Community rules are opt-in too: a registered rule runs only when the contract's `extra_grammars` resolve to one of its `target_semantics`; an un-opted rule — even one targeting a shipped grammar's semantics — never affects results.
 - Unknown `extra_grammars` names are silently skipped; shipped names listed in `extra_grammars` are deduplicated.
 - Composition is guarded: a grammar name colliding with a shipped name, or an opted-in community rule naming a missing grammar, fails fast at pipeline start.

@@ -19,6 +19,8 @@ Implement the **ISBN capability** that canonicalizes ISBN-13 and legacy ISBN-10 
 
 **Correctness gate:** the five existing baseline replay hashes MUST NOT change (Task 10 re-pins them).
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ## Architecture
 
 ```text
@@ -56,6 +58,8 @@ isbn13_recognition               isbn10_recognition
 | ISBN-10 → ISBN-13 conversion | Rules (`normalize`) |
 | Hyphenation (presentation) | `Capability.format_value()` only |
 | Ordering, dedup, status, replay hash | Engine (untouched) |
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 **Design decisions that resolve memo §7.3/§7.6:** the ISBN-13 check-digit rule ALSO enforces prefix ∈ {`978`, `979`} inside `matches()`. This is the only way the memo's resolution map ("13 digits, check digit OK, prefix ∉ {978, 979} → `INVALID`") is achievable under the engine's alternative-rules semantics (each rule independently emits a candidate; zero candidates → `INVALID`). The standalone `Section 4.2-gs1-prefix` rule still exists to add its own provenance claim for valid ISBNs. Both are cited to ISO 2108.
 
@@ -163,6 +167,8 @@ tests/property/test_isbn_properties.py
 | `tests/property/test_isbn_properties.py` | create | hypothesis suite (Task 9) |
 | `tests/unit/test_capability_exports.py` | modify | ISBN exports coverage (Task 7) |
 | `HOW_TO_ADD_NEW_CAPABILITY.md` | modify | Step 4 span-contract rewrite (Task 11) |
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ---
 
@@ -1161,6 +1167,8 @@ Tests:
 - `test_isbn10_and_converted_isbn13_agree` — `@given(digits(9))`: build a valid ISBN-10 `first9 + _check_digit_isbn10(first9)`; canonicalizing it and canonicalizing `"978" + first9 + _check_digit_isbn13("978" + first9)` both yield `SUCCESS` with the same canonical value.
 - `test_replay_determinism` — `@given(text())`: two consecutive `run_capability` calls on the same input/contract produce identical `replay_hash`, status, and candidates.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Import `hyphenate` from `paxman.capabilities.ISBN.capability` (it is a public helper of the capability module — do NOT import the `_find_length` private). Verify + commit:
 
 ```bash
@@ -1172,10 +1180,16 @@ Commit: `feat(isbn): add property tests for recognition, hyphenation, and replay
 
 ## Task 10: Replay-hash baseline
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 **Files:**
 - Modify: `tests/integration/test_default_replay_hashes.py`
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 The `replay_hash` is the engine's behavioral contract. This task ADDS the ISBN baseline; the five existing literals (`date`, `country`, `email`, `ip`, `phone`) MUST NOT change — the ISBN capability is additive and touches no existing pipeline code. Keep the module's NOTE comment about IP untouched.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 1: RED — register the ISBN case**
 
@@ -1197,9 +1211,13 @@ CASES = [
 
 Run `uv run pytest tests/integration/test_default_replay_hashes.py -k isbn` — it fails with the actual hash in the assertion output (`AssertionError: assert '' == '<64-hex-hash>'` or `KeyError` on the empty literal).
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 - [ ] **Step 2: GREEN — capture and pin the literal**
 
 Replace `"isbn": ""` with the `<64-hex-hash>` reported by the failure. The case asserts `status == Resolution.SUCCESS` and `replay_hash == BASELINE_HASHES["isbn"]` — the canonical value is `"9780306406157"` with provenance from the two ISO 2108:2017 rules that validate it (Section 5.3-isbn13-check-digit and Section 4.2-gs1-prefix); the ISBN Users' Manual rule targets the isbn10 grammar only and the range rule is gated behind `include_range_validation` (off by default).
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 3: Verify**
 
@@ -1207,9 +1225,15 @@ Replace `"isbn": ""` with the `<64-hex-hash>` reported by the failure. The case 
 uv run pytest tests/integration/test_default_replay_hashes.py
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 All six cases pass. The five pre-existing literals are byte-identical to their 2026-08-04 captures — confirm the diff shows only the added ISBN lines plus the docstring date note ("Literals captured 2026-08-04 … ISBN baseline added 2026-08-05").
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Commit: `feat(isbn): pin ISBN replay-hash baseline`.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ## Task 11: Documentation and final gates
 

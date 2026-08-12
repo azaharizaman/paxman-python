@@ -564,7 +564,7 @@ class TestCanonicalDeterminismAndCandidateOrder:
             ),
         ],
     )
-    def test_repeated_run_is_byte_identical(
+    def test_repeated_run_is_deterministic(
         self,
         capability_cls: type[Capability[Any]],
         contract_factory: Callable[[], Contract],

@@ -397,6 +397,8 @@ Document that the result is validated by CLDR/Unicode, not ISO merely because th
 
 Record the old failure, the new raw-token behavior, the `INVALID`/`SUCCESS` localized matrix, the shared normalizer, the coverage test, and the intentional replay-hash/provenance change for affected inputs. State explicitly that Phone separator cleanup remains accepted syntax normalization.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 - [ ] **Step 4: Review documentation for contradictions**
 
 Run:
@@ -436,6 +438,8 @@ uv run pytest tests/ -q
 
 Expected: all existing tests plus the new F3 tests pass. Any changed replay hash must be attributable to the documented localized provenance or route correction, not nondeterministic ordering.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 - [ ] **Step 3: Perform the manual pipeline check**
 
 Run a real Python driver through `run_capability`:
@@ -470,6 +474,8 @@ Run `lsp_diagnostics` for every changed `.py` file and resolve all F3-caused err
 - [ ] **Step 5: Record the implementation handoff**
 
 Report the design file, plan file, exact verification commands and results, intentional status/provenance changes, and any pre-existing failures. Do not claim replay hashes are unchanged for inputs whose validating authority changes.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ---
 

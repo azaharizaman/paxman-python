@@ -3,8 +3,9 @@
 Each property locks a mathematical invariant of parsing, formatting, or the
 full pipeline using an independently derived expectation:
 
-- repeated runs over the same input and contract are byte-identical
-  (canonical determinism);
+- repeated runs over the same input and contract are deterministic
+  (canonical determinism — no world-knowledge, no clock, no environment-dependent
+  ordering, no fuzzy logic, no network inference);
 - format_amount then parse_amount round-trips the value for conforming
   precision;
 - random ASCII input never raises and every status is well-formed;
@@ -49,7 +50,7 @@ def _fresh_registry() -> None:
 @pytest.mark.property
 @given(text=st.text(alphabet=string.printable, max_size=120))
 def test_canonical_determinism(text: str) -> None:
-    """Same input + same contract -> byte-identical ExecutionResult."""
+    """Same input + same contract -> identical (deterministic) ExecutionResult."""
     contract = MoneyCapability.create_contract()
     result1 = run_capability(text, contract)
     result2 = run_capability(text, contract)

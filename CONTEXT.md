@@ -6,9 +6,9 @@
 A **canonicalization authority resolver** — a library that takes ambiguous human input and returns what authoritative specifications say that input means, with full provenance. Paxman is both a **syntactic recognizer** (finds values in text) and a **semantic interpreter** (validates against authoritative specifications).
 
 **Invariants:**
-- **Deterministic:** Never guess, never infer, never suggest
+- **No fabrication:** Never guess, never infer, never suggest
 - **Provenance-first:** Always cite authority-defined specifications, registries, policies
-- **Replay-safe:** Same input + same contract = byte-identical output
+- **Deterministic:** Given the same input, the same contract, and the same library snapshot (fixed library version, registry contents, and rule-data tables), the pipeline yields the same canonical output — no world-knowledge, no clock, no environment-dependent ordering, no fuzzy logic, no network inference across recognition, validation, and canonicalization.
 
 ### Capability
 A domain module (e.g., Email) that:
