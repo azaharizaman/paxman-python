@@ -5,7 +5,7 @@
 **Branch:** feature/CURRENCY-capability
 
 ## OVERVIEW
-Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first. 9 capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
+Paxman is a Python 3.11+ canonicalization library: takes ambiguous human input, returns what authoritative specs say it means, with full provenance. Deterministic, provenance-first. 10 capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, SI Unit, URL). Toolchain: uv + hatchling, ruff, strict pyright, import-linter, pytest at 95% coverage.
 
 ## STRUCTURE
 ```text
@@ -13,9 +13,9 @@ paxman/
 ├── api/            # canonicalize() — sole public entry
 ├── engine/         # run_capability() pipeline orchestrator
 ├── core/           # domain objects, Contract protocol, registry, errors
-└── capabilities/   # 9 self-contained capability packages
+└── capabilities/   # 10 self-contained capability packages
 tests/              # unit / capabilities/<cap> / integration / property / e2e
-tools/              # regenerate_isbn_range_data.py (only script)
+tools/              # regenerate_isbn_range_data.py, regenerate_si_prefix_data.py, regenerate_idna_uts46_data.py
 docs/               # adr/, report/, research/, superpowers/plans+specs
 ```
 
@@ -31,7 +31,7 @@ docs/               # adr/, report/, research/, superpowers/plans+specs
 | Recognition (per cap) | `paxman/capabilities/<Name>/grammar/` |
 | Validation (per cap) | `paxman/capabilities/<Name>/rules/` |
 | Presentation seam | `paxman/capabilities/<Name>/capability.py` → `format_value()` |
-| Regenerate ISBN data | `tools/regenerate_isbn_range_data.py` |
+| Regenerate generated data | `tools/regenerate_isbn_range_data.py` (ISBN range), `tools/regenerate_si_prefix_data.py` (SIUnit prefixed units), `tools/regenerate_idna_uts46_data.py` (URL IDNA mapping) |
 | Merge-blocking commands | `.github/workflows/ci.yml` (authoritative) |
 | Past implementation plans | `docs/superpowers/plans/` |
 
@@ -76,17 +76,19 @@ uv run ruff format --check paxman/ tests/             # format check
 uv run pyright                                        # strict typecheck
 uv run import-linter lint                             # layer boundaries
 uv run pytest                                         # all tests
-uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, isbn, money)
+uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, currency, isbn, money, url, si_unit)
 uv run pytest --cov=paxman --cov-report=term-missing --tb=short -q
 uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fail-under=95
-uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN data module
+uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN range message module
+uv run python tools/regenerate_si_prefix_data.py      # regenerate SIUnit prefixed-unit modules
+uv run python tools/regenerate_idna_uts46_data.py     # regenerate URL IDNA UTS #46 mapping
 ```
 Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-linter lint && pytest`
 
 ## NOTES
-- `paxman/capabilities/__init__.py` exports all nine shipped capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL); export completeness is enforced by `tests/unit/test_capability_exports.py`. A 10th — SI Unit (BIPM SI Brochure) — is in development on `feature/si-unit-capability`; update counts and the export/enumeration lists when it lands.
-- CONTEXT.md is the domain glossary for the full shipped set (nine capabilities). It is kept in sync with the code; when adding a capability, update its Notation/table entries there too.
+- `paxman/capabilities/__init__.py` exports all ten shipped capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, SI Unit, URL); export completeness is enforced by `tests/unit/test_capability_exports.py`.
+- CONTEXT.md is the domain glossary for the full shipped set (ten capabilities). It is kept in sync with the code; when adding a capability, update its Notation/table entries there too.
 - No `pyrightconfig.json` — pyright config is inline `[tool.pyright]` in pyproject.toml. No `.editorconfig`.
-- Data modules live under `rules/data/` (Country, Currency, ISBN, Money, Phone, URL) and `grammar/data/` (Country, Currency, Money) — plain module-level tables separating data from logic, maintained in place. Only ISBN's range message is generated: XML snapshot → `range_message.py` via `tools/regenerate_isbn_range_data.py`; unmarked data files are edited directly.
+- Data modules live under `rules/data/` (Country, Currency, ISBN, Money, Phone, SI Unit, URL) and `grammar/data/` (Country, Currency, Money, SI Unit) — plain module-level tables separating data from logic, maintained in place. Only the ISBN range message, the URL IDNA UTS #46 mapping, and the SIUnit prefixed-unit tables are generated (each via its `tools/regenerate_*_data.py` script); unmarked data files are edited directly.
 - Library only — no CLI, no `__main__.py`, no `[project.scripts]`. Version 0.2.0.
 - Coverage: global `fail_under = 95` + per-package 95% gates in CI.

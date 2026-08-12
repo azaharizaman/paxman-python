@@ -41,6 +41,7 @@ Capability-defined intermediate representation that Grammars must produce:
 - **Currency:** `CurrencyNotation(text, shape)` — `shape` is `"code"` / `"qualified_symbol"` / `"symbol"` / `"word"`; codes are grammar-folded to uppercase, words to lowercase, symbols keep exact casing
 - **Money:** `MoneyNotation(currency_part, amount_part, currency_shape, amount_shape)` — verbatim currency + amount tokens with grammar-assigned shape discriminators
 - **ISBN:** `ISBNNotation(shape, digits)` — `shape` is `"isbn10"` / `"isbn13"`, `digits` is the digit string (`X` only as final char of an isbn10 shape)
+- **SIUnit:** `SIUnitNotation(text, shape)` — `shape` is `"symbol"` / `"name"` / `"compound"`; `text` is the unit expression as written (symbols keep exact casing, names are grammar-folded to lowercase, compounds keep the written form)
 - **IP / Phone / URL:** capability-defined shapes for address / number / URI components
 
 **Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
@@ -65,7 +66,7 @@ class EmailNotation:
 
 ## The Capabilities
 
-Paxman ships nine built-in capabilities, each wired to an authoritative specification:
+Paxman ships ten built-in capabilities, each wired to an authoritative specification:
 
 | Capability | Domain | Authorities |
 |------------|--------|-------------|
@@ -77,11 +78,12 @@ Paxman ships nine built-in capabilities, each wired to an authoritative specific
 | **ISBN** | ISBNs | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 | **Money** | Money amounts | ISO 4217, CLDR |
 | **Phone** | Phone numbers | ITU-T E.164, RFC 3966, NANP |
+| **SI Unit** | SI unit expressions | BIPM SI Brochure, ISO 80000-1 |
 | **URL** | URLs | WHATWG URL Standard |
 
 Capability classes are exported from `paxman/capabilities/__init__.py` as acronym aliases (`EmailCapability as Email`, etc.); the export list is enforced by `tests/unit/test_capability_exports.py`.
 
-**In development:** the **SI Unit** capability (BIPM SI Brochure, 9th edition) is the planned 10th capability (MILESTONE row 23; branch `feature/si-unit-capability`). It will be the first capability whose canonical value is case-meaningful (`K` kelvin vs `k` kilo). This document will be updated again once it ships.
+**Note:** the **SI Unit** capability is the first whose canonical value is case-meaningful (`K` kelvin vs `k` kilo). It canonicalizes unit expressions only (symbols, names, product/quotient compounds) to the canonical symbol form; no quantities, no magnitudes, no name-compounds.
 
 ---
 
@@ -194,7 +196,7 @@ class SectionCode(Rule[CurrencyNotation]):
         return self.TABLE[notation.text]
 ```
 
-Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. Only the ISBN range message is generated from a source snapshot (via `tools/regenerate_isbn_range_data.py`) — everything else is maintained in place.
+Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. Only three data modules are generated via tools: the ISBN range message (`tools/regenerate_isbn_range_data.py`), the SIUnit prefixed-unit tables (`tools/regenerate_si_prefix_data.py`), and the URL IDNA UTS #46 mapping (`tools/regenerate_idna_uts46_data.py`) — everything else is maintained in place.
 
 ### Parser Example
 ```python
@@ -619,7 +621,7 @@ for candidate in result.candidates:
 ### Capability Versioning
 - Each capability has its own version in `capability.py`
 - Capability version is independent of engine version
-- All nine built-in capabilities currently ship `version = "1.0.0"`
+- All ten built-in capabilities currently ship `version = "1.0.0"`
 - Example:
   ```python
   # capabilities/Email/capability.py
@@ -775,6 +777,14 @@ paxman/
     │   ├── grammar/               # e164, tel_uri, international_00, national_recognition (+ common.py LEGACY)
     │   ├── rules/                 # e164_ed2010, rfc_3966_ed2004, nanp_ed2024
     │   └── rules/data/            # e164_country_codes, nanp_tables
+    ├── SIUnit/                    # grammar/ (3) + rules/ (2) + grammar/data/ + rules/data/ — BIPM SI Brochure, ISO 80000-1
+    │   ├── capability.py          # SIUnitCapability
+    │   ├── contract.py            # SIUnitContract
+    │   ├── notation.py            # SIUnitNotation (text, shape)
+    │   ├── grammar/               # symbol, name, compound_recognition
+    │   ├── grammar/data/          # unit_symbol_tokens, unit_name_tokens, compound_tokens
+    │   ├── rules/                 # bipm_si_brochure_ed2019, iso_80000_ed2022
+    │   └── rules/data/            # si_base_units, si_derived_units, si_nonsi_units, si_prefixes, unit_names (+ GENERATED prefixed_units, prefixed_unit_names)
     └── URL/                       # grammar/ (1) + rules/ (1) + rules/data/ — WHATWG URL Standard
         ├── capability.py          # URLCapability
         ├── contract.py            # URLContract
@@ -784,8 +794,6 @@ paxman/
         ├── rules/                 # whatwg_url_standard
         └── rules/data/            # idna_uts46_mapping
 ```
-
-**In development (not yet in tree):** the SI Unit capability (branch `feature/si-unit-capability`, research at `docs/research/2026-08-09-si-unit-canonicalization.md`). Structure will follow the Currency LOOKUP_TABLE template with BIPM SI Brochure data under `rules/data/`.
 
 ### Package Responsibilities
 
@@ -813,7 +821,7 @@ tests/
 │   ├── test_capability_contract.py# CapabilityContract (output_format policy, defaults)
 │   ├── test_capability.py         # Capability ABC
 │   ├── test_capability_surface.py # Surface homogeneity across capabilities
-│   ├── test_capability_exports.py # __init__ export completeness (9 capabilities)
+│   ├── test_capability_exports.py # __init__ export completeness (10 capabilities)
 │   ├── test_version_stamp.py      # VersionStamp
 │   ├── test_discovery.py          # Registry register/freeze/reset
 │   ├── test_errors.py             # Exception hierarchy
@@ -830,6 +838,7 @@ tests/
 │   ├── isbn/                      # + test_contract, test_notation, test_data
 │   ├── money/                     # + test_contract, test_notation, test_data, test_parsing
 │   ├── phone/                     # + test_data
+│   ├── si_unit/                   # test_grammar, test_rules, test_capability, test_contract, test_notation, test_data, test_data_consistency
 │   └── url/                       # + test_contract, test_notation, test_data, test_parsing, test_rule
 ├── integration/                   # -m integration pipeline, ambiguity, temporal,
 │   │                              # feature gating, format_value seam, per-capability pipelines
@@ -874,7 +883,7 @@ def test_ambiguity_detection(): ...
 def test_canonicalize_email_success(): ...
 ```
 
-Per-capability markers are registered for `country`, `currency`, `isbn`, `money`, and `url` — run one capability's suite directly with `uv run pytest tests/capabilities/<cap>` (or `-m <cap>`). Capability dirs are lowercase (`isbn`, not `ISBN`).
+Per-capability markers are registered for `country`, `currency`, `isbn`, `money`, `si_unit`, and `url` — run one capability's suite directly with `uv run pytest tests/capabilities/<cap>` (or `-m <cap>`). Capability dirs are lowercase (`isbn`, not `ISBN`).
 
 ---
 
@@ -922,6 +931,7 @@ markers = [
     "isbn: isbn capability tests",
     "money: money capability tests",
     "url: url capability tests",
+    "si_unit: si unit capability tests",
 ]
 testpaths = ["tests"]
 ```
