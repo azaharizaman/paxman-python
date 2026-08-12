@@ -23,7 +23,8 @@ class TestSIUnitPipeline:
 
     Locked semantics (plan §1 e2e contract):
     - identity-only: no quantities, no magnitudes, no name-compounds
-      ("metre per second" is not recognized). Canonical form is the unit
+      ("metre per second" does not resolve as a compound — its words are
+      recognized separately, yielding AMBIGUOUS). Canonical form is the unit
       symbol (D3) — names resolve to their symbol, "l" canonicalizes to
       "L", compound exponents render as ASCII digits;
     - symbols are case-exact (D6): "pa" and "Kg" are not recognized at

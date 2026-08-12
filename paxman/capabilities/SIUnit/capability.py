@@ -29,7 +29,8 @@ class SIUnitCapability(Capability[SIUnitNotation]):
     Canonicalizes SI unit expressions — a unit symbol, a unit name, or a
     product/quotient compound — to the canonical symbol form, with full
     provenance. Identity-only: no quantities, no magnitudes, no
-    name-compounds ("metre per second" is not recognized; "25°C" is
+    name-compounds ("metre per second" does not resolve as a compound —
+    its words are recognized separately, yielding AMBIGUOUS; "25°C" is
     MISSING). Strategy: BIPM SI Brochure (9th ed., 2019) + ISO 80000-1.
     """
 
