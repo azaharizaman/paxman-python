@@ -8,7 +8,7 @@ A **canonicalization authority resolver** — a library that takes ambiguous hum
 **Invariants:**
 - **No fabrication:** Never guess, never infer, never suggest
 - **Provenance-first:** Always cite authority-defined specifications, registries, policies
-- **Deterministic:** Given the same input and contract, the pipeline yields the same canonical output — no world-knowledge, no clock, no environment-dependent ordering, no fuzzy logic, no network inference across recognition, validation, and canonicalization.
+- **Deterministic:** Given the same input, the same contract, and the same library snapshot (fixed library version, registry contents, and rule-data tables), the pipeline yields the same canonical output — no world-knowledge, no clock, no environment-dependent ordering, no fuzzy logic, no network inference across recognition, validation, and canonicalization.
 
 ### Capability
 A domain module (e.g., Email) that:
