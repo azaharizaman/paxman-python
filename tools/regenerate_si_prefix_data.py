@@ -53,6 +53,31 @@ def _official_symbols() -> frozenset[str]:
     return BASE_UNIT_SYMBOLS | DERIVED_UNIT_SYMBOLS | NONSI_UNIT_SYMBOLS
 
 
+def _validate_authority_constants() -> None:
+    """Fail loudly if the hand-maintained BIPM sets drift from the tables.
+
+    Runs on both the write and --check paths (called from _modules()).
+    Raises SystemExit, not assert: this is a data-integrity guard and must
+    survive python -O.
+    """
+    official = _official_symbols()
+    if not official >= _PREFIXABLE_NONSI:
+        raise SystemExit(
+            "_PREFIXABLE_NONSI includes symbols absent from the maintained"
+            f" authority tables: {sorted(_PREFIXABLE_NONSI - official)}"
+        )
+    if not official >= _NO_PREFIX:
+        raise SystemExit(
+            "_NO_PREFIX includes symbols absent from the maintained"
+            f" authority tables: {sorted(_NO_PREFIX - official)}"
+        )
+    if not _PREFIXABLE_NONSI.isdisjoint(_NO_PREFIX):
+        raise SystemExit(
+            "_PREFIXABLE_NONSI and _NO_PREFIX overlap:"
+            f" {sorted(_PREFIXABLE_NONSI & _NO_PREFIX)}"
+        )
+
+
 def _prefixed_symbols() -> frozenset[str]:
     """Prefix + prefixable unit, excluding official-symbol collisions."""
     official = _official_symbols()
@@ -94,6 +119,11 @@ def _prefixed_name_to_symbol() -> dict[str, str]:
             name = prefix_name + unit_name
             symbol = prefix_symbol + unit_symbol
             if name not in official and symbol in _prefixed_symbols():
+                if name in result:
+                    raise SystemExit(
+                        "generated prefixed name collision:"
+                        f" {name!r} from {prefix_name!r}+{unit_name!r}"
+                    )
                 result[name] = symbol
     return result
 
@@ -193,6 +223,7 @@ def _emit_compound_tokens() -> str:
 
 def _modules() -> list[tuple[Path, str]]:
     """The five generated modules, in deterministic write order."""
+    _validate_authority_constants()
     return [
         (RULES_DATA / "prefixed_units.py", _emit_prefixed_units()),
         (RULES_DATA / "prefixed_unit_names.py", _emit_prefixed_unit_names()),
