@@ -317,8 +317,7 @@ def test_d7_no_coalesce_semantics_groups_stay_singleton() -> None:
     groups = _group_shipped_grammars_by_capability_semantics()
     for semantics in _NO_COALESCE_SEMANTICS:
         counts = [
-            len(per_capability.get(semantics, ()))
-            for per_capability in groups.values()
+            len(per_capability.get(semantics, ())) for per_capability in groups.values()
         ]
         assert any(counts), f"{semantics!r} must stay a singleton, found none"
         assert all(count <= 1 for count in counts), (
