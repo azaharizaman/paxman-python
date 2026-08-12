@@ -1,4 +1,4 @@
-"""Tests for the BIPM SI Brochure rule sections."""
+"""Tests for the SI Unit rule sections (BIPM SI Brochure + ISO 80000-1)."""
 
 import pytest
 
@@ -11,6 +11,7 @@ from paxman.capabilities.SIUnit.rules.bipm_si_brochure_ed2019 import (
     SectionNonSiUnits,
     SectionPrefixes,
 )
+from paxman.capabilities.SIUnit.rules.iso_80000_ed2022 import SectionCompounds
 from paxman.core.domain import RuleStrategy
 
 CONTRACT = SIUnitContract()
@@ -187,3 +188,73 @@ class TestSectionNames:
         old = SIUnitContract(year=2018)
         assert not self.rule.matches(SIUnitNotation(text="kelvin", shape="name"), old)
         assert self.rule.matches(SIUnitNotation(text="kelvin", shape="name"), CONTRACT)
+
+
+@pytest.mark.capability
+@pytest.mark.si_unit
+class TestSectionCompounds:
+    """ISO 80000-1:2022 §6.5 — product and quotient unit compounds."""
+
+    def setup_method(self) -> None:
+        self.rule = SectionCompounds()
+
+    def test_rule_metadata(self) -> None:
+        assert self.rule.name == "Section 6.5-compounds"
+        assert self.rule.strategy is RuleStrategy.PARSER
+        assert frozenset({"compound_recognition"}) == self.rule.target_semantics
+        assert frozenset() == self.rule.requires_features
+        assert self.rule.provenance.publication_year == 2022
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "m/s²",
+            "m/s2",
+            "km/h",
+            "N·m",
+            "N⋅m",
+            "kg·m/s²",
+            "g/cm³",
+            "m·s⁻²",
+            "µg/mL",
+            "m/°C",
+        ],
+    )
+    def test_matches(self, text: str) -> None:
+        assert self.rule.matches(SIUnitNotation(text=text, shape="compound"), CONTRACT)
+
+    @pytest.mark.parametrize("text", ["QQQ/zzz", "m/", "/s", "m s", "m/2", "/"])
+    def test_rejects(self, text: str) -> None:
+        assert not self.rule.matches(
+            SIUnitNotation(text=text, shape="compound"), CONTRACT
+        )
+
+    def test_rejects_non_compound_shape(self) -> None:
+        assert not self.rule.matches(
+            SIUnitNotation(text="m/s", shape="symbol"), CONTRACT
+        )
+
+    @pytest.mark.parametrize(
+        ("text", "canonical"),
+        [
+            ("m/s²", "m/s2"),
+            ("m/s2", "m/s2"),
+            ("N·m", "N·m"),
+            ("N⋅m", "N·m"),
+            ("kg·m/s²", "kg·m/s2"),
+            ("g/cm³", "g/cm3"),
+            ("m·s⁻²", "m·s-2"),
+            ("l/s", "L/s"),
+            ("µm/s", "µm/s"),
+        ],
+    )
+    def test_normalize(self, text: str, canonical: str) -> None:
+        result = self.rule.normalize(
+            SIUnitNotation(text=text, shape="compound"), CONTRACT
+        )
+        assert result == canonical
+
+    def test_temporal_gate(self) -> None:
+        old = SIUnitContract(year=2021)
+        assert not self.rule.matches(SIUnitNotation(text="m/s", shape="compound"), old)
+        assert self.rule.matches(SIUnitNotation(text="m/s", shape="compound"), CONTRACT)
