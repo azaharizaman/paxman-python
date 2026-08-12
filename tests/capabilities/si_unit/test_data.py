@@ -4,7 +4,10 @@ import pytest
 
 from paxman.capabilities.SIUnit.rules.data.si_base_units import BASE_UNIT_SYMBOLS
 from paxman.capabilities.SIUnit.rules.data.si_derived_units import DERIVED_UNIT_SYMBOLS
-from paxman.capabilities.SIUnit.rules.data.si_nonsi_units import NONSI_UNIT_SYMBOLS
+from paxman.capabilities.SIUnit.rules.data.si_nonsi_units import (
+    LITRE_WRITTEN_FORMS,
+    NONSI_UNIT_SYMBOLS,
+)
 from paxman.capabilities.SIUnit.rules.data.si_prefixes import (
     PREFIX_NAMES,
     PREFIX_SYMBOLS,
@@ -24,7 +27,36 @@ class TestAuthorityTables:
         # 22 BIPM Table 3 special-name units + "g" (the gram — the
         # prefix attachment point for mass, per BIPM SI Brochure §3.2).
         assert len(DERIVED_UNIT_SYMBOLS) == 23
-        assert {"rad", "Hz", "Pa", "Ω", "°C", "kat"} <= DERIVED_UNIT_SYMBOLS
+        assert (
+            frozenset(
+                {
+                    "rad",
+                    "sr",
+                    "Hz",
+                    "N",
+                    "Pa",
+                    "J",
+                    "W",
+                    "C",
+                    "V",
+                    "F",
+                    "Ω",
+                    "S",
+                    "Wb",
+                    "T",
+                    "H",
+                    "°C",
+                    "lm",
+                    "lx",
+                    "Bq",
+                    "Gy",
+                    "Sv",
+                    "kat",
+                    "g",
+                }
+            )
+            == DERIVED_UNIT_SYMBOLS
+        )
 
     def test_prefix_symbols(self) -> None:
         assert len(PREFIX_SYMBOLS) == 24
@@ -67,20 +99,31 @@ class TestAuthorityTables:
         assert PREFIX_NAMES["da"] == "deca"
 
     def test_non_si_units(self) -> None:
-        assert {
-            "min",
-            "h",
-            "d",
-            "°",
-            "′",
-            "″",
-            "ha",
-            "L",
-            "l",
-            "t",
-            "Da",
-            "eV",
-        } <= NONSI_UNIT_SYMBOLS
+        assert (
+            frozenset(
+                {
+                    "min",
+                    "h",
+                    "d",
+                    "°",
+                    "′",
+                    "″",
+                    "ha",
+                    "L",
+                    "l",
+                    "t",
+                    "Da",
+                    "eV",
+                    "u",
+                    "Å",
+                    "b",
+                    "bar",
+                    "mmHg",
+                }
+            )
+            == NONSI_UNIT_SYMBOLS
+        )
+        assert frozenset({"L", "l"}) == LITRE_WRITTEN_FORMS
 
     def test_name_to_symbol_locked_rows(self) -> None:
         assert NAME_TO_SYMBOL["kilogram"] == "kg"
@@ -89,3 +132,4 @@ class TestAuthorityTables:
         assert NAME_TO_SYMBOL["litre"] == "L"
         assert NAME_TO_SYMBOL["metre"] == "m"
         assert NAME_TO_SYMBOL["hertz"] == "Hz"
+        assert NAME_TO_SYMBOL["gram"] == "g"

@@ -8,6 +8,9 @@ lowercase, single- or multi-word, per the BIPM SI Brochure (9th ed.,
 Prefixed names are not maintained here; they live in the generated
 prefixed_unit_names.py module (Task 4).
 
+Symbol values must stay unique: the Task 4 generator's symbol_to_name
+reverse map depends on it (last-write-wins).
+
 Maintained authority snapshot — regenerate via the Task 4 tool after edits.
 """
 
