@@ -71,7 +71,8 @@ semantics at all three sites (`_validate_affinity`, `_collect_candidates`,
 for every shipped grammar); Phase 2 coalesces same-meaning grammars in Date,
 Email, and Phone; a consistency-guard test locks same-semantics/same-field-
 mapping; docs are swept. Provenance and candidate dedup stay name-based —
-output is byte-identical to today for every existing input.
+output is byte-identical to today for every existing input, excluding the
+digit-glued date class (post-plan lookaround tightening; see Out of scope).
 
 ### D-Decisions (locked — do not revisit without a new ADR)
 
@@ -324,8 +325,10 @@ uv run pyright
 ```
 Also confirm the sweep is complete (zero hits inside `paxman/` and `tests/`):
 ```bash
-grep -rn "target_grammars" paxman/ tests/ || echo "CLEAN"
+grep -rn "target_grammars" paxman/ tests/
 ```
+(No `|| echo "CLEAN"` fallback — zero matches prints nothing and exits 1; a
+grep error exits ≥ 2 and stays visible.)
 
 **Commit**
 ```
@@ -646,18 +649,19 @@ the **repo root**, not under `docs/`.
 Do NOT touch (historical records, ADR-0002 precedent): `docs/superpowers/
 plans/*`, `docs/report/*`, `docs/research/*`, `docs/adr/*`.
 
-**Verify** (zero hits outside the excluded paths — generated dirs excluded,
-verified command):
+**Verify** (zero hits outside the excluded paths — the historical records and
+generated dirs are excluded; `paxman/` and `tests/` are searched, because the
+sweep covers the nested AGENTS.md there):
 ```bash
 grep -rnE 'target_grammars' . \
   --exclude-dir=.git --exclude-dir=plans --exclude-dir=report \
-  --exclude-dir=research --exclude-dir=adr --exclude-dir=paxman \
-  --exclude-dir=tests --exclude-dir=htmlcov --exclude-dir=.hypothesis \
-  --exclude-dir=.pytest_cache --exclude-dir=.venv || echo "CLEAN"
+  --exclude-dir=research --exclude-dir=adr \
+  --exclude-dir=htmlcov --exclude-dir=.hypothesis \
+  --exclude-dir=.pytest_cache --exclude-dir=.venv
 ```
-(`--exclude-dir=paxman --exclude-dir=tests` are dropped if this task is
-assigned the Task-2 sweep proof instead — the nested AGENTS.md are the only
-`paxman/` matches.)
+No `|| echo "CLEAN"` fallback: zero matches is the expected result (grep
+prints nothing, exits 1); any grep error (exit ≥ 2) stays visible instead of
+being reported as "CLEAN".
 
 **Commit**
 ```
@@ -668,10 +672,11 @@ docs: sweep target_grammars and document semantic affinity
 
 ### Task 10 — Final gate (no commit)
 
-**Verify — full pre-PR gate** (authoritative per `.github/workflows/ci.yml`):
+**Verify — full pre-PR gate** (authoritative per `.github/workflows/ci.yml`;
+ruff lint and format are CI-scoped to `paxman/ tests/`):
 ```bash
-uv run ruff check . && uv run ruff format --check . && uv run pyright && \
-  uv run import-linter lint && uv run pytest
+uv run ruff check paxman/ tests/ && uv run ruff format --check paxman/ tests/ \
+  && uv run pyright && uv run import-linter lint && uv run pytest
 ```
 Coverage gate (one include pattern per package — the brace shorthand
 `paxman/{core,capabilities,engine,api}/*` is not expanded by the installed
@@ -682,9 +687,9 @@ uv run coverage report --include="paxman/capabilities/*" --fail-under=95
 uv run coverage report --include="paxman/engine/*" --fail-under=95
 uv run coverage report --include="paxman/api/*" --fail-under=95
 ```
-Zero-grep proof (Task 9 Verify) returns CLEAN; `target_grammars` appears
-nowhere in `paxman/` or `tests/`; `semantics` is present on all 26 shipped
-grammars (Task 1 test still green).
+Zero-grep proof (Task 9 Verify) shows no matches outside the excluded
+paths; `target_grammars` appears nowhere in `paxman/` or `tests/`; `semantics`
+is present on all 26 shipped grammars (Task 1 test still green).
 
 If any gate fails, fix it in a follow-up commit — never by weakening a test,
 never by restoring `target_grammars`, never by editing the excluded
@@ -748,7 +753,7 @@ historical docs.
       coalesced ids for Date/Email/Phone after Phase 2), enforced by
       `Grammar.__init_subclass__` at class-definition time with tests.
 - [x] Zero `target_grammars` anywhere in `paxman/` or `tests/`; the Task 9
-      zero-grep proof is CLEAN outside the excluded historical paths.
+      zero-grep proof shows no matches outside the excluded historical paths.
 - [x] Engine routes on semantics at all three sites; provenance and
       candidate dedup remain name-based (`GrammarRule.grammar_name`,
       `Candidate.recognition_rule` unchanged).

@@ -115,7 +115,9 @@ target_semantics = frozenset({"iso8601_calendar_date"})
 (`grammar_name`), and `_dedup_candidates` continues to collapse on
 `(value, recognition_rule, validation_rule)`. `semantics` is routing metadata;
 the grammar name remains the audit identity of the recognition. Provenance
-output is byte-identical to today for every existing input.
+output is byte-identical to today for every existing input, excluding
+digit-glued dates — the date grammars' lookaround bounds were tightened
+post-ADR (see the Migration note).
 
 ### 5. What a grammar-only addition now means
 
