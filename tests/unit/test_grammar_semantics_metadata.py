@@ -16,6 +16,7 @@ from paxman.capabilities import (
     Email,
     Money,
     Phone,
+    SIUnit,
 )
 from paxman.core.domain import Grammar, RecognitionMatch
 
@@ -42,7 +43,18 @@ class TestGrammarSemanticsMetadata:
         """Every shipped grammar declares ``semantics``: identity with its name
         for non-coalesced grammars, or one of the coalesced ids (an explicit
         allowlist) for grammars sharing a semantic group."""
-        capabilities = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
+        capabilities = [
+            Country,
+            Currency,
+            Date,
+            Email,
+            IP,
+            ISBN,
+            Money,
+            Phone,
+            SIUnit,
+            URL,
+        ]
         for capability in capabilities:
             for grammar in capability().get_grammars():
                 assert isinstance(grammar.semantics, str)

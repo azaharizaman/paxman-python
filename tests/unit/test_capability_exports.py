@@ -14,6 +14,7 @@ from paxman.capabilities import (
     Email,
     Money,
     Phone,
+    SIUnit,
 )
 
 
@@ -113,6 +114,18 @@ class TestMoneyCapabilityExports:
         assert Money.name == "money"
 
 
+class TestSIUnitCapabilityExports:
+    @pytest.mark.unit
+    def test_si_unit_capability_importable(self) -> None:
+        """SIUnit capability is importable from paxman.capabilities."""
+        assert SIUnit is not None
+
+    @pytest.mark.unit
+    def test_si_unit_capability_name(self) -> None:
+        """SIUnit capability has correct name."""
+        assert SIUnit.name == "si_unit"
+
+
 class TestURLCapabilityExports:
     @pytest.mark.unit
     def test_url_capability_importable(self) -> None:
@@ -125,8 +138,8 @@ class TestURLCapabilityExports:
         assert URL.name == "url"
 
     @pytest.mark.unit
-    def test_export_list_contains_nine_names(self) -> None:
-        """The registration surface exports exactly nine capabilities."""
+    def test_export_list_contains_ten_names(self) -> None:
+        """The registration surface exports exactly ten capabilities."""
         import paxman.capabilities as capabilities
 
         assert set(capabilities.__all__) == {
@@ -138,5 +151,6 @@ class TestURLCapabilityExports:
             "ISBN",
             "Money",
             "Phone",
+            "SIUnit",
             "URL",
         }

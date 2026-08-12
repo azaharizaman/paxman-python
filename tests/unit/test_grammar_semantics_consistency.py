@@ -32,6 +32,7 @@ from paxman.capabilities import (
     Email,
     Money,
     Phone,
+    SIUnit,
 )
 from paxman.capabilities.Date.contract import DateContract
 from paxman.capabilities.Date.notation import DateNotation
@@ -45,7 +46,18 @@ from paxman.capabilities.Phone.rules.e164_ed2010 import Section6_1InternationalN
 from paxman.core.capability_contract import CapabilityContract
 from paxman.core.domain import Grammar, Rule
 
-_SHIPPED_CAPABILITIES = [Country, Currency, Date, Email, IP, ISBN, Money, Phone, URL]
+_SHIPPED_CAPABILITIES = [
+    Country,
+    Currency,
+    Date,
+    Email,
+    IP,
+    ISBN,
+    Money,
+    Phone,
+    SIUnit,
+    URL,
+]
 
 # D7 no-coalesce ids: groups that must NEVER grow a second member. The
 # date formats and the six identity singletons are distinct enough that
@@ -295,12 +307,20 @@ def test_d7_no_coalesce_semantics_groups_stay_singleton() -> None:
 
     ``us_calendar_date``/``european_calendar_date`` are renamed singletons and
     the other six are identity singletons; coalescing any of them would change
-    what the shared semantics resolves to. Each id must total exactly one
-    member across all capabilities.
+    what the shared semantics resolves to. Each id must stay a singleton
+    within every capability: coalescing happens only inside one capability,
+    so a second member anywhere in the same capability would silently change
+    what the id resolves to, while reuse across capabilities (Country and
+    SIUnit both declaring ``name_recognition``) never co-routes and is safe
+    (R3). Each locked id must still exist in at least one capability.
     """
     groups = _group_shipped_grammars_by_capability_semantics()
     for semantics in _NO_COALESCE_SEMANTICS:
-        total = sum(
-            len(per_capability.get(semantics, ())) for per_capability in groups.values()
+        counts = [
+            len(per_capability.get(semantics, ()))
+            for per_capability in groups.values()
+        ]
+        assert any(counts), f"{semantics!r} must stay a singleton, found none"
+        assert all(count <= 1 for count in counts), (
+            f"{semantics!r} must stay a singleton per capability, found {counts}"
         )
-        assert total == 1, f"{semantics!r} must stay a singleton, found {total}"

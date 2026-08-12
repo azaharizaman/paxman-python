@@ -47,3 +47,8 @@ class TestSIUnitContract:
     def test_frozen(self) -> None:
         with pytest.raises(dataclasses.FrozenInstanceError):
             SIUnitContract().capability_name = "other"  # type: ignore[misc]
+
+    def test_no_slots(self) -> None:
+        """Contracts are @dataclass(frozen=True) WITHOUT slots (project
+        convention — enforced by the surface guard)."""
+        assert hasattr(SIUnitContract(), "__dict__")
