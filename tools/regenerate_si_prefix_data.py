@@ -2,7 +2,7 @@
 
 Computes the prefixed-unit set and the grammar token tables from the
 maintained authority tables in paxman/capabilities/SIUnit/rules/data/.
-Deterministic: same tables -> byte-identical output. Run after editing
+Deterministic: same tables -> identical generated output. Run after editing
 any maintained SIUnit data module:
 
     uv run python tools/regenerate_si_prefix_data.py

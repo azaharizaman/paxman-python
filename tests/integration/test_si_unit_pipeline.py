@@ -192,12 +192,14 @@ class TestSIUnitPipeline:
         assert {c.value for c in result.candidates} == {"m", "s"}
 
     @pytest.mark.integration
-    def test_determinism_byte_identical_output(self) -> None:
-        """Same input + contract yields byte-identical output across calls.
+    def test_determinism_reproducible_output(self) -> None:
+        """Same input + contract yields reproducible output across calls.
 
-        The project mandate is byte-identical canonicalization; this locks it
-        for an AMBIGUOUS input (also pins candidate ordering, not just the
-        value set) and a SUCCESS input.
+        Determinism is a general correctness property (not a byte-identical
+        mandate — the replay-hash baseline was removed): an identical input
+        and contract must resolve to the same status, canonical value, and
+        candidate order on every call. This pins it for an AMBIGUOUS input
+        and a SUCCESS input.
         """
         register_capability(SIUnitCapability())
         contract = SIUnitCapability.create_contract()
