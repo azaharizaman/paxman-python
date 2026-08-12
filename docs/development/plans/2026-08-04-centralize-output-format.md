@@ -6,6 +6,8 @@
 
 **Architecture:** Validation rules will normalize recognized notation into their capability's default canonical representation only. The engine will call a non-abstract `Capability.format_value()` immediately after `Rule.normalize()` and before candidate deduplication, status calculation, and replay hashing. Date, Phone, and Country will implement format conversion; Email and IP will inherit the identity implementation because they offer no alternative formats.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 **Tech Stack:** Python 3.11, `uv`, pytest, Hypothesis, Ruff, Pyright strict, import-linter.
 
 ---
@@ -25,6 +27,8 @@
 - Literal replay-hash snapshots for one default-format case per built-in capability are captured before Tasks 2–4 and must remain unchanged after the migration.
 - No new output formats, contract fields, canonical defaults, dedup keys, status semantics, or replay-hash fields are introduced.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ## Files And Responsibilities
 
 - Modify `paxman/core/capability.py`: add the typed, default-identity `format_value()` seam.
@@ -39,6 +43,8 @@
 - Add `tests/unit/test_rule_output_format_purity.py`: fail CI if any validation-rule module references `output_format`.
 - Modify `ARCHITECTURE.md` and `HOW_TO_ADD_NEW_CAPABILITY.md`: document the new validation-to-formatting pipeline.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ## Task 1: Lock The Engine Seam With A Failing Integration Test
 
 **Files:**
@@ -47,9 +53,15 @@
 - Modify: `paxman/core/capability.py`
 - Modify: `paxman/engine/orchestrator.py`
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 - [ ] **Step 1: Capture default-format replay hashes before changing production code.**
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Create `tests/integration/test_default_replay_hashes.py` with a registry-reset fixture and a parametrized test that registers one fresh built-in capability per case, runs the listed input with that capability's no-argument contract, and compares `result.version_stamp.replay_hash` to these literal pre-migration values:
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ```python
 DEFAULT_REPLAY_HASHES = {
@@ -59,6 +71,8 @@ DEFAULT_REPLAY_HASHES = {
     "ip": "6709b8b4ca35a7fec0ddc80bf13325af0dfbcf79d17577955a2a8ae41ad8c71a",
     "phone": "c5aec207bcfb3d061585b789ccb3d6cd98d394bffbe0f81c4fcd481132647f3d",
 }
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 DEFAULT_CASES = (
     ("date", DateCapability, "2026-01-15"),
@@ -84,6 +98,8 @@ Run:
 ```bash
 uv run pytest tests/integration/test_default_replay_hashes.py tests/integration/test_format_value_seam.py -q
 ```
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 Expected: the five baseline replay snapshots pass and the formatter-seam test fails because `Capability` has no formatter seam and `_collect_candidates()` currently stores the rule's raw normalized value.
 
@@ -128,6 +144,8 @@ uv run pytest tests/integration/test_default_replay_hashes.py tests/integration/
 uv run ruff check paxman/core/capability.py paxman/engine/orchestrator.py tests/integration/test_format_value_seam.py
 uv run pyright
 ```
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 Expected: the seam test and all five literal baseline snapshots pass, Ruff exits 0, and Pyright reports no new errors.
 
@@ -285,6 +303,8 @@ Expected: current-code conversions, localized alternate formats, historical pass
 - Modify: `tests/integration/test_pipeline.py`
 - Add or modify: `tests/property/test_format_value_properties.py`
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 - [ ] **Step 1: Add identity and offered-format surface assertions.**
 
 Assert that every capability with non-empty `OFFERED_OUTPUT_FORMATS` has a formatter that handles each offered format, while Email and IP retain identity behavior. Assert that each capability's formatter default agrees with its contract default.
@@ -302,6 +322,8 @@ Expected: PASS only when all Date, Phone, Country, Email, and IP rule modules de
 - [ ] **Step 3: Add replay and candidate-order regressions.**
 
 For a fixed Date ambiguity, Phone RFC 3966 extension, Country conversion, and default Email/IP case, run the same input and contract twice and assert equal `status`, `canonicalized_value`, `candidates`, and `version_stamp.replay_hash`. Keep the literal pre-migration snapshots from Task 1 as a separate compatibility assertion; do not replace them with within-run determinism checks. Assert formatting occurs before deduplication using the two-extension Phone case. Update the existing Date ambiguity test names and docstrings in `tests/integration/test_pipeline.py` so they describe formatting before status/deduplication and assert only the intended invariant: status remains `AMBIGUOUS` because the formatted candidate values remain two distinct values.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 4: Add property tests.**
 
@@ -334,6 +356,8 @@ Expected: all tests pass, including existing pipeline tests that observe formatt
 
 Describe the order as recognition → validation → default normalization → capability formatting → candidate deduplication → status → replay hash. State that rules must not inspect `output_format` to decide validation or presentation.
 Document that CI rejects any `output_format` reference in validation-rule modules, that localized Country names are formatted through current alpha-2 mappings while preserving CLDR/Unicode provenance, and that historical former codes pass through when no current mapping exists.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 2: Correct F4 historical wording.**
 
@@ -387,7 +411,11 @@ Run:
 uv run pytest tests/unit/test_rule_output_format_purity.py tests/integration/test_default_replay_hashes.py -q
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Expected: the rule-purity gate passes with no rule-level `output_format` references, and all five literal default replay hashes remain byte-identical to the pre-migration baseline.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 - [ ] **Step 5: Review the diff against the behavioral contract.**
 

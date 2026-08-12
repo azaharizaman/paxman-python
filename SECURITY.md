@@ -21,7 +21,7 @@ Paxman incorporates several design principles that reduce attack surface:
 
 - **Strict Type Checking**: The project enforces strict mode static type checking across all layers, catching type-related errors at development time rather than runtime.
 
-- **Deterministic Computation**: Given the same input and contract configuration, output is always byte-identical. This prevents timing-based side channels and ensures reproducibility.
+- **Deterministic Computation**: Given the same input and contract configuration, the pipeline always yields the same canonical output — no world-knowledge, no clock, no environment-dependent ordering, no fuzzy logic, no network inference across recognition, validation, and canonicalization. This prevents timing-based side channels and ensures reproducibility.
 
 - **Input Validation**: The system distinguishes between MISSING (no recognition), INVALID (recognized but unvalidated), and SUCCESS/AMBIGUOUS states, ensuring untrusted input is never silently accepted without authoritative validation.
 

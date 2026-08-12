@@ -24,6 +24,8 @@ notation *before* calling `matches()`, so routing is explicit and capability-agn
 - Annotate all 18 production `Rule` subclasses with their true acceptance domain.
 - TDD tests proving ambiguity is preserved and replay hashes are stable.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 **Non-goals (explicitly out of scope — separate findings in the audit):**
 - **F2** `include_*` feature gating (grammar-gate vs rule-gate unification).
 - **F3** grammar-time canonicalization / single-source authority tables.
@@ -49,6 +51,8 @@ notation *before* calling `matches()`, so routing is explicit and capability-agn
 Each rule keeps its existing value-level `matches()`/`normalize()` logic as defense-in-depth.
 The declared set must equal the rule's *effective* acceptance domain (derived from the
 audit's cross-capability map), so behavior and the replay hash are byte-identical.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ---
 
@@ -158,6 +162,8 @@ rule today). **This is the contract the implementation must satisfy — do not s
 - **Why:** the filter realizes F1; dedup keeps the replay hash stable if any future
   author over-declares `target_grammars` (audit's replay-safety condition).
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ### Step 3 — Engine affinity invariant (`paxman/engine/orchestrator.py`)
 **Files:** `paxman/engine/orchestrator.py` (new helper; call in `run_capability` after
 `_filter_rules`, line 57).
@@ -239,6 +245,8 @@ then confirm green.
 9. `_validate_affinity` fires: a stub capability whose rule declares a non-existent
    grammar name → `run_capability` raises `ContractError`.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ---
 
 ## 7. Verification (quality gates)
@@ -277,6 +285,8 @@ integration/e2e suites unchanged in outcome.
    when a new grammar reuses an existing shape (the Phone `e164`/`international_00`
    pattern). Step 3's invariant plus the `HOW_TO` presentational-only section document
    the discipline; no runtime shape coupling is introduced.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ---
 

@@ -165,7 +165,7 @@ def active_grammars(self) -> list[str]:
     return grammars
 ```
 
-Recognition order (and the same-span tiebreak) follows the runnable set — `get_grammars()` order for the six all-active capabilities, the `active_grammars` list for the three gated ones — so appending at the end keeps every existing grammar's behavior byte-identical. Update the capability test asserting the grammar count (`test_get_grammars_returns_all`) and add one asserting the new name is wired.
+Recognition order (and the same-span tiebreak) follows the runnable set — `get_grammars()` order for the six all-active capabilities, the `active_grammars` list for the three gated ones — so appending at the end keeps every existing grammar's behavior identical (deterministic). Update the capability test asserting the grammar count (`test_get_grammars_returns_all`) and add one asserting the new name is wired.
 
 > **The missing-half bug (gated capabilities only).** For Email, IP, and ISBN, the engine builds the runnable set from `contract.active_grammars`, not from `get_grammars()` — a grammar returned by `get_grammars()` but missing from `active_grammars` is dead code that will pass unit tests on the class and fail silently in the pipeline. The integration test in Step 5 is what catches this. The all-active capabilities have no such hole: the engine falls back to `get_grammars()` itself.
 

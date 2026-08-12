@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Paxman's test suite exists to protect one core promise: given the same input and the same contract, the output is always byte-identical. Every test, from the lowest-level unit check to the full end-to-end run, reinforces that guarantee. The suite is built on `pytest` and organized into four layers that mirror the architectural boundaries of the system itself.
+Paxman's test suite exists to protect one core promise: given the same input and the same contract, the pipeline always yields the same canonical output. Every test, from the lowest-level unit check to the full end-to-end run, reinforces that determinism — achieved by construction through no world-knowledge, no clock, no environment-dependent ordering, no fuzzy logic, and no network inference across recognition, validation, and canonicalization. The suite is built on `pytest` and organized into four layers that mirror the architectural boundaries of the system itself.
 
 ---
 

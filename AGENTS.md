@@ -62,7 +62,7 @@ docs/               # adr/, report/, research/, superpowers/plans+specs
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - **No `# type: ignore` / `# noqa` / `# pyright: ignore` in `paxman/` source** — fix root cause or use scoped ruff `per-file-ignores` (sanctioned pattern in pyproject). Tests may use `# type: ignore[misc]` for immutability checks.
-- Never guess/infer/suggest — same input + contract = byte-identical output.
+- Deterministic by construction: given the same input and contract, the pipeline always yields the same canonical output — no world-knowledge, no clock, no environment-dependent ordering, no fuzzy logic, no network inference across recognition, validation, and canonicalization.
 - No cross-capability imports; capabilities import only from `paxman.core`; `paxman.core` imports nothing from `paxman.*`.
 - Grammars must not map tokens to canonical values or import rule-layer data.
 - Rules never contain the token `output_format` (code, comments, or docstrings).

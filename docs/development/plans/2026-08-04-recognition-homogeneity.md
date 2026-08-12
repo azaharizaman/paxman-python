@@ -11,6 +11,8 @@ Make recognition **homogeneous across all capabilities** — and set the templat
 3. **Candidate set is byte-identical** — the five baseline replay hashes MUST NOT change (this is the migration's correctness gate, and it is why every existing grammar's *values* stay exactly as they are today).
 4. **`HOW_TO_ADD_NEW_CAPABILITY.md` and `ARCHITECTURE.md` are updated** so future capabilities inherit this contract from the first grammar they write.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 This deletes the four divergent mechanisms found in the research memo (`docs/report/recognition-handling-library-research.md`) — Email's part-keyed `seen` set + two-pass batching, Phone's value-keyed `dedup()` helper, Date's span-containment re-checks, and the per-capability ordering leftovers — and replaces them with one engine-enforced mechanism.
 
 ## Architecture
@@ -28,6 +30,8 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
                                      │
         ExecutionResult / VersionStamp.replay_hash   # byte-identical to today
 ```
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 **Responsibility split (the invariant):**
 
@@ -61,6 +65,8 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
 - Candidate ORDER within `ExecutionResult.candidates` follows recognition order; the replay hash sorts candidates, so hashes are unaffected. One test pins multi-candidate order on purpose: `test_recognition_seam.py::test_engine_orders_by_document_order_with_grammar_index_tiebreak` asserts `["L:AA", "S:AA", "L:AAAA"]` to prove the total order is observable end to end.
 - NOT in scope (deferred, recorded in `capability_homogeneity_audit.md` Task 8): a shared stdnum-style `clean()` syntax seam, moving Country `.upper()` into it, and adopting Lark. The `.upper()` stays in the alpha-2/alpha-3 grammars — it is syntax normalization and must remain to preserve notation values and hashes.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ## Files And Responsibilities
 
 | File | Responsibility |
@@ -80,22 +86,34 @@ Grammar.recognize(text) -> list[RecognitionMatch]   # ONE contract, 16 grammars
 | `ARCHITECTURE.md` | Add recognition-pipeline contract (spans/dedup/order) (Task 8) |
 | `capability_homogeneity_audit.md` | Mark Tier 2 resolved; record deferred syntax seam (Task 8) |
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ---
 
 ## Task 1 — Lock the baseline: literal replay-hash snapshot
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 **Why:** the migration must be hash-transparent. Snapshot the five hashes BEFORE any change so Task 9 can prove the candidate set is byte-identical.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ### Step 1 — Create `tests/integration/test_default_replay_hashes.py`
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ```python
 """Baseline replay-hash snapshot.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 The replay_hash is the engine's behavioral contract: any pipeline change
 that alters the candidate set, provenance set, or serialized contract
 shifts a hash and fails here. Literals captured 2026-08-04 on main
 (verified byte-identical to the 2026-08-04-centralize-output-format
 migration).
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 The recognition-homogeneity migration MUST land with zero hash changes:
 the candidate set it produces is identical to today's. Update these
@@ -156,11 +174,15 @@ def test_default_replay_hash_matches_baseline(key, capability_cls, input_text):
     assert result.version_stamp.replay_hash == BASELINE_HASHES[key]
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 ### Step 2 — Verify
 
 ```bash
 uv run pytest tests/integration/test_default_replay_hashes.py -q
 ```
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 All 5 pass (green pre-change). Then:
 
@@ -168,6 +190,8 @@ All 5 pass (green pre-change). Then:
 git add tests/integration/test_default_replay_hashes.py
 git commit -m "test: lock default replay-hash baseline before recognition homogeneity"
 ```
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ---
 
@@ -614,6 +638,8 @@ def _dedup_spans(
 ```
 
 `_collect_candidates`, `_dedup_candidates`, `_determine_status`, and `_compute_replay_hash` are UNCHANGED.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 > **Post-hoc correction (2026-08-05, CodeRabbit round 2):** `active_names` is
 > deduplicated (first occurrence wins) before `grammar_index` and
@@ -1180,6 +1206,8 @@ Rewrite `test_e164_dedups_same_value_different_formats` (dedup moved to the engi
 
 > **Post-hoc correction (2026-08-05, CodeRabbit review):** that locked behavior was a real bug. The trailing character class of `_E164_PATTERN` consumed separators AND following digit runs, merging "+15551234567 5551234567" into one 20-digit match. `recognize()` now trims the raw match at the last digit-run group within the 15-digit E.164 limit (`_trim_to_e164_boundary`), so the match stops at "+15551234567" and leaves the national-format run to other grammars. The test was renamed to `test_e164_does_not_swallow_following_number` (one match, value "15551234567", span `(0, 12)`) and a new `test_e164_oversized_run_not_truncated` locks the no-silent-truncation guard (a run longer than 15 digits is left whole so validation rejects it). Phone replay hash unchanged: the baseline input "+1 555 123 4567" has no trailing run.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Add one span test per grammar class:
 
 ```python
@@ -1525,9 +1553,15 @@ uv run pytest -q                                      # FULL test suite, 0 failu
 uv run pytest tests/integration/test_default_replay_hashes.py -q   # 5/5 — hashes byte-identical
 ```
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 If `test_default_replay_hashes.py` FAILS at this point, STOP: the migration changed the candidate set. Do not update the literals — find and fix the regression (compare `result.candidates` against pre-migration output). If any rule/grammar file needed a stray `# type: ignore` or `# noqa`, fix the underlying issue instead — none are permitted in `paxman/` source.
 
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
+
 Versioning: this migration changed PUBLIC interfaces — `Grammar.recognize()` now returns `list[RecognitionMatch[NotationT]]` instead of bare notations, and `RecognizedRep` gained required span fields (`start`/`end`/`raw_text`) — so it is a breaking API change for capability authors. The version was bumped 0.1.1 → 0.2.0 (pre-1.0, breaking change bumps minor). The replay hashes are unaffected: the hash covers input/contract/status/candidates only, not the library version, so they remain the migration's behavioral contract. Ship a migration note describing the span-bearing `RecognitionMatch` return type and the new `RecognizedRep` span fields for downstream consumers.
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
 
 ### Acceptance checklist (from the Behavioral Contract)
 
@@ -1542,3 +1576,5 @@ Versioning: this migration changed PUBLIC interfaces — `Grammar.recognize()` n
 - [x] `ARCHITECTURE.md` documents the recognition pipeline contract
 - [x] Audit Tier 2 marked resolved, syntax seam deferred
 - [x] Full suite green: `pytest`, `pyright`, `ruff`, `lint-imports`
+
+> **Note — replay-hash removed; do not use as a sample.** The `replay_hash` (replay-hash / byte-identical canonicalization) mechanism referenced in the paragraph above was **removed** from Paxman (see `docs/adr/0002-remove-replay-hash.md`). The text above reflects the pre-removal design and MUST NOT be copied, adapted, or used as a template for future work.
