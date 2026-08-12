@@ -334,7 +334,7 @@ result = paxman.canonicalize("http://münchen.de", contract)
 
 ### SI Unit Capability
 
-Recognizes SI unit expressions: symbols, names, and product/quotient compounds, canonicalizing to the canonical symbol form with BIPM SI Brochure (9th ed.) and ISO 80000-1 provenance. Identity-only: no quantities, no magnitudes, no name-compounds ("metre per second" is not recognized; "25°C" is MISSING).
+Recognizes SI unit expressions: symbols, names, and product/quotient compounds, canonicalizing to the canonical symbol form with BIPM SI Brochure (9th ed.) and ISO 80000-1 provenance. Identity-only: no quantities, no magnitudes, no name-compounds ("metre per second" does not resolve as a compound — its words are recognized separately, yielding AMBIGUOUS; "25°C" is MISSING).
 
 ```python
 from paxman.capabilities import SIUnit

@@ -196,7 +196,7 @@ class SectionCode(Rule[CurrencyNotation]):
         return self.TABLE[notation.text]
 ```
 
-Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. Only three data modules are generated via tools: the ISBN range message (`tools/regenerate_isbn_range_data.py`), the SIUnit prefixed-unit tables (`tools/regenerate_si_prefix_data.py`), and the URL IDNA UTS #46 mapping (`tools/regenerate_idna_uts46_data.py`) — everything else is maintained in place.
+Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. Seven data modules across three generators are produced via tools: the ISBN range message (`tools/regenerate_isbn_range_data.py`), the URL IDNA UTS #46 mapping (`tools/regenerate_idna_uts46_data.py`), and the SIUnit prefixed-unit and grammar token tables (`tools/regenerate_si_prefix_data.py`) — everything else is maintained in place.
 
 ### Parser Example
 ```python
@@ -782,7 +782,7 @@ paxman/
     │   ├── contract.py            # SIUnitContract
     │   ├── notation.py            # SIUnitNotation (text, shape)
     │   ├── grammar/               # symbol, name, compound_recognition
-    │   ├── grammar/data/          # unit_symbol_tokens, unit_name_tokens, compound_tokens
+    │   ├── grammar/data/          # unit_symbol_tokens, unit_name_tokens, compound_tokens (+ GENERATED via tools/regenerate_si_prefix_data.py)
     │   ├── rules/                 # bipm_si_brochure_ed2019, iso_80000_ed2022
     │   └── rules/data/            # si_base_units, si_derived_units, si_nonsi_units, si_prefixes, unit_names (+ GENERATED prefixed_units, prefixed_unit_names)
     └── URL/                       # grammar/ (1) + rules/ (1) + rules/data/ — WHATWG URL Standard
