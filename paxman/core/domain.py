@@ -145,16 +145,20 @@ class RecognizedRep(Generic[NotationT]):
 
 @dataclass(frozen=True, slots=True)
 class Candidate:
-    """Carries validation output: canonical value + provenance.
+    """Carries validation output: canonical value + provenance + source span.
 
     ``recognition_rule`` and ``validation_rule`` are string-based rule names
-    for traceability. If a future iteration requires instance references,
-    update the Candidate fields and documentation accordingly.
+    for traceability, and ``span`` is the half-open ``[start, end)`` character
+    range the producing recognition occupied in the input (``None`` for
+    candidates built outside the pipeline, e.g. test doubles). If a future
+    iteration requires instance references, update the Candidate fields and
+    documentation accordingly.
     """
 
     value: str
     recognition_rule: str
     validation_rule: str
+    span: tuple[int, int] | None = None
     _provenance: tuple[Provenance, ...] = field(init=False)
 
     @property
@@ -167,10 +171,12 @@ class Candidate:
         recognition_rule: str,
         validation_rule: str,
         provenance: Sequence[Provenance],
+        span: tuple[int, int] | None = None,
     ) -> None:
         object.__setattr__(self, "value", value)
         object.__setattr__(self, "recognition_rule", recognition_rule)
         object.__setattr__(self, "validation_rule", validation_rule)
+        object.__setattr__(self, "span", span)
         object.__setattr__(self, "_provenance", tuple(provenance))
 
 
@@ -230,6 +236,13 @@ class Grammar(ABC, Generic[NotationT]):
 
     name: str
     semantics: ClassVar[str]
+    # Opt-in to the single-value invariant (ADR-0004). A grammar that resolves
+    # exactly one mention per canonicalize() call sets this True; the engine then
+    # treats multiple non-overlapping mentions it recognizes as un-segmented
+    # multi-entity input and fails fast with MultipleMentionsError. Grammars that
+    # deliberately emit multiple spans for one logical mention (e.g. a test
+    # probe exercising the span-bearing seam) leave this False and are exempt.
+    single_value: ClassVar[bool] = False
 
     def __init_subclass__(cls, **kwargs: object) -> None:
         """Enforce Grammar metadata at class-definition time."""

@@ -27,6 +27,7 @@ class TelUriGrammar(Grammar[PhoneNotation]):
 
     name = "tel_uri_recognition"
     semantics = "tel_uri_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract tel: URI patterns from text.

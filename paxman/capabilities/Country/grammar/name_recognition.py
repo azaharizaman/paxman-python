@@ -50,6 +50,7 @@ class NameGrammar(Grammar[CountryNotation]):
 
     name = "name_recognition"
     semantics = "name_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
         """Extract a country name representation from text.

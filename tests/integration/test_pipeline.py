@@ -25,7 +25,12 @@ from paxman.core.domain import (
     Rule,
     RuleStrategy,
 )
-from paxman.core.errors import ContractError, RecognitionError, ValidationError
+from paxman.core.errors import (
+    ContractError,
+    MultipleMentionsError,
+    RecognitionError,
+    ValidationError,
+)
 from paxman.engine.orchestrator import run_capability
 
 
@@ -586,26 +591,20 @@ class TestCanonicalDeterminismAndCandidateOrder:
 
     @pytest.mark.integration
     def test_phone_formatting_precedes_dedup_two_extensions(self) -> None:
-        """Two tel URIs differing only in ;ext= stay AMBIGUOUS in rfc3966.
+        """Two tel URIs in one input fail fast (single-value invariant).
 
-        The pre-format E.164 values are identical, so only formatting-before-
-        deduplication keeps the two extension-bearing candidates distinct. If
-        the extension were dropped or formatting deferred until after dedup,
-        the candidates would collapse into a single value and the status
-        would be SUCCESS instead of AMBIGUOUS.
+        The formatting-before-dedup property this previously exercised (two
+        ;ext= values that share a pre-format E.164 value) is now covered by
+        test_formatting_runs_before_dedup_and_status in
+        test_format_value_seam.py. Two tel URIs are un-segmented multi-entity
+        input, so the engine raises MultipleMentionsError.
         """
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(output_format="rfc3966")
-        result = run_capability(
-            "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
-        )
-
-        assert result.status == Resolution.AMBIGUOUS
-        assert result.canonicalized_value is None
-        assert {c.value for c in result.candidates} == {
-            "tel:+15551234567;ext=890",
-            "tel:+15551234567;ext=891",
-        }
+        with pytest.raises(MultipleMentionsError):
+            run_capability(
+                "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
+            )
 
 
 class TestISBNPipeline:
@@ -702,16 +701,15 @@ class TestISBNPipeline:
 
     @pytest.mark.integration
     def test_two_books_ambiguous(self) -> None:
+        """Two ISBNs in one input fail fast (single-value invariant).
+
+        Two books are un-segmented multi-entity input; the engine raises
+        MultipleMentionsError rather than returning AMBIGUOUS.
+        """
         register_capability(ISBNCapability())
         contract = ISBNCapability.create_contract()
-        result = run_capability("9780306406157 and 9780201310054", contract)
-
-        assert result.status == Resolution.AMBIGUOUS
-        assert result.canonicalized_value is None
-        assert {c.value for c in result.candidates} == {
-            "9780306406157",
-            "9780201310054",
-        }
+        with pytest.raises(MultipleMentionsError):
+            run_capability("9780306406157 and 9780201310054", contract)
 
     @pytest.mark.integration
     def test_missing_yields_missing(self) -> None:

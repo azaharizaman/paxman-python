@@ -9,6 +9,7 @@ from paxman.capabilities import Date
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
+from paxman.core.errors import MultipleMentionsError
 
 
 @pytest.fixture(autouse=True)
@@ -75,10 +76,14 @@ class TestDateCapabilityIntegration:
         assert result.canonicalized_value == "2026-07-26"
 
     def test_multiple_dates_ambiguous(self) -> None:
-        """Multiple different dates produce AMBIGUOUS status."""
+        """Two dates in one input fail fast (single-value invariant).
+
+        Two dates are un-segmented multi-entity input, so the engine raises
+        MultipleMentionsError instead of returning AMBIGUOUS.
+        """
         contract = Date.create_contract()
-        result = paxman.canonicalize("2026-07-26 and 2025-12-31", contract)
-        assert result.status == Resolution.AMBIGUOUS
+        with pytest.raises(MultipleMentionsError):
+            paxman.canonicalize("2026-07-26 and 2025-12-31", contract)
 
     def test_no_date_missing(self) -> None:
         """No date in text produces MISSING status."""

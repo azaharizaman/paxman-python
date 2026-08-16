@@ -50,6 +50,7 @@ class IPv6Grammar(Grammar[IPNotation]):
 
     name = "ipv6_recognition"
     semantics = "ipv6_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[IPNotation]]:
         """Extract IPv6 address patterns from text.

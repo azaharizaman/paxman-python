@@ -19,6 +19,7 @@ class NumericGrammar(Grammar[CountryNotation]):
 
     name = "numeric_recognition"
     semantics = "numeric_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
         """Extract numeric patterns from text.

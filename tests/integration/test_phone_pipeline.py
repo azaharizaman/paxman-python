@@ -5,6 +5,7 @@ import pytest
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
+from paxman.core.errors import MultipleMentionsError
 from paxman.engine.orchestrator import run_capability
 
 
@@ -19,12 +20,14 @@ def _clean_registry() -> None:
 class TestPhonePipeline:
     """Full-pipeline tests for the Phone capability.
 
-    Note on AMBIGUOUS: grammar exclusivity holds per matched span — each
-    single-number input maps to exactly one grammar/shape, and the two
-    E.164 rules (Section 6.1 / 6.2) always agree on the canonical value,
-    so single-number inputs are never AMBIGUOUS. Multi-number inputs whose
-    numbers resolve to different canonical values DO produce AMBIGUOUS
-    (engine semantics, same as Email/Date).
+    Note on the single-value invariant (ADR-0004): paxman resolves one entity
+    per call. A single-number input maps to exactly one grammar/shape and the
+    two E.164 rules (Section 6.1 / 6.2) always agree, so single-number inputs
+    are never AMBIGUOUS. Multi-number input is a segmentation violation: the
+    engine fails fast with ``MultipleMentionsError`` rather than returning
+    AMBIGUOUS (genuine single-mention ambiguity is still possible, e.g. a
+    number whose E.164 and tel-URI readings disagreed would surface as
+    AMBIGUOUS from one span).
     """
 
     @pytest.mark.integration
@@ -117,16 +120,16 @@ class TestPhonePipeline:
 
     @pytest.mark.integration
     def test_multi_number_ambiguous(self) -> None:
-        """Two different numbers in one input yield AMBIGUOUS.
+        """Two different numbers in one input fail fast (single-value invariant).
 
-        Documented engine semantics (same as Email/Date): conflicting
-        canonical values for the same input produce AMBIGUOUS.
+        A single call must resolve one entity. Two numbers are un-segmented
+        multi-entity input, so the engine raises MultipleMentionsError instead
+        of returning AMBIGUOUS.
         """
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(default_country="US")
-        result = run_capability("+15552345678 and (555) 234-5679", contract)
-        assert result.status == Resolution.AMBIGUOUS
-        assert result.canonicalized_value is None
+        with pytest.raises(MultipleMentionsError):
+            run_capability("+15552345678 and (555) 234-5679", contract)
 
     @pytest.mark.integration
     def test_tel_uri_extension_preserved(self) -> None:
@@ -141,25 +144,20 @@ class TestPhonePipeline:
 
     @pytest.mark.integration
     def test_two_tel_uris_differing_only_by_extension_ambiguous(self) -> None:
-        """Two tel URIs differing only in ;ext= stay AMBIGUOUS in rfc3966.
+        """Two tel URIs in one input fail fast (single-value invariant).
 
-        Formatting must happen before dedup/status: the pre-format E.164
-        values are identical, so only the formatted ;ext= parameter keeps
-        the two candidates distinct. If formatting ran after dedup (or the
-        extension were dropped), the candidates would collapse into one
-        value and the result would be SUCCESS instead of AMBIGUOUS.
+        The formatting-before-dedup property this previously exercised (two
+        ;ext= values that share a pre-format E.164 value) is now covered by
+        test_formatting_runs_before_dedup_and_status in
+        test_format_value_seam.py. Two tel URIs are un-segmented multi-entity
+        input, so the engine raises MultipleMentionsError.
         """
         register_capability(PhoneCapability())
         contract = PhoneCapability.create_contract(output_format="rfc3966")
-        result = run_capability(
-            "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
-        )
-        assert result.status == Resolution.AMBIGUOUS
-        assert result.canonicalized_value is None
-        assert {c.value for c in result.candidates} == {
-            "tel:+15551234567;ext=890",
-            "tel:+15551234567;ext=891",
-        }
+        with pytest.raises(MultipleMentionsError):
+            run_capability(
+                "tel:+15551234567;ext=890 and tel:+15551234567;ext=891", contract
+            )
 
     @pytest.mark.integration
     def test_pinned_rules_only(self) -> None:
