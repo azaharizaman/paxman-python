@@ -27,7 +27,9 @@ YEAR: int | None = None
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Canonicalize an SI Unit input.")
-    parser.add_argument("input", nargs="?", default=INPUT, help="the SI unit text to canonicalize")
+    parser.add_argument(
+        "input", nargs="?", default=INPUT, help="the SI unit text to canonicalize"
+    )
     parser.add_argument("--year", type=int, default=YEAR, help="temporal filter year")
     args = parser.parse_args()
 
