@@ -19,6 +19,54 @@ Before starting, understand these concepts:
 
 ---
 
+## Step 0 — Generate the skeleton
+
+Before hand-writing anything, generate the full capability skeleton with the
+scaffolder. It emits every file the pipeline requires — package modules, one
+placeholder grammar + rule with full enforced metadata, test stubs, and the
+`paxman/capabilities/__init__.py` wiring — so your job becomes "fill in the
+domain", not "assemble the unanimous surface from prose".
+
+Run it from the repo root:
+
+```bash
+uv run python tools/new_capability.py <PackageName> --name <snake> \
+    --authority <str> --spec-name <str> --spec-url <str> \
+    --publication-year <int> \
+    [--spec-version <str>] [--default-format <str>]
+```
+
+This creates 13 files plus one edit:
+
+- `paxman/capabilities/<PackageName>/__init__.py`
+- `paxman/capabilities/<PackageName>/notation.py`
+- `paxman/capabilities/<PackageName>/contract.py`
+- `paxman/capabilities/<PackageName>/capability.py`
+- `paxman/capabilities/<PackageName>/grammar/__init__.py`
+- `paxman/capabilities/<PackageName>/grammar/<name>_recognition.py`
+- `paxman/capabilities/<PackageName>/rules/__init__.py`
+- `paxman/capabilities/<PackageName>/rules/<authority_snake>_ed<year>.py`
+- `tests/capabilities/<name>/__init__.py`
+- `tests/capabilities/<name>/test_notation.py`
+- `tests/capabilities/<name>/test_grammar.py`
+- `tests/capabilities/<name>/test_rules.py`
+- `tests/capabilities/<name>/test_capability.py`
+- *edit* `paxman/capabilities/__init__.py` — adds the import line and `__all__` entry (alphabetically).
+
+After generating, the tool prints a checklist of what only a human can do:
+
+1. Replace the placeholder grammar pattern with a real recognizer.
+2. Rename `Section 1-overview` and implement `matches()`/`normalize()`.
+3. Shape the notation beyond the placeholder `value` field.
+4. Add `grammar/data/` and `rules/data/` when authority tables arrive.
+5. Register in your entry point; sweep README/CONTEXT/AGENTS docs.
+6. Delete or extend the placeholder grammar/rule as needed.
+
+The generated code already satisfies every import-time enforcement and passes
+its own test stubs, so you start from a green skeleton.
+
+---
+
 ## Step 1: Plan Your Capability
 
 Before writing code, answer these questions:
@@ -34,6 +82,8 @@ Document your answers. You will reference them when writing grammars and rules.
 ---
 
 ## Step 2: Create the Directory Structure
+
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
 
 Create the following directory structure. Replace `YourDomain` with your capability name (use PascalCase):
 
@@ -93,6 +143,8 @@ This pattern keeps rule logic readable and data maintainable. Use it when your l
 
 ## Step 3: Define the Notation
 
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
+
 The Notation is your domain's intermediate representation. It is a frozen dataclass with named fields that represent the components of the value you are canonicalizing.
 
 Create `paxman/capabilities/YourDomain/notation.py`:
@@ -131,6 +183,8 @@ This is optional. Use it when your notation will be instantiated many times (e.g
 ---
 
 ## Step 4: Create a Grammar
+
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
 
 Grammars are recognition rules that scan raw text and extract span-bearing notations. Each grammar handles one specific pattern or format.
 
@@ -251,6 +305,8 @@ Grammars recognize *representations*; rules assign *meaning*. Keep the two layer
 
 ## Step 5: Create Validation Rules
 
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
+
 Validation rules check notations against authoritative specifications. Each rule belongs to one specific publication (e.g., one RFC, one ISO standard).
 
 Create `paxman/capabilities/YourDomain/rules/your_rule.py`:
@@ -353,6 +409,8 @@ class SectionYourRule(Rule[YourDomainNotation]):
 
 ## Step 6: Create the Capability Class
 
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
+
 The Capability class is the entry point that the engine uses to discover your grammars and rules.
 
 Create `paxman/capabilities/YourDomain/capability.py`:
@@ -369,6 +427,8 @@ Create `paxman/capabilities/YourDomain/capability.py`:
 ---
 
 ## Step 7: Create the Contract Class
+
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
 
 The Contract is a user-facing configuration object that controls which grammars and rules are active.
 
@@ -632,6 +692,8 @@ The `Capability` is an **internal engine component**. By defining it as an `ABC`
 
 ## Step 8: Create Package Init Files
 
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
+
 ### Capability package init
 
 Create `paxman/capabilities/YourDomain/__init__.py`:
@@ -663,6 +725,8 @@ This can be an empty file.
 ---
 
 ## Step 9: Register the Capability
+
+*The `tools/new_capability.py` scaffolder (Step 0) already generated the starting point for this step — complete the `TODO(scaffold)` markers it left behind.*
 
 The engine discovers capabilities through a registry. You must register your capability before using it.
 

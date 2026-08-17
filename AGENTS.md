@@ -27,7 +27,7 @@ docs/               # adr/, report/, research/, superpowers/plans+specs
 | Contract protocol | `paxman/core/contract.py`, `paxman/core/capability_contract.py` |
 | Capability registration | `paxman/core/discovery.py` (explicit, never auto) |
 | Error hierarchy | `paxman/core/errors.py` |
-| Add a capability | `HOW_TO_ADD_NEW_CAPABILITY.md` (62KB spec — read first) |
+| Add a capability | `HOW_TO_ADD_NEW_CAPABILITY.md` (62KB spec — read first). Scaffold first with `tools/new_capability.py` (see HOW_TO_ADD_NEW_CAPABILITY.md Step 0); then fill in the domain. |
 | Recognition (per cap) | `paxman/capabilities/<Name>/grammar/` |
 | Validation (per cap) | `paxman/capabilities/<Name>/rules/` |
 | Presentation seam | `paxman/capabilities/<Name>/capability.py` → `format_value()` |
