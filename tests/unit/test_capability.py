@@ -6,7 +6,7 @@ import pytest
 
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
-from paxman.core.domain import Grammar, Notation, Provenance, Rule, RuleStrategy
+from paxman.core.domain import Grammar, Provenance, Rule, RuleStrategy
 
 # --- Concrete test doubles ---
 
@@ -17,7 +17,7 @@ class StubGrammar(Grammar):
     name: str = "stub_grammar"
     semantics = "stub_grammar"
 
-    def recognize(self, text: str) -> list[Notation]:
+    def recognize(self, text: str) -> list[list[str]]:
         return []
 
 
@@ -39,10 +39,10 @@ class StubRule(Rule):
     target_semantics = frozenset({"stub_grammar"})
     requires_features = frozenset()
 
-    def matches(self, notation: Notation, contract: Contract) -> bool:
+    def matches(self, notation: list[str], contract: Contract) -> bool:
         return True
 
-    def normalize(self, notation: Notation, contract: Contract) -> str:
+    def normalize(self, notation: list[str], contract: Contract) -> str:
         return "stub"
 
 

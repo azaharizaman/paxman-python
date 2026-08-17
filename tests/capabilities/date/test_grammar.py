@@ -14,6 +14,7 @@ from paxman.capabilities.Date.grammar.slash_iso_recognition import (
     SlashISODateGrammar,
 )
 from paxman.capabilities.Date.grammar.us_recognition import USDateGrammar
+from paxman.capabilities.Date.notation import DateNotation
 
 
 @pytest.mark.capability
@@ -24,7 +25,7 @@ class TestISO8601DateGrammar:
         grammar = ISO8601DateGrammar()
         result = grammar.recognize("2026-07-26")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["2026", "07", "26"]
+        assert result[0].notation == DateNotation(N1="2026", N2="07", N3="26")
 
     def test_recognizes_multiple(self) -> None:
         grammar = ISO8601DateGrammar()
@@ -62,7 +63,7 @@ class TestISO8601DateGrammar:
         assert result[0].start == 2
         assert result[0].end == 12
         assert result[0].raw_text == "2026-07-26"
-        assert result[0].notation.as_list() == ["2026", "07", "26"]
+        assert result[0].notation == DateNotation(N1="2026", N2="07", N3="26")
 
     @property
     def grammar(self) -> ISO8601DateGrammar:
@@ -77,13 +78,13 @@ class TestUSDateGrammar:
         grammar = USDateGrammar()
         result = grammar.recognize("07/26/2026")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["07", "26", "2026"]
+        assert result[0].notation == DateNotation(N1="07", N2="26", N3="2026")
 
     def test_recognizes_2digit_year(self) -> None:
         grammar = USDateGrammar()
         result = grammar.recognize("07/26/26")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["07", "26", "26"]
+        assert result[0].notation == DateNotation(N1="07", N2="26", N3="26")
 
     def test_recognizes_variant_input(self) -> None:
         grammar = USDateGrammar()
@@ -117,7 +118,7 @@ class TestUSDateGrammar:
         assert result[0].start == 2
         assert result[0].end == 12
         assert result[0].raw_text == "07/26/2026"
-        assert result[0].notation.as_list() == ["07", "26", "2026"]
+        assert result[0].notation == DateNotation(N1="07", N2="26", N3="2026")
 
     @property
     def grammar(self) -> USDateGrammar:
@@ -132,13 +133,13 @@ class TestEuropeanDateGrammar:
         grammar = EuropeanDateGrammar()
         result = grammar.recognize("26/07/2026")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["26", "07", "2026"]
+        assert result[0].notation == DateNotation(N1="26", N2="07", N3="2026")
 
     def test_recognizes_2digit_year(self) -> None:
         grammar = EuropeanDateGrammar()
         result = grammar.recognize("26/07/26")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["26", "07", "26"]
+        assert result[0].notation == DateNotation(N1="26", N2="07", N3="26")
 
     def test_recognizes_variant_input(self) -> None:
         grammar = EuropeanDateGrammar()
@@ -167,7 +168,7 @@ class TestEuropeanDateGrammar:
         assert result[0].start == 2
         assert result[0].end == 12
         assert result[0].raw_text == "26/07/2026"
-        assert result[0].notation.as_list() == ["26", "07", "2026"]
+        assert result[0].notation == DateNotation(N1="26", N2="07", N3="2026")
 
     @property
     def grammar(self) -> EuropeanDateGrammar:
@@ -182,13 +183,13 @@ class TestSlashISODateGrammar:
         grammar = SlashISODateGrammar()
         result = grammar.recognize("2026/07/26")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["2026", "07", "26"]
+        assert result[0].notation == DateNotation(N1="2026", N2="07", N3="26")
 
     def test_recognizes_single_digit_components(self) -> None:
         grammar = SlashISODateGrammar()
         result = grammar.recognize("2026/7/6")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["2026", "7", "6"]
+        assert result[0].notation == DateNotation(N1="2026", N2="7", N3="6")
 
     def test_recognizes_multiple(self) -> None:
         grammar = SlashISODateGrammar()
@@ -232,7 +233,7 @@ class TestSlashISODateGrammar:
         assert result[0].start == 2
         assert result[0].end == 12
         assert result[0].raw_text == "2026/07/26"
-        assert result[0].notation.as_list() == ["2026", "07", "26"]
+        assert result[0].notation == DateNotation(N1="2026", N2="07", N3="26")
 
     @property
     def grammar(self) -> SlashISODateGrammar:

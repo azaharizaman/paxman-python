@@ -16,13 +16,6 @@ def test_frozen() -> None:
         notation.text = "EUR"  # type: ignore[misc]
 
 
-def test_as_list() -> None:
-    assert CurrencyNotation(text="US$", shape="qualified_symbol").as_list() == [
-        "US$",
-        "qualified_symbol",
-    ]
-
-
 @pytest.mark.parametrize(
     ("text", "shape"),
     [

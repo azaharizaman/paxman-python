@@ -28,10 +28,6 @@ class TestDateNotation:
         with pytest.raises(AttributeError):
             notation.N1 = "2025"  # type: ignore[misc]
 
-    def test_as_list_returns_correct(self) -> None:
-        notation = DateNotation(N1="2026", N2="07", N3="26")
-        assert notation.as_list() == ["2026", "07", "26"]
-
     def test_equality(self) -> None:
         n1 = DateNotation(N1="2026", N2="07", N3="26")
         n2 = DateNotation(N1="2026", N2="07", N3="26")

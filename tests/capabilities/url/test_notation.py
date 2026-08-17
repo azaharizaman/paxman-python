@@ -14,13 +14,6 @@ def test_fields() -> None:
     assert URLNotation(text="https://example.com").text == "https://example.com"
 
 
-def test_as_list() -> None:
-    """as_list returns the text wrapped in a single-element list."""
-    assert URLNotation(text="mailto:user@example.com").as_list() == [
-        "mailto:user@example.com"
-    ]
-
-
 def test_frozen() -> None:
     """Assigning a field raises FrozenInstanceError."""
     notation = URLNotation(text="https://example.com")
@@ -35,4 +28,4 @@ def test_slots() -> None:
 
 def test_empty_text_valid() -> None:
     """Shape-only notation accepts empty text; validity is the rule's job (D7)."""
-    assert URLNotation(text="").as_list() == [""]
+    assert URLNotation(text="").text == ""

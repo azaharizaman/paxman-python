@@ -33,12 +33,6 @@ class Resolution(Enum):
     AMBIGUOUS = "ambiguous"
 
 
-# Notation type — capability-defined, but list[str] is the generic contract.
-# For capability-specific Notation, use a TypedDict or dataclass to capture
-# positional semantics.
-Notation = list[str]
-
-
 @dataclass(frozen=True, slots=True)
 class Provenance:
     """Authority citation for a validated value."""

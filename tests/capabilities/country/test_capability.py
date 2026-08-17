@@ -24,18 +24,6 @@ class TestCountryNotation:
         with pytest.raises(AttributeError):
             notation.shape = "alpha3"  # type: ignore[misc]
 
-    def test_as_list_returns_correct(self) -> None:
-        """Verify list conversion."""
-        notation = CountryNotation(shape="alpha2", value="US")
-        assert notation.as_list() == ["alpha2", "US"]
-
-    def test_as_list_preserves_order(self) -> None:
-        """Verify field order matches list order."""
-        notation = CountryNotation(shape="name", value="United States")
-        result = notation.as_list()
-        assert result[0] == notation.shape
-        assert result[1] == notation.value
-
     def test_equality(self) -> None:
         """Verify value equality."""
         n1 = CountryNotation(shape="alpha2", value="US")

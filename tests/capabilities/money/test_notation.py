@@ -55,17 +55,6 @@ def test_valid_shapes_accepted() -> None:
     MoneyNotation(currency_part="USD", amount_part="500")
 
 
-def test_as_list_order() -> None:
-    """as_list returns [currency_part, amount_part, currency_shape, amount_shape]."""
-    notation = MoneyNotation(
-        currency_part="$",
-        amount_part="1,234.56",
-        currency_shape="symbol",
-        amount_shape="comma_decimal",
-    )
-    assert notation.as_list() == ["$", "1,234.56", "symbol", "comma_decimal"]
-
-
 def test_notation_hashable() -> None:
     """Equal instances hash equal."""
     a = MoneyNotation(currency_part="USD", amount_part="500")

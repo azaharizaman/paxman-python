@@ -99,15 +99,13 @@ Create `paxman/capabilities/YourDomain/notation.py`:
 
 1. Import `dataclass` from `dataclasses`
 2. Define a frozen dataclass with `@dataclass(frozen=True)` and one field per component of your notation
-3. Add an `as_list()` method that returns the fields as a plain list of strings (in order) — an optional helper for bridging to generic interfaces
 
-The engine passes typed notation objects to rules, not lists. Rules access fields by name (e.g., `notation.field_name`). The `as_list()` method is a convenience helper, not an engine requirement.
+The engine passes typed notation objects to rules, not lists. Rules access fields by name (e.g., `notation.field_name`).
 
 **Rules for Notation:**
 
 - Every field must be a `str` type
 - The dataclass must be frozen (immutable)
-- The `as_list()` method must return fields in a consistent, documented order
 - Rules access notation fields by name (e.g., `notation.field_name`), not by list position
 
 **Example patterns:**
@@ -128,7 +126,7 @@ class YourDomainNotation:
     field_two: str
 ```
 
-This is optional. Use it when your notation will be instantiated many times (e.g., processing bulk input). The `as_list()` method works the same way.
+This is optional. Use it when your notation will be instantiated many times (e.g., processing bulk input).
 
 ---
 
@@ -746,10 +744,8 @@ Two sections in one file:
 
 1. `test_creates_with_fields` — verify field access
 2. `test_is_frozen` — verify immutability (assigning raises error)
-3. `test_as_list_returns_correct` — verify list conversion
-4. `test_as_list_preserves_order` — verify field order matches list order
-5. `test_equality` — verify value equality
-6. `test_hashable` — verify it can be used in sets or as dict keys
+3. `test_equality` — verify value equality
+4. `test_hashable` — verify it can be used in sets or as dict keys
 
 **Capability wiring tests:**
 
@@ -917,7 +913,7 @@ Rule names follow the pattern `Section {X.Y.Z}-{description}` (e.g., `Section 3.
 
 ### Pattern: Notation Fields Are Typed
 
-Rules access notation fields by name (e.g., `notation.field_name`), not by list position. Your `as_list()` method is an optional helper for bridging to generic interfaces.
+Rules access notation fields by name (e.g., `notation.field_name`), not by list position.
 
 ### Pitfall: Grammar Regex Must Be Compiled Once
 
@@ -1064,7 +1060,7 @@ Semantics to rely on:
 
 Use this checklist to verify your capability is complete:
 
-- [ ] Notation is a frozen dataclass with `as_list()` method
+- [ ] Notation is a frozen dataclass with one `str` field per component
 - [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[RecognitionMatch[YourDomainNotation]]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
 - [ ] Each rule declares `target_semantics` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)

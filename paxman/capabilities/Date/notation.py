@@ -18,7 +18,3 @@ class DateNotation:
     N1: str
     N2: str
     N3: str
-
-    def as_list(self) -> list[str]:
-        """Convert to list[str] for generic Rule interface."""
-        return [self.N1, self.N2, self.N3]

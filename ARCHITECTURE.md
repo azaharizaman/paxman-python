@@ -119,9 +119,9 @@ In contrast to contracts, Capabilities are defined as Abstract Base Classes (`Ca
 
 Capabilities do not hold state. They are factories that produce grammars and rules on demand. The engine queries a capability for its available grammars and rules, then filters them based on the contract configuration. This design keeps capabilities lightweight and makes the filtering logic centralized in the engine.
 
-### Notation Bridging
+### Typed Notation
 
-Each capability defines a typed Notation (a data class with named fields) that provides domain-specific structure. However, the Rule and Grammar abstract interfaces operate on a generic list-of-strings representation. Capabilities bridge this gap by providing a conversion method from the typed notation to the generic form. This gives type safety at the capability level while maintaining a uniform interface for the engine.
+Each capability defines a frozen dataclass Notation with one `str` field per recognized component (e.g., `DateNotation` carries `N1`, `N2`, `N3`). The concrete notation type is the sole type parameter threaded end to end: `Grammar[NotationT]` recognizes it and `Rule[NotationT]` validates it, so the engine and every rule operate on the fully typed object rather than a positional `list[str]`. Rules read notation fields by name (e.g., `notation.N1`); there is no generic list alias and no conversion bridge between the typed notation and a list form.
 
 ### Contract Parameters
 

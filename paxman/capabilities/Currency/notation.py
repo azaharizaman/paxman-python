@@ -33,7 +33,3 @@ class CurrencyNotation:
             raise ValueError(
                 f"invalid shape {self.shape!r}; expected one of {sorted(_VALID_SHAPES)}"
             )
-
-    def as_list(self) -> list[str]:
-        """Flatten the notation for structural equality checks."""
-        return [self.text, self.shape]

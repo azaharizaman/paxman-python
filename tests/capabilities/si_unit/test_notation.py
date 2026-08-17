@@ -25,10 +25,6 @@ class TestSIUnitNotation:
         with pytest.raises(ValueError):
             SIUnitNotation(text="kg", shape="quantity")
 
-    def test_as_list(self) -> None:
-        n = SIUnitNotation(text="kg", shape="symbol")
-        assert n.as_list() == ["kg", "symbol"]
-
     def test_frozen(self) -> None:
         n = SIUnitNotation(text="kg", shape="symbol")
         with pytest.raises(dataclasses.FrozenInstanceError):

@@ -25,11 +25,3 @@ class PhoneNotation:
     shape: str
     value: str
     extension: str = ""
-
-    def as_list(self) -> list[str]:
-        """Bridge to generic list[str] interface.
-
-        Returns:
-            [shape, value, extension] — shape first for consistent ordering.
-        """
-        return [self.shape, self.value, self.extension]

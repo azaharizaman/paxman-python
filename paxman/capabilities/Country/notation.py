@@ -16,11 +16,3 @@ class CountryNotation:
 
     shape: str
     value: str
-
-    def as_list(self) -> list[str]:
-        """Bridge to generic list[str] interface.
-
-        Returns:
-            [shape, value] — shape first for consistent ordering.
-        """
-        return [self.shape, self.value]

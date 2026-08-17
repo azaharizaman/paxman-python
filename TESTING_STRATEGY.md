@@ -45,7 +45,7 @@ For the Email capability, this means three classes of tests:
 
 **Rule tests** confirm that each validation rule's `matches()` method accepts valid notation and rejects invalid notation. They verify that `normalize()` produces the expected canonical string. They check that rule metadata (name, strategy, provenance attributes, citation) is set correctly. For example, `Section341AddrSpec` lowercases the email during normalization, while `Section63localhost` preserves case.
 
-**Capability tests** verify that the capability class itself satisfies the `Capability` ABC, that it returns the correct number and type of grammars and rules from `get_grammars()` and `get_rules()`, and that its notation type (`EmailNotation`) is immutable, equality-comparable, hashable, and bridges to the generic `list[str]` representation via `as_list()`.
+**Capability tests** verify that the capability class itself satisfies the `Capability` ABC, that it returns the correct number and type of grammars and rules from `get_grammars()` and `get_rules()`, and that its notation type (`EmailNotation`) is an immutable, equality-comparable, hashable frozen dataclass with one `str` field per component.
 
 ### Integration Tests
 
