@@ -96,7 +96,11 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
         candidates=tuple(candidates),
         contract=contract,
         version_stamp=version_stamp,
-        span=candidates[0].span if candidates else None,
+        span=(
+            candidates[0].span
+            if candidates and len({c.value for c in candidates}) == 1
+            else None
+        ),
     )
 
 
@@ -391,10 +395,20 @@ def _enforce_single_value_invariant(
             continue
         span = (rep.start, rep.end)
         values_by_span.setdefault(span, set()).add(candidate.value)
-        for cluster in clusters:
-            if any(_spans_overlap(span, other) for other in cluster):
-                cluster.add(span)
-                break
+        overlapping_clusters = [
+            cluster
+            for cluster in clusters
+            if any(_spans_overlap(span, other) for other in cluster)
+        ]
+        if overlapping_clusters:
+            # A span may overlap several clusters; merge all of them so one
+            # logical mention is never split (which would raise a false
+            # MultipleMentionsError).
+            merged: set[tuple[int, int]] = {span}
+            for cluster in overlapping_clusters:
+                merged.update(cluster)
+                clusters.remove(cluster)
+            clusters.append(merged)
         else:
             clusters.append({span})
     if len(clusters) <= 1:

@@ -45,11 +45,11 @@ def test_execution_result_span_is_winning_candidate_span() -> None:
 
 
 @pytest.mark.integration
-def test_ambiguous_result_span_is_populated() -> None:
-    """Even on AMBIGUOUS the result span is the first candidate's span."""
+def test_ambiguous_result_span_is_none_but_candidates_keep_spans() -> None:
+    """Top-level span is None on AMBIGUOUS; per-candidate spans remain."""
     register_capability(Date())
     contract = Date.create_contract()
     result = canonicalize("01/02/2026", contract)
     assert result.status.name == "AMBIGUOUS"
-    assert result.span is not None
-    assert result.span == result.candidates[0].span
+    assert result.span is None
+    assert all(c.span is not None for c in result.candidates)

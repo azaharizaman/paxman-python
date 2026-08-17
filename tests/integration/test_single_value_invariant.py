@@ -10,12 +10,18 @@ multi-mention input still resolves to its single value (``SUCCESS``).
 
 import pytest
 
+from paxman.capabilities.Country.capability import CountryCapability
 from paxman.capabilities.Date.capability import DateCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.core.discovery import register_capability, reset_registry
-from paxman.core.domain import Resolution
+from paxman.core.domain import (
+    Candidate,
+    GrammarRule,
+    RecognizedRep,
+    Resolution,
+)
 from paxman.core.errors import MultipleMentionsError
-from paxman.engine.orchestrator import run_capability
+from paxman.engine.orchestrator import _enforce_single_value_invariant, run_capability
 
 
 @pytest.fixture(autouse=True)
@@ -65,3 +71,41 @@ class TestSingleValueInvariant:
         result = run_capability("+60164041945", contract)
         assert result.status == Resolution.SUCCESS
         assert result.canonicalized_value == "+60164041945"
+
+    @pytest.mark.integration
+    def test_overlapping_span_bridges_separate_clusters(self) -> None:
+        """A span overlapping two clusters must merge them (connected component).
+
+        Spans A=(0,5) and B=(10,15) are separate; C=(3,12) overlaps both. The
+        three form one connected mention, so divergent values across them must
+        NOT raise. The naive "first matching cluster only" loop would split
+        them and falsely raise ``MultipleMentionsError``.
+        """
+        contract = CountryCapability.create_contract()
+
+        def _make(grammar_name: str, start: int, end: int, value: str):
+            rep = RecognizedRep(
+                notation=grammar_name,
+                contract=contract,
+                grammar=GrammarRule(
+                    capability_name="country", grammar_name=grammar_name
+                ),
+                start=start,
+                end=end,
+                raw_text="x" * (end - start),
+            )
+            cand = Candidate(
+                value=value,
+                recognition_rule=grammar_name,
+                validation_rule="r",
+                provenance=[],
+                span=(start, end),
+            )
+            return (cand, rep)
+
+        collected = [
+            _make("alpha2_recognition", 0, 5, "US"),
+            _make("alpha2_recognition", 10, 15, "GB"),
+            _make("alpha2_recognition", 3, 12, "US"),
+        ]
+        _enforce_single_value_invariant(collected, {"alpha2_recognition": True})
