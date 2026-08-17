@@ -50,7 +50,7 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with nine built-in capabilities:
+Paxman ships with ten built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
@@ -62,6 +62,7 @@ Paxman ships with nine built-in capabilities:
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 | **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
+| **SI Unit** | SI unit expressions | 5 (symbol, name, compound, split_word_prefix, split_symbol_prefix) | 7 | BIPM SI Brochure, ISO 80000-1 |
 | **URL** | URLs | 1 (absolute-uri) | 1 | WHATWG URL Standard |
 
 ### Email Capability
@@ -331,6 +332,46 @@ result = paxman.canonicalize("http://münchen.de", contract)
 # → "http://xn--mnchen-3ya.de/"
 ```
 
+### SI Unit Capability
+
+Recognizes SI unit expressions: symbols, names, and product/quotient compounds, canonicalizing to the canonical symbol form with BIPM SI Brochure (9th ed.) and ISO 80000-1 provenance. Identity-only: no quantities, no magnitudes, no name-compounds ("metre per second" does not resolve as a compound — its words are recognized separately, yielding AMBIGUOUS; "25°C" is MISSING).
+
+```python
+from paxman.capabilities import SIUnit
+
+register_capability(SIUnit())
+
+# Unit name resolves to its canonical symbol
+contract = SIUnit.create_contract()
+result = paxman.canonicalize("Kilogram", contract)
+# → "kg"
+
+# Prefixed name resolves to the prefixed symbol
+contract = SIUnit.create_contract()
+result = paxman.canonicalize("megahertz", contract)
+# → "MHz"
+
+# Compound expression canonicalizes to the symbol form
+contract = SIUnit.create_contract()
+result = paxman.canonicalize("m/s²", contract)
+# → "m/s2"
+
+# Spoken word-prefix form, merged only when opted in
+contract = SIUnit.create_contract(allow_split_word_prefixes=True)
+result = paxman.canonicalize("kilo gram", contract)
+# → "kg"
+
+# Symbol-prefix spacing is always rejected (no flag)
+contract = SIUnit.create_contract()
+result = paxman.canonicalize("k g", contract)
+# → Status: INVALID
+
+# Multi-solidus preserved only when opted in
+contract = SIUnit.create_contract(allow_multi_solidus=True)
+result = paxman.canonicalize("kg/m/s", contract)
+# → "kg/m/s"
+```
+
 ---
 
 ## Contract Configuration
@@ -365,6 +406,8 @@ Every capability provides a `create_contract()` factory method with common and c
 | Money | `output_format` | `str` | Output format (`"code_amount"` default, `"compact"`) |
 | Phone | `default_country` | `str` | ISO 3166-1 alpha-2 country code to resolve national numbers (e.g., `"US"`) |
 | Phone | `output_format` | `str` | Output format (`"e164"` default, `"rfc3966"`, `"national"`) |
+| SIUnit | `allow_split_word_prefixes` | `bool` | Merge a word prefix split from its unit by whitespace (e.g. `"kilo gram"` → `"kg"`) when True; default False rejects the spoken form (→ INVALID) |
+| SIUnit | `allow_multi_solidus` | `bool` | Preserve the legacy accept-multi-solidus behavior (e.g. `"kg/m/s"`) when True; default False rejects more than one top-level solidus (→ INVALID) per ISO 80000-1 §6.6.2 |
 
 ### Rule Pinning and Exclusion
 
@@ -399,7 +442,7 @@ result = paxman.canonicalize("2026-01-15", contract)
 
 ## Community Extensions
 
-Paxman ships with nine built-in capabilities, but a capability is closed for modification yet open for extension: you can add recognition and validation without touching the library. Register a `Grammar` subclass and the `Rule` subclass that validates it, then opt a contract into them by naming the grammar in `extra_grammars`:
+Paxman ships with ten built-in capabilities, but a capability is closed for modification yet open for extension: you can add recognition and validation without touching the library. Register a `Grammar` subclass and the `Rule` subclass that validates it, then opt a contract into them by naming the grammar in `extra_grammars`:
 
 ```python
 import re

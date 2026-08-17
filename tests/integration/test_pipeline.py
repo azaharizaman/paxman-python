@@ -14,6 +14,7 @@ from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.IP.capability import IPCapability
 from paxman.capabilities.ISBN.capability import ISBNCapability
 from paxman.capabilities.Phone.capability import PhoneCapability
+from paxman.capabilities.SIUnit.capability import SIUnitCapability
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
 from paxman.core.discovery import register_capability, reset_registry
@@ -566,6 +567,12 @@ class TestCanonicalDeterminismAndCandidateOrder:
                 lambda: ISBNCapability.create_contract(),
                 "0306406152",
                 id="isbn10-default",
+            ),
+            pytest.param(
+                SIUnitCapability,
+                lambda: SIUnitCapability.create_contract(),
+                "megahertz",
+                id="si_unit-prefixed-name",
             ),
         ],
     )

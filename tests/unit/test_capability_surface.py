@@ -1,8 +1,8 @@
 """Guard tests for the unanimous capability contract & rule surface.
 
 These tests lock the homogeneity mandate so it cannot regress: every one of
-the nine built-in capabilities (Country, Currency, Date, Email, IP, ISBN,
-Money, Phone, URL) must
+the ten built-in capabilities (Country, Currency, Date, Email, IP, ISBN,
+Money, Phone, SI Unit, URL) must
 
 - inherit :class:`CapabilityContract` (item 1),
 - satisfy the :class:`ContractFactory` protocol (item 2),
@@ -47,6 +47,9 @@ from paxman.capabilities.Money.notation import MoneyNotation
 from paxman.capabilities.Phone.capability import PhoneCapability
 from paxman.capabilities.Phone.contract import PhoneContract
 from paxman.capabilities.Phone.notation import PhoneNotation
+from paxman.capabilities.SIUnit.capability import SIUnitCapability
+from paxman.capabilities.SIUnit.contract import SIUnitContract
+from paxman.capabilities.SIUnit.notation import SIUnitNotation
 from paxman.capabilities.URL.capability import URLCapability
 from paxman.capabilities.URL.contract import URLCapabilityContract
 from paxman.capabilities.URL.notation import URLNotation
@@ -109,6 +112,12 @@ _CAPABILITY_SURFACES = [
         PhoneContract,
         "e164",
         id="phone",
+    ),
+    pytest.param(
+        SIUnitCapability,
+        SIUnitContract,
+        "symbol",
+        id="si_unit",
     ),
     pytest.param(
         URLCapability,
@@ -341,6 +350,13 @@ _FORMAT_SURFACES = [
         id="phone",
     ),
     pytest.param(
+        SIUnitCapability,
+        SIUnitContract,
+        "m",
+        SIUnitNotation(text="m", shape="symbol"),
+        id="si_unit",
+    ),
+    pytest.param(
         URLCapability,
         URLCapabilityContract,
         "https://example.com/a%20b",
@@ -422,6 +438,13 @@ _IDENTITY_SURFACES = [
         "192.0.2.1",
         IPNotation(address="192.0.2.1"),
         id="ip",
+    ),
+    pytest.param(
+        SIUnitCapability,
+        SIUnitContract,
+        "m",
+        SIUnitNotation(text="m", shape="symbol"),
+        id="si_unit",
     ),
     pytest.param(
         URLCapability,

@@ -8,6 +8,7 @@ from paxman.capabilities.IP.capability import IPCapability as IP
 from paxman.capabilities.ISBN.capability import ISBNCapability as ISBN
 from paxman.capabilities.Money.capability import MoneyCapability as Money
 from paxman.capabilities.Phone.capability import PhoneCapability as Phone
+from paxman.capabilities.SIUnit.capability import SIUnitCapability as SIUnit
 from paxman.capabilities.URL.capability import URLCapability as URL
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "ISBN",
     "Money",
     "Phone",
+    "SIUnit",
     "URL",
 ]

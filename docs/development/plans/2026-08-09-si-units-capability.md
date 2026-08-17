@@ -7,6 +7,7 @@
 | **Milestone** | `docs/development/MILESTONE.md` row #23 — “SI unit” (LOOKUP_TABLE strategy) |
 | **Sibling template** | `paxman/capabilities/Currency/` (identifier-only LOOKUP_TABLE capability) |
 | **Authoritative spec** | `HOW_TO_ADD_NEW_CAPABILITY.md` (62 KB) — read before Task 1; where this plan and HOW_TO disagree, HOW_TO wins |
+| **Seam rebase** | 2026-08-12 — plan updated for the grammar-extension seam now on main (PRs #19–#21: `Grammar.semantics` + `Rule.target_semantics` affinity routing per ADR-0003, optional `active_grammars` with base-`None` fallback, `extra_grammars` community opt-in) and the replay-hash removal (PR #18). The seam deltas are marked **SEAM** inline; R1/R2 engine refinements were re-verified against the current engine and still hold. |
 
 > **For agentic workers.** This plan is written to be executed by a
 > worker agent one task at a time. Every task is TDD: **Step 1 RED**
@@ -46,7 +47,8 @@ commit scopes are `feat(si_unit)`.
 | `"km/h"` | `"km/h"` |
 
 Identity-only: no quantities, no magnitudes, no name-compounds
-("metre per second" is not recognized). Strategy per MILESTONE row #23:
+("metre per second" does not resolve as a compound — its words are recognized
+separately, yielding AMBIGUOUS). Strategy per MILESTONE row #23:
 **LOOKUP_TABLE (unit name/symbol/prefix lookup, case-sensitive canonical
 symbols)** — BIPM SI Brochure (9th edition, 2019) + ISO 80000-1:2022.
 
@@ -57,6 +59,12 @@ symbols)** — BIPM SI Brochure (9th edition, 2019) + ISO 80000-1:2022.
   (regex shape). Grammar names must be lowercase snake_case; each file is
   one grammar (the `Grammar` ABC with a `name` class attr + `recognize()`);
   names are `symbol_recognition` / `name_recognition` / `compound_recognition`.
+  **SEAM:** each grammar ALSO declares `semantics` — the identity id
+  (`semantics = "symbol_recognition"`, etc.), mandatory at class-definition
+  time by `Grammar.__init_subclass__`. SIUnit has no coalesced groups
+  (ADR-0003): all three ids are singletons, so identity-with-name is the
+  sanctioned form and nothing is added to the `_COALESCED_SEMANTICS`
+  allowlist in `tests/unit/test_grammar_semantics_metadata.py`.
 - **D2 — Symbol lookarounds block separators.** The symbol grammar's
   lookarounds block `\w`, sign chars (`-`, `+`, U+2212), **and** the
   compound separators `/`, `·`, `⋅`. This is what keeps `"m/s²"`, `"N·m"`,
@@ -90,8 +98,9 @@ symbols)** — BIPM SI Brochure (9th edition, 2019) + ISO 80000-1:2022.
   INVALID > MISSING). Quantity-glued input (`"25°C"`, `"5kg"`) is
   MISSING — same house rule as Currency's `"USD500"` → MISSING.
 - **D8 — Name resolution is a dedicated rule.** Names resolve via a
-  dedicated `SectionNames` rule (BIPM module, `target_grammars =
-  {"name_recognition"}`) against `FULL_NAME_TO_SYMBOL` = maintained
+  dedicated `SectionNames` rule (BIPM module, **SEAM:** `target_semantics =
+  frozenset({"name_recognition"})` — the affinity-routing replacement for
+  `target_grammars`, ADR-0003) against `FULL_NAME_TO_SYMBOL` = maintained
   `NAME_TO_SYMBOL` ∪ generated `PREFIXED_NAME_TO_SYMBOL` (Task 4) — the
   Currency `SectionNames`/`word_recognition` precedent. This is what makes
   the locked e2e rows `"megahertz"` → `"MHz"` and `"Kilogram"` → `"kg"`
@@ -102,7 +111,7 @@ symbols)** — BIPM SI Brochure (9th edition, 2019) + ISO 80000-1:2022.
   `"kilokilogram"`, or any kilo-stacked junk. `"kg"` remains the official
   base-unit symbol and `"kilogram"` the official base-unit name.
 
-### Engine-verified refinements (two research conflicts, locked)
+### Engine-verified refinements (three research conflicts, locked)
 
 - **R1 — `"KHz"` → MISSING, not INVALID.** §7.6 of the research paper
   locked `"KHz"` → INVALID, but the locked symbol grammar is a token
@@ -118,6 +127,19 @@ symbols)** — BIPM SI Brochure (9th edition, 2019) + ISO 80000-1:2022.
   a compound; the research's `"m s⁻²"` form is dropped for this reason).
   Do not suppress the symbol grammar or the compound grammar to force
   SUCCESS.
+- **R3 — Semantics affinity routing (SEAM, ADR-0003).** The engine routes
+  each recognition only to rules whose `target_semantics` includes the
+  producing grammar's `semantics` (composition built per capability in
+  `run_capability` via `semantics_by_name = {g.name: g.semantics}`), and
+  `_validate_affinity` fails fast with `ContractError` if a rule declares a
+  semantics id no grammar claims. Because the three SIUnit grammars declare
+  identity semantics and the six rules target exactly those ids, routing is
+  a straight rename of the plan's original grammar-name routing — no
+  behavioral change to any locked row. This also means SIUnit's
+  `"name_recognition"` semantics id may coincide with Country's same-named
+  id: semantics groups are scoped per capability (the engine composes per
+  capability; `tests/unit/test_grammar_semantics_consistency.py` blesses
+  cross-capability id reuse, e.g. Currency/Money `code_recognition`).
 
 ### Capability surface
 
@@ -127,7 +149,8 @@ symbols)** — BIPM SI Brochure (9th edition, 2019) + ISO 80000-1:2022.
 | `DEFAULT_OUTPUT_FORMAT` | `"symbol"` (ClassVar) |
 | `OFFERED_OUTPUT_FORMATS` | `frozenset()` (ClassVar) |
 | `capability_name` | `field(default="si_unit", init=False)` |
-| `active_grammars` | `("symbol_recognition", "name_recognition", "compound_recognition")` |
+| `active_grammars` | **SEAM:** do NOT override — base default `None` (engine runs all three shipped grammars in `get_grammars()` order; `active_grammars` is implemented only by feature-gated capabilities, HOW_TO §Implementing `active_grammars`) |
+| `extra_grammars` | **SEAM:** inherited base field, default `()` — surfaced on `create_contract` (community opt-in; the Task 9 factory forwards it) |
 | `_extra_dict_fields` | base `{}` (no capability-specific fields — do not override) |
 | `format_value()` | identity (base — do not override) |
 
@@ -369,12 +392,15 @@ class TestSIUnitContract:
         with pytest.raises(ContractError):
             SIUnitContract(output_format="name")
 
-    def test_active_grammars(self) -> None:
-        assert SIUnitContract().active_grammars == (
-            "symbol_recognition",
-            "name_recognition",
-            "compound_recognition",
-        )
+    def test_active_grammars_is_base_default(self) -> None:
+        # SEAM: no feature gating -> the contract does NOT override
+        # active_grammars; the base returns None and the engine runs every
+        # shipped grammar in get_grammars() declaration order.
+        assert SIUnitContract().active_grammars is None
+
+    def test_extra_grammars_defaults_empty(self) -> None:
+        # SEAM: the community opt-in field is inherited from the base.
+        assert SIUnitContract().extra_grammars == ()
 
     def test_frozen(self) -> None:
         with pytest.raises(Exception):
@@ -407,29 +433,21 @@ class SIUnitContract(CapabilityContract):
         pinned_rules: Pin to specific rules (takes precedence over
             excluded_rules).
         year: Year for temporal filtering.
+        extra_grammars: Community grammar names (opt-in) to run alongside
+            the shipped grammars, in order (SEAM — inherited from base).
     """
 
     DEFAULT_OUTPUT_FORMAT: ClassVar[str] = "symbol"
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset()
 
     capability_name: str = field(default="si_unit", init=False)
-
-    @property
-    def active_grammars(self) -> tuple[str, ...]:
-        """All grammars active by default.
-
-        All three recognition grammars are always active; SI Unit has no
-        input-shape feature flags.
-
-        Returns:
-            The three recognition grammar names.
-        """
-        return ("symbol_recognition", "name_recognition", "compound_recognition")
 ```
 
-No `_extra_dict_fields` override (no capability-specific fields — base
-`{}` applies) and no `__post_init__` (nothing to validate beyond the
-base `Contract` resolution of `output_format`/`year`/pinned-excluded).
+No `active_grammars` override (SEAM: the base `None` default runs all three
+shipped grammars; SI Unit has no input-shape feature flags), no
+`_extra_dict_fields` override (no capability-specific fields — base `{}`
+applies) and no `__post_init__` (nothing to validate beyond the base
+`Contract` resolution of `output_format`/`year`/pinned-excluded).
 
 **Verify:** `uv run pytest tests/capabilities/si_unit -v` and
 `uv run ruff check paxman/capabilities/SIUnit/ tests/capabilities/si_unit/`
@@ -791,7 +809,7 @@ class TestSectionBaseUnits:
     def test_rule_metadata(self) -> None:
         assert self.rule.name == "Section 2.3.1-base-units"
         assert self.rule.strategy is RuleStrategy.LOOKUP_TABLE
-        assert self.rule.target_grammars == frozenset({"symbol_recognition"})
+        assert self.rule.target_semantics == frozenset({"symbol_recognition"})
         assert self.rule.requires_features == frozenset()
         assert self.rule.provenance.publication_year == 2019
 
@@ -887,7 +905,7 @@ class TestSectionNames:
     def test_rule_metadata(self) -> None:
         assert self.rule.name == "Section-names"
         assert self.rule.strategy is RuleStrategy.LOOKUP_TABLE
-        assert self.rule.target_grammars == frozenset({"name_recognition"})
+        assert self.rule.target_semantics == frozenset({"name_recognition"})
         assert self.rule.requires_features == frozenset()
         assert self.rule.provenance.publication_year == 2019
 
@@ -923,6 +941,13 @@ class TestSectionNames:
 ```
 
 **Step 2 GREEN** — `paxman/capabilities/SIUnit/rules/bipm_si_brochure_ed2019.py`:
+
+**SEAM:** `Rule.__init_subclass__` enforces all six metadata attributes
+(`name`, `strategy`, `provenance`, `citation`, `target_semantics`,
+`requires_features` — the last two as non-empty `frozenset[str]`) at
+class-definition time: a rule missing any of them fails the module import
+with a `TypeError`. Every class below declares all six; `target_semantics`
+names the producing grammar's `semantics` id (identity for SIUnit).
 
 ```python
 """BIPM SI Brochure rules (9th edition, 2019).
@@ -972,7 +997,7 @@ class SectionBaseUnits(Rule[SIUnitNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "BIPM SI Brochure (9th ed., 2019), Table 1"
-    target_grammars = frozenset({"symbol_recognition"})
+    target_semantics = frozenset({"symbol_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: SIUnitNotation, contract: Contract) -> bool:
@@ -995,7 +1020,7 @@ class SectionDerivedUnits(Rule[SIUnitNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "BIPM SI Brochure (9th ed., 2019), Tables 3–4"
-    target_grammars = frozenset({"symbol_recognition"})
+    target_semantics = frozenset({"symbol_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: SIUnitNotation, contract: Contract) -> bool:
@@ -1022,7 +1047,7 @@ class SectionNonSiUnits(Rule[SIUnitNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "BIPM SI Brochure (9th ed., 2019), Tables 8–9"
-    target_grammars = frozenset({"symbol_recognition"})
+    target_semantics = frozenset({"symbol_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: SIUnitNotation, contract: Contract) -> bool:
@@ -1053,7 +1078,7 @@ class SectionPrefixes(Rule[SIUnitNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "BIPM SI Brochure (9th ed., 2019), Table 5 and §3.2"
-    target_grammars = frozenset({"symbol_recognition"})
+    target_semantics = frozenset({"symbol_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: SIUnitNotation, contract: Contract) -> bool:
@@ -1081,7 +1106,7 @@ class SectionNames(Rule[SIUnitNotation]):
     strategy = RuleStrategy.LOOKUP_TABLE
     provenance = PUBLICATION
     citation = "BIPM SI Brochure (9th ed., 2019), Tables 1, 3–4, 8–9 (unit names)"
-    target_grammars = frozenset({"name_recognition"})
+    target_semantics = frozenset({"name_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: SIUnitNotation, contract: Contract) -> bool:
@@ -1131,7 +1156,7 @@ class TestSectionCompounds:
     def test_rule_metadata(self) -> None:
         assert self.rule.name == "Section 6.5-compounds"
         assert self.rule.strategy is RuleStrategy.PARSER
-        assert self.rule.target_grammars == frozenset({"compound_recognition"})
+        assert self.rule.target_semantics == frozenset({"compound_recognition"})
         assert self.rule.requires_features == frozenset()
         assert self.rule.provenance.publication_year == 2022
 
@@ -1232,7 +1257,7 @@ class SectionCompounds(Rule[SIUnitNotation]):
     strategy = RuleStrategy.PARSER
     provenance = PUBLICATION
     citation = "ISO 80000-1:2022, §6.5 (unit symbols in products and quotients)"
-    target_grammars = frozenset({"compound_recognition"})
+    target_semantics = frozenset({"compound_recognition"})
     requires_features = frozenset()
 
     def matches(self, notation: SIUnitNotation, contract: Contract) -> bool:
@@ -1335,6 +1360,11 @@ class TestSymbolRecognition:
     def setup_method(self) -> None:
         self.grammar: Grammar[SIUnitNotation] = SymbolRecognition()
 
+    def test_semantics_identity(self) -> None:
+        # SEAM (ADR-0003): every shipped grammar declares `semantics`;
+        # SIUnit grammars use identity ids (no coalesced groups).
+        assert self.grammar.semantics == "symbol_recognition"
+
     @pytest.mark.parametrize(
         ("text", "token"),
         [
@@ -1384,6 +1414,10 @@ class TestNameRecognition:
     def setup_method(self) -> None:
         self.grammar: Grammar[SIUnitNotation] = NameRecognition()
 
+    def test_semantics_identity(self) -> None:
+        # SEAM (ADR-0003): identity semantics id; no coalesced groups.
+        assert self.grammar.semantics == "name_recognition"
+
     @pytest.mark.parametrize(
         ("text", "name"),
         [
@@ -1423,6 +1457,10 @@ class TestCompoundRecognition:
 
     def setup_method(self) -> None:
         self.grammar: Grammar[SIUnitNotation] = CompoundRecognition()
+
+    def test_semantics_identity(self) -> None:
+        # SEAM (ADR-0003): identity semantics id; no coalesced groups.
+        assert self.grammar.semantics == "compound_recognition"
 
     @pytest.mark.parametrize(
         ("text", "body"),
@@ -1487,6 +1525,7 @@ class SymbolRecognition(Grammar[SIUnitNotation]):
     """Grammar: symbol_recognition — case-exact unit symbol tokens."""
 
     name = "symbol_recognition"
+    semantics = "symbol_recognition"  # SEAM (ADR-0003): identity id
 
     def recognize(self, text: str) -> list[RecognitionMatch[SIUnitNotation]]:
         """Emit one RecognitionMatch per symbol token found in text."""
@@ -1531,6 +1570,7 @@ class NameRecognition(Grammar[SIUnitNotation]):
     """Grammar: name_recognition — case-folded unit names."""
 
     name = "name_recognition"
+    semantics = "name_recognition"  # SEAM (ADR-0003): identity id
 
     def recognize(self, text: str) -> list[RecognitionMatch[SIUnitNotation]]:
         """Emit one RecognitionMatch per unit name found in text."""
@@ -1584,6 +1624,7 @@ class CompoundRecognition(Grammar[SIUnitNotation]):
     """Grammar: compound_recognition — product/quotient unit shapes."""
 
     name = "compound_recognition"
+    semantics = "compound_recognition"  # SEAM (ADR-0003): identity id
 
     def recognize(self, text: str) -> list[RecognitionMatch[SIUnitNotation]]:
         """Emit one RecognitionMatch per compound shape found in text."""
@@ -1796,6 +1837,15 @@ class TestSIUnitCapability:
         contract = self.capability.create_contract(excluded_rules=["Section-names"])
         assert contract.excluded_rules == ("Section-names",)
 
+    def test_create_contract_extra_grammars(self) -> None:
+        # SEAM: the community opt-in field is forwarded by the factory
+        # (surface guard: default () + forwarding through create_contract).
+        contract = self.capability.create_contract(
+            extra_grammars=["dot_unit_recognition"]
+        )
+        assert contract.extra_grammars == ("dot_unit_recognition",)
+        assert self.capability.create_contract().extra_grammars == ()
+
     def test_create_contract_keyword_only(self) -> None:
         # ContractFactory conformance: the common block is keyword-only
         with pytest.raises(TypeError):
@@ -1855,8 +1905,9 @@ class SIUnitCapability(Capability[SIUnitNotation]):
 
     Canonicalizes SI unit expressions — a unit symbol, a unit name, or a
     product/quotient compound — to the canonical symbol form, with full
-    provenance. Identity-only: no quantities, no magnitudes, no
-    name-compounds ("metre per second" is not recognized; "25°C" is
+    provenance.     Identity-only: no quantities, no magnitudes, no
+    name-compounds ("metre per second" does not resolve as a compound —
+    its words are recognized separately, yielding AMBIGUOUS; "25°C" is
     MISSING). Strategy: BIPM SI Brochure (9th ed., 2019) + ISO 80000-1.
     """
 
@@ -1894,6 +1945,7 @@ class SIUnitCapability(Capability[SIUnitNotation]):
         pinned_rules: Sequence[str] | None = None,
         year: int | None = None,
         output_format: str | None = None,
+        extra_grammars: Sequence[str] | None = None,
     ) -> SIUnitContract:
         """Factory method for creating contracts with proper defaults.
 
@@ -1904,6 +1956,9 @@ class SIUnitCapability(Capability[SIUnitNotation]):
             year: Year for temporal filtering.
             output_format: Output format for canonical values. Optional;
                 None/"default"/"symbol" resolve to "symbol".
+            extra_grammars: Community grammar names (opt-in) to run
+                alongside the shipped grammars, in order (SEAM — the
+                surface guard's common block ends with this parameter).
 
         Returns:
             Configured SIUnitContract instance.
@@ -1913,6 +1968,7 @@ class SIUnitCapability(Capability[SIUnitNotation]):
             pinned_rules=tuple(pinned_rules) if pinned_rules is not None else None,
             year=year,
             output_format=output_format,
+            extra_grammars=tuple(extra_grammars) if extra_grammars else (),
         )
 
     # format_value: NOT overridden — the canonical value IS the "symbol"
@@ -1949,13 +2005,42 @@ registration lands):
 - `tests/unit/test_capability_exports.py`: add a `TestSIUnitCapabilityExports`
   class (mirror `TestCurrencyCapabilityExports` — asserts
   `capabilities.SIUnit` imports and `name == "si_unit"`), and extend the
-  count test to **ten** names: `{"Country", "Currency", "Date", "Email",
-  "IP", "ISBN", "Money", "Phone", "SIUnit", "URL"}`.
-- `tests/unit/test_capability_surface.py`: add the SIUnit rows (capability
-  name/version; notation class; contract `capability_name` /
-  `output_format` / `active_grammars`; grammar count/names; rule
-  count/names; format_value surface row with an independent literal —
-  canonical value `"kg"`).
+  count test (`test_export_list_contains_nine_names` →
+  `test_export_list_contains_ten_names`) to **ten** names:
+  `{"Country", "Currency", "Date", "Email", "IP", "ISBN", "Money",
+  "Phone", "SIUnit", "URL"}`.
+- `tests/unit/test_capability_surface.py`: add the SIUnit row to the
+  `_CAPABILITY_SURFACES` parametrization —
+  `pytest.param(SIUnitCapability, SIUnitContract, "symbol", id="si_unit")`
+  (with imports from `paxman.capabilities.SIUnit.capability` /
+  `.contract`) plus the `SIUnitNotation` import. The parametrized guard
+  then enforces, for SIUnit, all five surface items: `CapabilityContract`
+  inheritance, `ContractFactory` conformance, the keyword-only
+  `create_contract` common block `excluded_rules, pinned_rules, year,
+  output_format, extra_grammars` in that order, `output_format`
+  resolving `None`/`"default"`/`"symbol"` to `"symbol"`, and
+  `extra_grammars` defaulting to `()` on the contract while forwarding a
+  provided value through `create_contract`. (The guard no longer asserts
+  per-row `active_grammars` — the base `None` default is the convention
+  for non-gated capabilities.)
+- `tests/unit/test_grammar_semantics_metadata.py` (SEAM): add SIUnit to
+  the hardcoded capability list. Its three grammars declare identity
+  `semantics`, so the identity-or-allowlist check passes with **no**
+  addition to `_COALESCED_SEMANTICS`.
+- `tests/unit/test_grammar_semantics_consistency.py` (SEAM): add SIUnit
+  to `_SHIPPED_CAPABILITIES`. No `_PROBE_ROWS` entry is needed — all
+  three semantics are singletons (the probe table seeds only coalesced
+  groups); `test_every_grammar_semantics_claimed_by_rule_target`
+  auto-verifies that each of SIUnit's semantics ids is targeted by an
+  in-capability rule (`symbol_recognition` → the four BIPM symbol
+  sections, `name_recognition` → `SectionNames`, `compound_recognition`
+  → `SectionCompounds`). The `name_recognition` id coinciding with
+  Country's same-named id is fine — groups are scoped per capability
+  (R3).
+
+Both semantics guards import SIUnit through the `paxman.capabilities`
+package, so their RED failure is the missing export — the same commit's
+GREEN (registration) turns them green.
 
 **Step 2:** `uv run pytest tests/unit -v` → the guards fail (no `SIUnit`
 export yet).
@@ -1994,12 +2079,13 @@ The `si_unit` pytest marker is already registered (Task 1 Step 2) — nothing
 to add to `pyproject.toml` markers here.
 
 **Step 4:** `uv run ruff check paxman/ tests/` → clean; `uv run pytest
-tests/unit -v` → pass (guards green with registration); `uv run
-import-linter lint` → clean. Commit `feat(si_unit): register SIUnit capability and extend export/surface guards`.
+tests/unit -v` → pass (all four extended guards — exports, surface,
+semantics metadata, semantics consistency — green with registration); `uv
+run import-linter lint` → clean. Commit `feat(si_unit): register SIUnit capability and extend export/surface guards`.
 
 ---
 
-### Task 11 — `test(si_unit): lock SIUnit pipeline semantics and replay hash`
+### Task 11 — `test(si_unit): lock SIUnit pipeline semantics and determinism`
 
 **Step 1 RED** — `tests/integration/test_si_unit_pipeline.py` mirroring
 `tests/integration/test_currency_pipeline.py`: autouse `_clean_registry`
@@ -2026,28 +2112,34 @@ case, plus:
 
 **Step 3 GREEN** — no new source needed (Tasks 3–9 already wired
 everything); this task proves the full `canonicalize()` path (registry →
-run_capability → grammar → rule → Resolution → hash) and catches
+run_capability → grammar → rule → Resolution) and catches
 integration regressions early (Traps §T13: the moment SIUnit joins the
-registry, every existing replay-hash test must still pass).
+registry, every existing integration test must still pass).
 
-**Step 4** — baseline replay hash: extend
-`tests/integration/test_default_replay_hashes.py` mirroring the existing
-per-capability cases exactly (per-case `register_capability(SIUnitCapability())`
-+ `canonicalize(input, year=2026)`), adding **one** SIUnit case:
+**Step 4** — canonical determinism (SEAM: the replay-hash baseline suite
+was removed in PR #18 — `VersionStamp.replay_hash` no longer exists and
+`tests/integration/test_default_replay_hashes.py` is gone; determinism is
+now locked by the "run twice, byte-identical" convention in
+`tests/integration/test_pipeline.py`'s
+`TestCanonicalDeterminismAndCandidateOrder`). Add **one** SIUnit row to
+that parametrized class, mirroring the existing rows exactly:
 
 ```python
-# canonicalize("megahertz", SIUnitCapability.create_contract(), year=2026)
-# baseline hash literal: obtain by running once (see Step 5) — never
-#     edited to green.
+pytest.param(
+    SIUnitCapability,
+    lambda: SIUnitCapability.create_contract(),
+    "megahertz",
+    id="si_unit-prefixed-name",
+),
 ```
 
-**Step 5** — run `uv run pytest tests/integration/test_default_replay_hashes.py -v`
-once to obtain the baseline hash; write that literal into the test; re-run
-→ pass (now 10 capability cases). **Do NOT fabricate or back-solve the
-literal** — the hash is the replay-safety contract.
+The row registers SIUnit, runs `run_capability("megahertz", contract)`
+twice, and asserts `second == first`, plus identical status /
+`canonicalized_value` ("MHz") / candidate tuple. **No hash literal exists
+to obtain** — determinism is asserted structurally, never by snapshot.
 
 **Verify:** `uv run pytest tests/integration -v` → pass (all capabilities).
-**Commit:** `test(si_unit): lock SIUnit pipeline semantics and replay hash`
+**Commit:** `test(si_unit): lock SIUnit pipeline semantics and determinism`
 
 ---
 
@@ -2074,6 +2166,16 @@ the documented exception):
 # given any recognized match m: m.end - m.start == len(m.raw_text)
 #     and m.raw_text == text[m.start:m.end]       # half-open span invariant
 ```
+
+> **Controller amendment (2026-08-12):** the compound invariant's sample
+> strategy draws from the *compoundable* lexicon — the glyph-only plane-angle
+> tokens `°` `′` `″` (BIPM Table 8, present in `SYMBOL_TOKENS`) are excluded
+> with a documented module constant. Verified exhaustive: the compound
+> grammar's `_UNIT` composes letter-based units (`[A-Za-zµΩÅ]`, `°?` prefix
+> for `°C` only), and the 5571 failing pairs are exactly those containing a
+> bare `°`/`′`/`″` — no §1 locked row requires a bare-glyph compound
+> (`m/°C` composes via the `°C` token itself). Every remaining
+> `SYMBOL_TOKENS` pair (exhaustive) composes exactly one compound match.
 
 **Step 2 GREEN** — extend `tests/e2e/test_canonicalize.py` (autouse
 `_clean_registry` fixture; `from paxman.api import canonicalize`), adding
@@ -2128,7 +2230,10 @@ uv run ruff format --check paxman/ tests/
 uv run pyright
 uv run import-linter lint
 uv run pytest
-uv run coverage report --include="paxman/{core,capabilities,engine,api}/*" --fail-under=95
+uv run coverage report --include="paxman/core/*" --fail-under=95
+uv run coverage report --include="paxman/capabilities/*" --fail-under=95
+uv run coverage report --include="paxman/engine/*" --fail-under=95
+uv run coverage report --include="paxman/api/*" --fail-under=95
 uv run coverage report --include="paxman/capabilities/SIUnit/*" --fail-under=95
 ```
 
@@ -2151,9 +2256,13 @@ source.
 - Task 8 depends on Tasks 3–7 (it locks the seam between generated token
   tables and authority tables).
 - Tasks 9 → 10 depend on Task 7 (the capability needs all grammars and
-  rules wired before registration).
+  rules wired before registration); Task 10 also depends on Task 9 — its
+  surface row imports `SIUnitCapability`, and its semantics-guard edits
+  import SIUnit through the `paxman.capabilities` package, so the guard
+  edits and the registration land in the **same** Task 10 commit (RED:
+  missing export; GREEN: registration).
 - Tasks 11 → 12 depend on Task 10 (registration must land before the
-  pipeline/replay/e2e tasks can run).
+  pipeline/determinism/e2e tasks can run).
 - Task 13 is last (docs reflect the registered surface).
 - Each task commits atomically with the message in its header; never merge
   tasks' commits.
@@ -2185,7 +2294,12 @@ source.
   tables; authority mappings live in `rules/data/` and are imported only
   by rules. `tests/capabilities/si_unit/test_data_consistency.py` (Task 8)
   must cover every shipped recognition key against the rule-data mappings
-  (house mandate).
+  (house mandate). **SEAM:** the routing seam is declared, not inferred —
+  every grammar carries `semantics`, every rule carries `target_semantics`
+  naming it; the auto-discovering purity guards
+  (`test_grammar_semantic_purity.py`, `test_rule_output_format_purity.py`)
+  need no edits but SIUnit must satisfy them (grammars never import from
+  `rules/`; rule modules contain no `output_format` token).
 - **T6. The symbol grammar must not fragment compounds.** D2 lookarounds
   block `/`, `·`, `⋅` — keep them. If a compound input also yields a bare
   symbol match, the engine's per-grammar `_dedup_spans` cannot rescue it
@@ -2194,9 +2308,12 @@ source.
   Never hand-write `"kkg"`, `"Mkg"`, or `"kilokilogram"` anywhere — the
   generator excludes `"kg"` from `_prefixable_units()`; `"kilogram"` and
   `"kg"` stay the official base-unit name/symbol.
-- **T8. Replay-hash literals: obtain by running once; never edit to
-  green** (root AGENTS.md anti-pattern). Do not fabricate or back-solve
-  the Task 11 baseline.
+- **T8. Determinism is structural, not snapshot.** The replay-hash
+  baseline suite was removed (PR #18): there is no hash literal to obtain
+  or back-solve. Lock determinism the current way — the
+  `TestCanonicalDeterminismAndCandidateOrder` "run twice, byte-identical"
+  row for `"megahertz"` (Task 11 Step 4). Do not reintroduce a snapshot
+  literal.
 - **T9. Type safety / style.** No `# type: ignore` / `# noqa` /
   `# pyright: ignore` in `paxman/` source (tests may use
   `# type: ignore[misc]` for immutability checks). Rule classes CapWords.
@@ -2217,9 +2334,10 @@ source.
   add a fallback grammar to force a specific status — R1 (`"KHz"` →
   MISSING) and R2 (`"m s"` → AMBIGUOUS) are locked refinements.
 - **T13. Registry freezing.** The moment SIUnit joins the registry
-  (Task 10), every existing integration/replay-hash test runs against 10
-  capabilities — all baselines must stay green. Do not touch other
-  capabilities' replay-hash literals.
+  (Task 10), every existing integration test runs against 10
+  capabilities — all must stay green (including the
+  `TestCanonicalDeterminismAndCandidateOrder` rows for the shipped nine).
+  Do not touch other capabilities' rows or registration code.
 - **T14. Registration surface.** `__init__.py` import + `__all__` together
   (acronym aliases are already per-file-ignored for N814); export guard
   count test 9 → 10; the `si_unit` marker is already registered in
@@ -2227,6 +2345,24 @@ source.
 - **T15. Compound split patterns stay local.** The ISO rule keeps its own
   split regex (never imported from `grammar/data/compound_tokens.py`) —
   rules must not import from the grammar tree (grammar↔rules purity scan).
+- **T16. Semantics metadata is mandatory (SEAM, ADR-0003).** Every
+  grammar class declares `semantics` (identity id for SIUnit) and every
+  rule class declares `target_semantics` — the old `target_grammars`
+  attribute no longer exists. `Grammar.__init_subclass__` and
+  `Rule.__init_subclass__` fail the **import** with a `TypeError` if the
+  metadata is missing or mistyped (e.g. `requires_features` must be
+  `frozenset`, `target_semantics` non-empty), so a rule missing one of the
+  six required attributes never reaches the pipeline.
+- **T17. `active_grammars` is base-default `None` (SEAM, PR #20).** SIUnit
+  has no input-shape feature flags, so `SIUnitContract` must **not**
+  override `active_grammars` — the base `None` runs every shipped grammar
+  in `get_grammars()` order. Adding an override (or a static tuple) is a
+  convention violation caught by review, not by a guard.
+- **T18. `create_contract` ends with `extra_grammars` (SEAM, PR #19).**
+  The surface guard's `_COMMON_BLOCK` is `excluded_rules, pinned_rules,
+  year, output_format, extra_grammars` in that order, and it asserts both
+  the default `()` and forwarding. Do not omit the parameter or reorder
+  the block; the contract itself inherits the field from the base.
 
 ## §5 Definition of Done
 
@@ -2236,11 +2372,16 @@ source.
       test_data, test_grammar, test_rules, test_capability,
       test_data_consistency (7 files — **no** test_parsing: SIUnit has no
       quantities).
+- [ ] `tests/unit` guards green with SIUnit registered: capability
+      exports (ten names), capability surface (`_CAPABILITY_SURFACES`
+      row), grammar-semantics metadata, grammar-semantics consistency
+      (SEAM — Tasks 10).
 - [ ] `tests/integration/test_si_unit_pipeline.py` green with the full §1
       e2e contract (27 rows: 18 SUCCESS, 3 INVALID, 5 MISSING, 1 AMBIGUOUS;
       "USD" is one of the MISSING rows — not an SI token).
-- [ ] Replay-hash baseline for `"megahertz"` (year=2026) locked;
-      `test_default_replay_hashes.py` green for all 10 capabilities.
+- [ ] Canonical determinism row for `"megahertz"` in
+      `TestCanonicalDeterminismAndCandidateOrder` green (SEAM — Task 11;
+      the replay-hash baseline was removed in PR #18).
 - [ ] Property + e2e coverage green (Task 12).
 - [ ] Docs: README (10 capabilities, SI Unit section), root AGENTS.md,
       capabilities AGENTS.md, CONTEXT.md.
