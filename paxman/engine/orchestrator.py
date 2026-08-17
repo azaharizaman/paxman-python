@@ -23,6 +23,7 @@ from paxman.core.domain import (
 from paxman.core.errors import (
     CapabilityError,
     ContractError,
+    MultipleMentionsError,
     RecognitionError,
     ValidationError,
 )
@@ -49,6 +50,7 @@ class ExecutionResult:
     candidates: tuple[Candidate, ...]
     contract: Contract
     version_stamp: VersionStamp
+    span: tuple[int, int] | None = None
 
 
 def run_capability(text: str, contract: Contract) -> ExecutionResult:
@@ -78,7 +80,11 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
     had_recognitions = len(recognitions) > 0
 
     rules = _filter_rules(all_rules, contract)
-    candidates = _collect_candidates(capability, recognitions, rules, semantics_by_name)
+    single_value_by_grammar_name = {g.name: g.single_value for g in all_grammars}
+    collected = _collect_candidates(capability, recognitions, rules, semantics_by_name)
+    _enforce_single_value_invariant(collected, single_value_by_grammar_name)
+
+    candidates = _dedup_candidates(collected)
 
     status = _determine_status(candidates, had_recognitions)
     canonical_value = _extract_canonical_value(candidates, status)
@@ -90,6 +96,11 @@ def run_capability(text: str, contract: Contract) -> ExecutionResult:
         candidates=tuple(candidates),
         contract=contract,
         version_stamp=version_stamp,
+        span=(
+            candidates[0].span
+            if candidates and len({c.value for c in candidates}) == 1
+            else None
+        ),
     )
 
 
@@ -302,20 +313,23 @@ def _collect_candidates(
     recognitions: list[RecognizedRep[Any]],
     rules: list[Rule[Any]],
     semantics_by_name: dict[str, str],
-) -> list[Candidate]:
-    """Match recognitions against rules and collect candidates.
+) -> list[tuple[Candidate, RecognizedRep[Any]]]:
+    """Match recognitions against rules and collect (candidate, source) pairs.
 
     Routes each recognition only to rules whose ``target_semantics`` includes
     the producing grammar's semantics, formats each validated value through
-    the capability's ``format_value()`` seam, then dedups identical candidate
-    tuples so the candidate multiset is stable regardless of routing.
+    the capability's ``format_value()`` seam, then returns each
+    ``Candidate`` together with the ``RecognizedRep`` that produced it. The
+    paired rep carries the recognition span used by
+    ``_enforce_single_value_invariant`` to attribute candidates to their source
+    mention; dedup runs later in ``_dedup_candidates``.
 
     The ``semantics_by_name[grammar_name]`` lookup cannot KeyError:
     recognitions are produced only by grammars in the composed ``all_grammars``
     (``_recognize`` filters against ``supported_names``), the same list the map
     is built from.
     """
-    candidates: list[Candidate] = []
+    collected: list[tuple[Candidate, RecognizedRep[Any]]] = []
     for recognition in recognitions:
         grammar_name = recognition.grammar.grammar_name
         for rule in rules:
@@ -331,12 +345,16 @@ def _collect_candidates(
                         recognition.contract.output_format,
                         recognition.notation,
                     )
-                    candidates.append(
-                        Candidate(
-                            value=value,
-                            recognition_rule=grammar_name,
-                            validation_rule=rule.name,
-                            provenance=(rule.provenance,),
+                    collected.append(
+                        (
+                            Candidate(
+                                value=value,
+                                recognition_rule=grammar_name,
+                                validation_rule=rule.name,
+                                provenance=(rule.provenance,),
+                                span=(recognition.start, recognition.end),
+                            ),
+                            recognition,
                         )
                     )
             except Exception as exc:
@@ -345,10 +363,77 @@ def _collect_candidates(
                     message=f"Validation failed: {exc}",
                     original_error=exc,
                 ) from exc
-    return _dedup_candidates(candidates)
+    return collected
 
 
-def _dedup_candidates(candidates: list[Candidate]) -> list[Candidate]:
+def _enforce_single_value_invariant(
+    collected: Sequence[tuple[Candidate, RecognizedRep[Any]]],
+    single_value_by_grammar_name: dict[str, bool],
+) -> None:
+    """Fail fast on un-segmented multi-entity input (ADR-0004).
+
+    Only grammars that opt in via ``Grammar.single_value`` are checked. For those,
+    candidate spans are clustered into mentions: spans that overlap or contain one
+    another are one logical mention. A single mention yielding several values is
+    genuine single-mention ambiguity and stays ``AMBIGUOUS``. Two or more
+    *separate* (non-overlapping) mentions that resolve to different values are
+    un-segmented multi-entity input and raise ``MultipleMentionsError``.
+
+    Overlap clustering is what lets the invariant spare the cases it must not
+    touch: cross-grammar reads of one span (one cluster, many values →
+    ambiguous), and a grammar that emits several overlapping parses of one mention
+    (one cluster). Grammars that deliberately emit multiple spans for one logical
+    mention (e.g. a span-bearing seam probe) leave ``single_value`` False and are
+    exempt from the check entirely.
+    """
+    if not collected:
+        return
+    clusters: list[set[tuple[int, int]]] = []
+    values_by_span: dict[tuple[int, int], set[str]] = {}
+    for candidate, rep in collected:
+        if not single_value_by_grammar_name.get(rep.grammar.grammar_name, False):
+            continue
+        span = (rep.start, rep.end)
+        values_by_span.setdefault(span, set()).add(candidate.value)
+        overlapping_clusters = [
+            cluster
+            for cluster in clusters
+            if any(_spans_overlap(span, other) for other in cluster)
+        ]
+        if overlapping_clusters:
+            # A span may overlap several clusters; merge all of them so one
+            # logical mention is never split (which would raise a false
+            # MultipleMentionsError).
+            merged: set[tuple[int, int]] = {span}
+            for cluster in overlapping_clusters:
+                merged.update(cluster)
+                clusters.remove(cluster)
+            clusters.append(merged)
+        else:
+            clusters.append({span})
+    if len(clusters) <= 1:
+        return
+    distinct_values: set[str] = set()
+    for cluster in clusters:
+        for span in cluster:
+            distinct_values |= values_by_span[span]
+    if len(distinct_values) > 1:
+        raise MultipleMentionsError(
+            f"Input contained {len(clusters)} distinct mentions resolving to "
+            f"{len(distinct_values)} distinct canonical values "
+            f"({sorted(distinct_values)}). Paxman resolves one entity per call; "
+            "split the input into separate canonicalize() calls."
+        )
+
+
+def _spans_overlap(a: tuple[int, int], b: tuple[int, int]) -> bool:
+    """Whether two half-open spans share any character position."""
+    return a[0] < b[1] and b[0] < a[1]
+
+
+def _dedup_candidates(
+    collected: Sequence[tuple[Candidate, RecognizedRep[Any]]],
+) -> list[Candidate]:
     """Drop identical (value, recognition_rule, validation_rule) tuples.
 
     Provenance is deterministic per (rule, grammar) pair, so collapsing on this
@@ -357,7 +442,7 @@ def _dedup_candidates(candidates: list[Candidate]) -> list[Candidate]:
     """
     seen: set[tuple[str, str, str]] = set()
     deduped: list[Candidate] = []
-    for candidate in candidates:
+    for candidate, _rep in collected:
         key = (
             candidate.value,
             candidate.recognition_rule,

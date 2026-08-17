@@ -5,6 +5,7 @@ import pytest
 from paxman.capabilities.Money.capability import MoneyCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
+from paxman.core.errors import MultipleMentionsError
 from paxman.engine.orchestrator import run_capability
 
 
@@ -222,12 +223,15 @@ class TestMoneyPipeline:
 
     @pytest.mark.integration
     def test_multi_amount_ambiguous(self) -> None:
-        """Two amounts with different currencies yield AMBIGUOUS."""
+        """Two amounts in one input fail fast (single-value invariant).
+
+        Two amounts are un-segmented multi-entity input, so the engine raises
+        MultipleMentionsError instead of returning AMBIGUOUS.
+        """
         register_capability(MoneyCapability())
         contract = MoneyCapability.create_contract()
-        result = run_capability("USD 100 and EUR 200", contract)
-        assert result.status == Resolution.AMBIGUOUS
-        assert result.canonicalized_value is None
+        with pytest.raises(MultipleMentionsError):
+            run_capability("USD 100 and EUR 200", contract)
 
     @pytest.mark.integration
     def test_version_stamp(self) -> None:

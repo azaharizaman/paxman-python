@@ -54,6 +54,7 @@ class SymbolRecognition(Grammar[MoneyNotation]):
 
     name = "symbol_recognition"
     semantics = "symbol_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[MoneyNotation]]:
         """Extract symbol+amount tokens from text.

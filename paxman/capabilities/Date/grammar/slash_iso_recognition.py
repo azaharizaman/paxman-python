@@ -30,6 +30,7 @@ class SlashISODateGrammar(Grammar[DateNotation]):
 
     name = "slash_iso_recognition"
     semantics = "iso8601_calendar_date"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
         """Extract YYYY/MM/DD date patterns from text."""

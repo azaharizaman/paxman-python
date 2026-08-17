@@ -519,6 +519,29 @@ for candidate in result.candidates:
 
 ---
 
+## Recognition Span
+
+Every `Candidate` and the top-level `ExecutionResult` expose the half-open
+`[start, end)` character range the recognition occupied in the input, so callers
+can locate exactly where a canonicalized entity sat:
+
+```python
+from paxman.capabilities import Email
+
+contract = Email.create_contract()
+result = paxman.canonicalize("user@example.com", contract)
+
+print(result.span)                     # (0, 16)
+for candidate in result.candidates:
+    print(candidate.span)              # (0, 16)
+    print(candidate.recognition_rule)  # "standard_recognition"
+```
+
+`result.span` is the source span of the single resolved value on `SUCCESS`; it
+is `None` for `MISSING`, `INVALID`, or `AMBIGUOUS`, since those cases have no
+single resolved entity. For `AMBIGUOUS` results, locate each mention via the
+per-candidate `Candidate.span`.
+
 ## Error Handling
 
 Paxman raises typed exceptions for different failure modes:

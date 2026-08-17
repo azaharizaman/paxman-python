@@ -19,6 +19,7 @@ class ISBN10RecognitionGrammar(Grammar[ISBNNotation]):
 
     name = "isbn10_recognition"
     semantics = "isbn10_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[ISBNNotation]]:
         matches: list[RecognitionMatch[ISBNNotation]] = []

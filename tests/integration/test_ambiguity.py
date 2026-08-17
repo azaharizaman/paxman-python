@@ -9,6 +9,7 @@ import pytest
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.discovery import register_capability, reset_registry
 from paxman.core.domain import Resolution
+from paxman.core.errors import MultipleMentionsError
 from paxman.engine.orchestrator import run_capability
 
 
@@ -45,14 +46,14 @@ class TestAmbiguityDetection:
 
     @pytest.mark.integration
     def test_multiple_emails_produce_multiple_candidates(self):
-        """Two emails → different values → AMBIGUOUS."""
+        """Two emails in one input fail fast (single-value invariant).
+
+        Two emails are un-segmented multi-entity input, so the engine raises
+        MultipleMentionsError instead of returning AMBIGUOUS.
+        """
         cap = EmailCapability()
         register_capability(cap)
 
         contract = EmailCapability.create_contract()
-        result = run_capability("a@b.com and c@d.org", contract)
-
-        # Two different canonical values from two recognitions
-        assert result.status == Resolution.AMBIGUOUS
-        assert result.canonicalized_value is None
-        assert len(result.candidates) >= 2
+        with pytest.raises(MultipleMentionsError):
+            run_capability("a@b.com and c@d.org", contract)

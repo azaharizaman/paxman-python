@@ -141,11 +141,11 @@ class _FormattingContract:
         return "formatted"
 
 
-class _DualTokenGrammar(Grammar[_TokenNotation]):
-    """Grammar that recognizes two distinct tokens."""
+class _DualAlphaGrammar(Grammar[_TokenNotation]):
+    """Grammar that recognizes the 'alpha' token at span (0, 5)."""
 
-    name = "dual_token_grammar"
-    semantics = "dual_token_grammar"
+    name = "dual_alpha_grammar"
+    semantics = "dual_alpha_grammar"
 
     def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
         return [
@@ -154,20 +154,31 @@ class _DualTokenGrammar(Grammar[_TokenNotation]):
                 start=0,
                 end=5,
                 raw_text="alpha",
-            ),
+            )
+        ]
+
+
+class _DualBetaGrammar(Grammar[_TokenNotation]):
+    """Grammar that recognizes the 'beta' token at span (5, 9)."""
+
+    name = "dual_beta_grammar"
+    semantics = "dual_beta_grammar"
+
+    def recognize(self, text: str) -> list[RecognitionMatch[_TokenNotation]]:
+        return [
             RecognitionMatch(
                 notation=_TokenNotation(token="beta"),
                 start=5,
                 end=9,
                 raw_text="beta",
-            ),
+            )
         ]
 
 
-class _DualTokenRule(Rule[_TokenNotation]):
-    """Rule that collapses both tokens to the same default canonical value."""
+class _DualAlphaRule(Rule[_TokenNotation]):
+    """Rule that normalizes the alpha token to the shared default value."""
 
-    name = "dual_token_rule"
+    name = "dual_alpha_rule"
     strategy = RuleStrategy.REGEX
     provenance = Provenance(
         authority="test",
@@ -179,7 +190,32 @@ class _DualTokenRule(Rule[_TokenNotation]):
         publication_year=2024,
     )
     citation = "test"
-    target_semantics = frozenset({"dual_token_grammar"})
+    target_semantics = frozenset({"dual_alpha_grammar"})
+    requires_features = frozenset()
+
+    def matches(self, notation: _TokenNotation, contract: Contract) -> bool:
+        return True
+
+    def normalize(self, notation: _TokenNotation, contract: Contract) -> str:
+        return "default-value"
+
+
+class _DualBetaRule(Rule[_TokenNotation]):
+    """Rule that normalizes the beta token to the shared default value."""
+
+    name = "dual_beta_rule"
+    strategy = RuleStrategy.REGEX
+    provenance = Provenance(
+        authority="test",
+        specification_name="test",
+        kind="test",
+        reference_url="https://test",
+        version=None,
+        lifecycle="active",
+        publication_year=2024,
+    )
+    citation = "test"
+    target_semantics = frozenset({"dual_beta_grammar"})
     requires_features = frozenset()
 
     def matches(self, notation: _TokenNotation, contract: Contract) -> bool:
@@ -198,10 +234,10 @@ class _DualFormattingCapability(Capability[_TokenNotation]):
     last_calls: list[_FormatCall] = []
 
     def get_grammars(self) -> list[Grammar[_TokenNotation]]:
-        return [_DualTokenGrammar()]
+        return [_DualAlphaGrammar(), _DualBetaGrammar()]
 
     def get_rules(self) -> list[Rule[_TokenNotation]]:
-        return [_DualTokenRule()]
+        return [_DualAlphaRule(), _DualBetaRule()]
 
     def format_value(
         self,
@@ -225,7 +261,7 @@ class _DualFormattingContract:
 
     @property
     def active_grammars(self) -> list[str]:
-        return ["dual_token_grammar"]
+        return ["dual_alpha_grammar", "dual_beta_grammar"]
 
     @property
     def excluded_rules(self) -> list[str]:
@@ -276,17 +312,24 @@ class TestFormatValueSeam:
     def test_formatting_runs_before_dedup_and_status(self) -> None:
         """Formatting is applied per candidate before dedup and status.
 
-        Both tokens normalize to the same default value. If the engine
-        deduplicated or decided status before formatting, the two candidates
-        would collapse into one and the result would be SUCCESS. Because the
-        formatter runs first and renders token-specific values, the two
+        Two grammars each recognize one token; both rules normalize to the
+        same default value. If the engine deduplicated or decided status
+        before formatting, the two candidates would be indistinguishable and
+        the result would be SUCCESS. Because the formatter runs first and
+        renders token-specific values (keyed on the notation), the two
         distinct formatted candidates survive and the status is AMBIGUOUS.
+
+        Using two grammars (rather than one grammar emitting two spans) keeps the
+        test within the span-bearing seam contract: each grammar owns exactly one
+        span, so the candidates are surfaced as AMBIGUOUS rather than deduped into
+        one. The single-value invariant (ADR-0004) is opt-in and these fixtures do
+        not enable it, so the engine does not fail fast here.
         """
         _DualFormattingCapability.last_calls = []
         register_capability(_DualFormattingCapability())
         contract = _DualFormattingContract()
 
-        # _DualTokenGrammar hardcodes spans for "alphabeta": (0, 5) and (5, 9).
+        # The two grammars hardcode spans for "alphabeta": (0, 5) and (5, 9).
         result = run_capability("alphabeta", contract)
 
         assert result.status == Resolution.AMBIGUOUS

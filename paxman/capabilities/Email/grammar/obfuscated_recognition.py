@@ -22,6 +22,7 @@ class ObfuscatedEmailGrammar(Grammar[EmailNotation]):
 
     name = "obfuscated_recognition"
     semantics = "rfc5322_addr_spec"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         """Extract obfuscated email patterns from text.

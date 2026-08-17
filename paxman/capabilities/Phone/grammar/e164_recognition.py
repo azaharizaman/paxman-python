@@ -58,6 +58,7 @@ class E164Grammar(Grammar[PhoneNotation]):
 
     name = "e164_recognition"
     semantics = "e164_international"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
         """Extract e164 patterns from text.

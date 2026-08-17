@@ -29,6 +29,22 @@ class RecognitionError(PaxmanError):
         super().__init__(f"[{rule}] {message}")
 
 
+class MultipleMentionsError(PaxmanError):
+    """Raised when a single call carries more than one recognized entity.
+
+    Paxman resolves one entity per call (the single-value invariant, ADR-0004):
+    the caller is responsible for splitting free text into individual mentions
+    before calling ``canonicalize()``. When recognition yields more than one
+    distinct mention (recognition span) that resolves to more than one distinct
+    canonical value, the input was not pre-segmented and the engine fails fast
+    instead of returning a misleading aggregate ``AMBIGUOUS`` status.
+
+    This is a usage/contract signal, distinct from ``ContractError`` (malformed
+    contract configuration) and from the ``AMBIGUOUS`` ``Resolution`` status
+    (a legitimate single-mention spec conflict).
+    """
+
+
 class ValidationError(PaxmanError):
     """Raised when validation rule encounters unexpected error."""
 

@@ -17,6 +17,7 @@ class StandardEmailGrammar(Grammar[EmailNotation]):
 
     name = "standard_recognition"
     semantics = "rfc5322_addr_spec"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
         matches: list[RecognitionMatch[EmailNotation]] = []

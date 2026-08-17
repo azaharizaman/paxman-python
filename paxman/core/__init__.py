@@ -23,6 +23,7 @@ from paxman.core.domain import (
 from paxman.core.errors import (
     CapabilityError,
     ContractError,
+    MultipleMentionsError,
     PaxmanError,
     RecognitionError,
     ValidationError,
@@ -44,6 +45,7 @@ __all__ = [
     "ContractError",
     "Grammar",
     "GrammarRule",
+    "MultipleMentionsError",
     "Notation",
     "PaxmanError",
     "Provenance",

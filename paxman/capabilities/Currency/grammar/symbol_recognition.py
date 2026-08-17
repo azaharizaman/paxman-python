@@ -45,6 +45,7 @@ class SymbolRecognition(Grammar[CurrencyNotation]):
 
     name = "symbol_recognition"
     semantics = "symbol_recognition"
+    single_value = True
 
     def recognize(self, text: str) -> list[RecognitionMatch[CurrencyNotation]]:
         """Extract standalone symbol tokens from text.
