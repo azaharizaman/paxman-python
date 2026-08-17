@@ -27,7 +27,6 @@ class EmailCapability(Capability[EmailNotation]):
     """Email canonicalization capability."""
 
     name = "email"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[EmailNotation]]:
         return [

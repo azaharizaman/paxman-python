@@ -25,7 +25,8 @@ class SIUnitNotation:
     Attributes:
         text: The unit text. Symbols keep their exact casing; names are
             grammar-folded to lowercase; compounds keep the written form.
-        shape: One of "symbol", "name", "compound", "split_word_prefix", "split_symbol_prefix".
+        shape: One of "symbol", "name", "compound", "split_word_prefix",
+            "split_symbol_prefix".
     """
 
     text: str
@@ -43,7 +44,3 @@ class SIUnitNotation:
             raise ValueError(
                 f"invalid shape {self.shape!r}; expected one of {sorted(_VALID_SHAPES)}"
             )
-
-    def as_list(self) -> list[str]:
-        """Flatten the notation for structural equality checks."""
-        return [self.text, self.shape]

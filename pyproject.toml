@@ -6,7 +6,10 @@ build-backend = "hatchling.build"
 name = "paxman"
 version = "0.2.0"
 description = "Canonicalization authority resolver"
+readme = "README.md"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE.md"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -15,15 +18,10 @@ classifiers = [
 ]
 dependencies = []
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-    "pytest-cov>=5.0",
-    "hypothesis>=6.100",
-    "ruff>=0.5",
-    "pyright>=1.1",
-    "import-linter>=2.10",
-]
+[project.urls]
+Homepage = "https://github.com/azaharizaman/paxman-python"
+Repository = "https://github.com/azaharizaman/paxman-python"
+Issues = "https://github.com/azaharizaman/paxman-python"
 
 [tool.pytest.ini_options]
 markers = [
@@ -112,5 +110,10 @@ packages = ["paxman"]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "pyright>=1.1",
     "import-linter>=2.13",
 ]

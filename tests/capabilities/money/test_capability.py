@@ -20,10 +20,6 @@ class TestMoneyCapability:
         """Verify the capability name."""
         assert MoneyCapability.name == "money"
 
-    def test_version(self) -> None:
-        """Verify the capability version."""
-        assert MoneyCapability.version == "1.0.0"
-
     def test_get_grammars(self) -> None:
         """Verify the three grammar instances and their names."""
         cap = MoneyCapability()

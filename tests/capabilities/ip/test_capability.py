@@ -30,14 +30,6 @@ class TestIPNotation:
             notation.address = "10.0.0.1"  # type: ignore[misc]
 
     @pytest.mark.capability
-    def test_as_list_returns_single_element(self) -> None:
-        """as_list() bridges to generic list[str] interface."""
-        notation = IPNotation(address="192.168.1.1")
-        result = notation.as_list()
-        assert result == ["192.168.1.1"]
-        assert isinstance(result, list)
-
-    @pytest.mark.capability
     def test_equality(self) -> None:
         """Two notations with same address are equal."""
         n1 = IPNotation(address="192.168.1.1")
@@ -74,11 +66,6 @@ class TestIPCapability:
     def test_name(self) -> None:
         """Capability name is 'ip'."""
         assert IPCapability().name == "ip"
-
-    @pytest.mark.capability
-    def test_version(self) -> None:
-        """Capability version is '1.0.0'."""
-        assert IPCapability().version == "1.0.0"
 
     @pytest.mark.capability
     def test_get_grammars_returns_all_ip_grammars(self) -> None:

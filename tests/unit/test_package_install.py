@@ -101,3 +101,58 @@ class TestPackageInstall:
             if line.strip().startswith("version =")
         )
         assert metadata.version("paxman") == declared
+
+    @pytest.mark.unit
+    def test_project_metadata_declared(self) -> None:
+        """pyproject declares license, urls, readme, and consolidated dev deps.
+
+        Community-trust floor: the distribution must declare its license,
+        project URLs, and readme, and the duplicated dev-dependency blocks
+        must be collapsed into a single ``[dependency-groups] dev`` group.
+        Tolerant to both PEP 639 license forms (string vs table).
+        """
+        import tomllib
+
+        data = tomllib.loads(
+            (_REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        project = data["project"]
+
+        # readme declared and present on disk
+        assert project.get("readme") == "README.md"
+        assert (_REPO_ROOT / "README.md").is_file()
+
+        # License declared in EITHER PEP 639 form
+        license_field = project.get("license")
+        assert license_field in ("MIT", {"file": "LICENSE.md"}), (
+            f"unexpected license declaration: {license_field!r}"
+        )
+
+        # License file(s) exist on disk
+        if "license-files" in project:
+            for lic in project["license-files"]:
+                assert (_REPO_ROOT / lic).is_file(), f"missing license file: {lic}"
+        else:
+            assert (_REPO_ROOT / "LICENSE.md").is_file()
+
+        # Project URLs
+        urls = project.get("urls", {})
+        repo_url = "https://github.com/azaharizaman/paxman-python"
+        assert urls.get("Repository") == repo_url
+        assert urls.get("Homepage") == repo_url
+        assert urls.get("Issues") == repo_url
+
+        # The legacy optional-dependencies table is gone
+        assert "optional-dependencies" not in project
+
+        # Dev deps consolidated into [dependency-groups] dev
+        dev_deps = " ".join(data["dependency-groups"]["dev"]).lower()
+        for tool in (
+            "pytest",
+            "pytest-cov",
+            "hypothesis",
+            "ruff",
+            "pyright",
+            "import-linter",
+        ):
+            assert tool in dev_deps, f"missing dev dependency: {tool}"

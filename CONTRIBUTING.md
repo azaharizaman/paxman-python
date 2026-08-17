@@ -17,20 +17,26 @@ Paxman requires Python 3.11 or later. To set up a local development environment:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd paxman-alternative
+cd paxman-python
 
-# Create and activate a virtual environment using uv
-uv venv
-source .venv/bin/activate
-
-# Install the package in editable mode with dev dependencies
-uv pip install -e ".[dev]"
-
-# Install the dependency-group dev tools (import-linter)
-uv pip install -e ".[dev]" --group dev
+# Install the package with all dev tooling (pytest, hypothesis, ruff,
+# pyright, import-linter) into a managed virtual environment
+uv sync --all-extras
 ```
 
-All dev dependencies are listed in `pyproject.toml` under `[project.optional-dependencies] dev` and include pytest, hypothesis, ruff, pyright, and import-linter.
+All dev dependencies are listed in `pyproject.toml` under `[dependency-groups] dev` and include pytest, hypothesis, ruff, pyright, and import-linter.
+
+---
+
+## Before You Write Code
+
+Before implementing a capability or changing recognition or validation logic, read the contributor guides in the repository root:
+
+- [HOW_TO_ADD_NEW_CAPABILITY.md](HOW_TO_ADD_NEW_CAPABILITY.md) — end-to-end walkthrough of adding a self-contained capability (notation, contract, capability, grammar, rules, presentation).
+- [HOW_TO_ADD_NEW_GRAMMAR.md](HOW_TO_ADD_NEW_GRAMMAR.md) — conventions for writing grammars that recognize input without validating it.
+- [TESTING_STRATEGY.md](TESTING_STRATEGY.md) — the project's TDD and testing expectations, including purity scans and registry hygiene.
+
+These guides document the contribution patterns; the code under `paxman/` remains the source of truth.
 
 ---
 

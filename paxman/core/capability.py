@@ -28,7 +28,6 @@ class Capability(ABC, Generic[NotationT]):
     """
 
     name: str
-    version: str
 
     @abstractmethod
     def get_grammars(self) -> list[Grammar[NotationT]]:
@@ -76,7 +75,7 @@ class ContractFactory(Protocol):
     unanimous common parameter block — ``excluded_rules``, ``pinned_rules``,
     ``year``, ``output_format``, all keyword-only — followed by capability-
     specific parameters.  This protocol makes that common block structural:
-    the five capability classes satisfy it by declaring ``create_contract``
+    every shipped capability class satisfies it by declaring ``create_contract``
     with those parameters (plus their own extras).
     """
 

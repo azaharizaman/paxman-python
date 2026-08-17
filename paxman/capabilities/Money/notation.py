@@ -45,16 +45,3 @@ class MoneyNotation:
             raise ValueError(f"invalid currency_shape: {self.currency_shape!r}")
         if self.amount_shape and self.amount_shape not in _VALID_AMOUNT_SHAPES:
             raise ValueError(f"invalid amount_shape: {self.amount_shape!r}")
-
-    def as_list(self) -> list[str]:
-        """Bridge to generic list[str] interface.
-
-        Returns:
-            [currency_part, amount_part, currency_shape, amount_shape].
-        """
-        return [
-            self.currency_part,
-            self.amount_part,
-            self.currency_shape,
-            self.amount_shape,
-        ]

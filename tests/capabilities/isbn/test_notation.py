@@ -20,12 +20,6 @@ def test_notation_fields() -> None:
     assert [f.name for f in dataclasses.fields(ISBNNotation)] == ["shape", "digits"]
 
 
-def test_as_list() -> None:
-    """as_list bridges to the generic list[str] interface."""
-    notation = ISBNNotation(shape="isbn13", digits="9780306406157")
-    assert notation.as_list() == ["isbn13", "9780306406157"]
-
-
 def test_notation_hashable() -> None:
     """Equal instances hash equal."""
     a = ISBNNotation(shape="isbn10", digits="0306406152")

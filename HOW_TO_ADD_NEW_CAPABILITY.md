@@ -99,15 +99,13 @@ Create `paxman/capabilities/YourDomain/notation.py`:
 
 1. Import `dataclass` from `dataclasses`
 2. Define a frozen dataclass with `@dataclass(frozen=True)` and one field per component of your notation
-3. Add an `as_list()` method that returns the fields as a plain list of strings (in order) — an optional helper for bridging to generic interfaces
 
-The engine passes typed notation objects to rules, not lists. Rules access fields by name (e.g., `notation.field_name`). The `as_list()` method is a convenience helper, not an engine requirement.
+The engine passes typed notation objects to rules, not lists. Rules access fields by name (e.g., `notation.field_name`).
 
 **Rules for Notation:**
 
 - Every field must be a `str` type
 - The dataclass must be frozen (immutable)
-- The `as_list()` method must return fields in a consistent, documented order
 - Rules access notation fields by name (e.g., `notation.field_name`), not by list position
 
 **Example patterns:**
@@ -128,7 +126,7 @@ class YourDomainNotation:
     field_two: str
 ```
 
-This is optional. Use it when your notation will be instantiated many times (e.g., processing bulk input). The `as_list()` method works the same way.
+This is optional. Use it when your notation will be instantiated many times (e.g., processing bulk input).
 
 ---
 
@@ -362,12 +360,11 @@ Create `paxman/capabilities/YourDomain/capability.py`:
 1. Import `Capability` from `paxman.core.capability`
 2. Import your grammars and rules
 3. Define a class that extends `Capability`
-4. Set `name` to a lowercase identifier (e.g., "yourdomain") — this is the name users pass to the contract
-5. Set `version` to a semantic version string (e.g., "1.0.0")
-6. Implement `get_grammars()` — return a list of grammar instances
-7. Implement `get_rules()` — return a list of rule instances
-8. Define a `create_contract()` static method that returns a default contract
-9. Implement `format_value(value, output_format, notation)` — the single presentation seam. The engine calls it immediately after `Rule.normalize()` and before candidate deduplication and status determination. Return the value unchanged for the default format; only an explicitly offered alternative triggers conversion (e.g., Date `"US"` rendering, Country `alpha3`/`numeric`/`name` conversion, Phone RFC 3966/national rendering). A capability with no alternative formats (e.g., Email, IP) inherits the identity implementation from `Capability` and does not override it. Rules never implement presentation — see Step 5d and the presentational-only invariant in Step 7.
+ 4. Set `name` to a lowercase identifier (e.g., "yourdomain") — this is the name users pass to the contract
+ 5. Implement `get_grammars()` — return a list of grammar instances
+ 6. Implement `get_rules()` — return a list of rule instances
+ 7. Define a `create_contract()` static method that returns a default contract
+ 8. Implement `format_value(value, output_format, notation)` — the single presentation seam. The engine calls it immediately after `Rule.normalize()` and before candidate deduplication and status determination. Return the value unchanged for the default format; only an explicitly offered alternative triggers conversion (e.g., Date `"US"` rendering, Country `alpha3`/`numeric`/`name` conversion, Phone RFC 3966/national rendering). A capability with no alternative formats (e.g., Email, IP) inherits the identity implementation from `Capability` and does not override it. Rules never implement presentation — see Step 5d and the presentational-only invariant in Step 7.
 
 ---
 
@@ -746,20 +743,17 @@ Two sections in one file:
 
 1. `test_creates_with_fields` — verify field access
 2. `test_is_frozen` — verify immutability (assigning raises error)
-3. `test_as_list_returns_correct` — verify list conversion
-4. `test_as_list_preserves_order` — verify field order matches list order
-5. `test_equality` — verify value equality
-6. `test_hashable` — verify it can be used in sets or as dict keys
+3. `test_equality` — verify value equality
+4. `test_hashable` — verify it can be used in sets or as dict keys
 
 **Capability wiring tests:**
 
-1. `test_is_capability_subclass` — verify isinstance check
-2. `test_name` — verify name matches expected value
-3. `test_version` — verify version matches expected value
-4. `test_get_grammars_returns_all` — verify grammar count
-5. `test_get_rules_returns_all` — verify rule count
-6. `test_grammar_name` — verify grammar names follow convention
-7. `test_rule_name` — verify rule names follow convention
+ 1. `test_is_capability_subclass` — verify isinstance check
+ 2. `test_name` — verify name matches expected value
+ 3. `test_get_grammars_returns_all` — verify grammar count
+ 4. `test_get_rules_returns_all` — verify rule count
+ 5. `test_grammar_name` — verify grammar names follow convention
+ 6. `test_rule_name` — verify rule names follow convention
 
 ### 10d: Integration Tests
 
@@ -917,7 +911,7 @@ Rule names follow the pattern `Section {X.Y.Z}-{description}` (e.g., `Section 3.
 
 ### Pattern: Notation Fields Are Typed
 
-Rules access notation fields by name (e.g., `notation.field_name`), not by list position. Your `as_list()` method is an optional helper for bridging to generic interfaces.
+Rules access notation fields by name (e.g., `notation.field_name`), not by list position.
 
 ### Pitfall: Grammar Regex Must Be Compiled Once
 
@@ -1064,7 +1058,7 @@ Semantics to rely on:
 
 Use this checklist to verify your capability is complete:
 
-- [ ] Notation is a frozen dataclass with `as_list()` method
+- [ ] Notation is a frozen dataclass with one `str` field per component
 - [ ] Each grammar extends `Grammar[YourDomainNotation]` and implements `recognize(text) -> list[RecognitionMatch[YourDomainNotation]]`
 - [ ] Each rule extends `Rule[YourDomainNotation]` and implements `matches(notation, contract) -> bool` and `normalize(notation, contract) -> str`
 - [ ] Each rule declares `target_semantics` (non-empty `frozenset[str]`) and `requires_features` (`frozenset()` when the rule always runs)
@@ -1088,7 +1082,7 @@ Use this checklist to verify your capability is complete:
 - [ ] Grammar tests cover happy path, edge cases, multiple matches, and empty input
 - [ ] Rule tests cover valid input, invalid input, normalization, provenance, and naming
 - [ ] Notation tests cover creation, immutability, and equality
-- [ ] Capability tests cover subclass check, name, version, grammar count, and rule count
+- [ ] Capability tests cover subclass check, name, grammar count, and rule count
 - [ ] Integration tests use the `_clean_registry` fixture
 - [ ] End-to-end tests exercise the public API
 - [ ] `pyright --strict` passes with zero errors

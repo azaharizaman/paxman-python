@@ -44,8 +44,6 @@ Capability-defined intermediate representation that Grammars must produce:
     - **SIUnit:** `SIUnitNotation(text, shape)` — `shape` is `"symbol"` / `"name"` / `"compound"` / `"split_word_prefix"` / `"split_symbol_prefix"`; `text` is the unit expression as written (symbols keep exact casing, names are grammar-folded to lowercase, compounds keep the written form)
 - **IP / Phone / URL:** capability-defined shapes for address / number / URI components
 
-**Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
-
 ### Notation Type Example
 ```python
 from dataclasses import dataclass
@@ -56,10 +54,6 @@ from dataclasses import dataclass
 class EmailNotation:
     local_part: str
     domain_part: str
-
-    def as_list(self) -> list[str]:
-        """Convert to list[str] for generic Rule interface."""
-        return [self.local_part, self.domain_part]
 ```
 
 ---

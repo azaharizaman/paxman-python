@@ -117,7 +117,6 @@ class _LocalizedOnlyCapability(Capability[CountryNotation]):
     """Capability exposing only the localized rule over the fixture grammar."""
 
     name = "country"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[CountryNotation]]:
         return [_NameRecognitionGrammar()]
@@ -160,7 +159,6 @@ class _DanglingFeatureCapability(Capability[CountryNotation]):
     """Capability exposing a rule that names a nonexistent contract feature."""
 
     name = "dangling_feature"
-    version = "0.1.0"
 
     def get_grammars(self) -> list[Grammar[CountryNotation]]:
         return [_NameRecognitionGrammar()]
@@ -226,7 +224,6 @@ class _DanglingGrammarCapability(Capability[CountryNotation]):
     """Capability exposing a rule with a dangling grammar affinity."""
 
     name = "dangling_grammar"
-    version = "0.1.0"
 
     def get_grammars(self) -> list[Grammar[CountryNotation]]:
         return [_NameRecognitionGrammar()]

@@ -14,7 +14,3 @@ class ISBNNotation:
 
     shape: Literal["isbn10", "isbn13"]
     digits: str
-
-    def as_list(self) -> list[str]:
-        """Convert to list[str] for the generic Rule interface."""
-        return [self.shape, self.digits]

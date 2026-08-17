@@ -23,7 +23,6 @@ class StubCapability(Capability):
     """Minimal capability for testing the registry."""
 
     name = "stub"
-    version = "0.1.0"
 
     def get_grammars(self) -> list[Grammar]:
         return []
@@ -36,7 +35,6 @@ class StubCapabilityV2(Capability):
     """Same name, different class — tests name collision."""
 
     name = "stub"
-    version = "2.0.0"
 
     def get_grammars(self) -> list[Grammar]:
         return []
@@ -49,7 +47,6 @@ class AnotherCapability(Capability):
     """Different capability name — tests multiple registrations."""
 
     name = "another"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar]:
         return []

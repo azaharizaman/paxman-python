@@ -6,7 +6,7 @@ import pytest
 
 from paxman.core.capability import Capability
 from paxman.core.contract import Contract
-from paxman.core.domain import Grammar, Notation, Provenance, Rule, RuleStrategy
+from paxman.core.domain import Grammar, Provenance, Rule, RuleStrategy
 
 # --- Concrete test doubles ---
 
@@ -17,7 +17,7 @@ class StubGrammar(Grammar):
     name: str = "stub_grammar"
     semantics = "stub_grammar"
 
-    def recognize(self, text: str) -> list[Notation]:
+    def recognize(self, text: str) -> list[list[str]]:
         return []
 
 
@@ -39,10 +39,10 @@ class StubRule(Rule):
     target_semantics = frozenset({"stub_grammar"})
     requires_features = frozenset()
 
-    def matches(self, notation: Notation, contract: Contract) -> bool:
+    def matches(self, notation: list[str], contract: Contract) -> bool:
         return True
 
-    def normalize(self, notation: Notation, contract: Contract) -> str:
+    def normalize(self, notation: list[str], contract: Contract) -> str:
         return "stub"
 
 
@@ -50,7 +50,6 @@ class ConcreteCapability(Capability):
     """Concrete capability that fully implements the ABC."""
 
     name = "test_cap"
-    version = "0.1.0"
 
     def get_grammars(self) -> list[Grammar]:
         return [StubGrammar()]
@@ -75,7 +74,6 @@ class TestCapabilityABC:
 
         class IncompleteCapability(Capability):
             name = "incomplete"
-            version = "0.1.0"
             # Missing get_grammars and get_rules
 
         with pytest.raises(TypeError):
@@ -87,7 +85,6 @@ class TestCapabilityABC:
 
         class PartialCapability(Capability):
             name = "partial"
-            version = "0.1.0"
 
             def get_rules(self) -> list[Rule]:
                 return []
@@ -101,7 +98,6 @@ class TestCapabilityABC:
 
         class PartialCapability(Capability):
             name = "partial"
-            version = "0.1.0"
 
             def get_grammars(self) -> list[Grammar]:
                 return []
@@ -114,7 +110,6 @@ class TestCapabilityABC:
         """A fully implemented subclass can be instantiated."""
         cap = ConcreteCapability()
         assert cap.name == "test_cap"
-        assert cap.version == "0.1.0"
 
     @pytest.mark.unit
     def test_get_grammars_returns_list(self) -> None:

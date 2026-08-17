@@ -62,7 +62,7 @@ class TestSlashISODateGrammar:
         grammar = SlashISODateGrammar()
         result = grammar.recognize("2026/07/26")
         assert len(result) == 1
-        assert result[0].notation.as_list() == ["2026", "07", "26"]
+        assert result[0].notation == DateNotation(N1="2026", N2="07", N3="26")
 
     def test_does_not_match_us_or_european_order(self) -> None:
         """A 2-digit-first slash date is not a slash-ISO date."""
@@ -76,7 +76,7 @@ class TestSlashISODateGrammar:
         assert result[0].start == 2
         assert result[0].end == 12
         assert result[0].raw_text == "2026/07/26"
-        assert result[0].notation.as_list() == ["2026", "07", "26"]
+        assert result[0].notation == DateNotation(N1="2026", N2="07", N3="26")
 
     def test_grammar_name(self) -> None:
         grammar = SlashISODateGrammar()

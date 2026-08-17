@@ -36,7 +36,6 @@ class SIUnitCapability(Capability[SIUnitNotation]):
     """
 
     name = "si_unit"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[SIUnitNotation]]:
         """Return all grammar instances.

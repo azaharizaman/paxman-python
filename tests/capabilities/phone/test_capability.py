@@ -33,16 +33,6 @@ class TestPhoneNotation:
         with pytest.raises(AttributeError):
             notation.shape = "national"  # type: ignore[misc]
 
-    def test_as_list_returns_correct(self) -> None:
-        """Verify list conversion."""
-        notation = PhoneNotation(shape="e164", value="15551234567")
-        assert notation.as_list() == ["e164", "15551234567", ""]
-
-    def test_as_list_with_extension(self) -> None:
-        """Verify list conversion includes extension."""
-        notation = PhoneNotation(shape="rfc3966", value="15551234567", extension="890")
-        assert notation.as_list() == ["rfc3966", "15551234567", "890"]
-
     def test_equality(self) -> None:
         """Verify value equality."""
         n1 = PhoneNotation(shape="e164", value="15551234567")
@@ -141,10 +131,6 @@ class TestPhoneCapability:
     def test_name(self) -> None:
         """Verify capability name."""
         assert PhoneCapability.name == "phone"
-
-    def test_version(self) -> None:
-        """Verify capability version."""
-        assert PhoneCapability.version == "1.0.0"
 
     def test_get_grammars_returns_all(self) -> None:
         """Verify grammar count."""

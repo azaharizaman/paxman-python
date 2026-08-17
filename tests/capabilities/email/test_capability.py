@@ -31,21 +31,6 @@ class TestEmailNotation:
             notation.local_part = "other"  # type: ignore[misc]
 
     @pytest.mark.capability
-    def test_as_list_returns_two_element_list(self) -> None:
-        """as_list() bridges to generic list[str] interface."""
-        notation = EmailNotation(local_part="user", domain_part="example.com")
-        result = notation.as_list()
-        assert result == ["user", "example.com"]
-        assert isinstance(result, list)
-
-    @pytest.mark.capability
-    def test_as_list_preserves_order(self) -> None:
-        """as_list() returns [local_part, domain_part] in order."""
-        notation = EmailNotation(local_part="azahari", domain_part="gmail.com")
-        assert notation.as_list()[0] == "azahari"
-        assert notation.as_list()[1] == "gmail.com"
-
-    @pytest.mark.capability
     def test_equality(self) -> None:
         """Two notations with same fields are equal."""
         n1 = EmailNotation(local_part="user", domain_part="example.com")
@@ -82,11 +67,6 @@ class TestEmailCapability:
     def test_name(self) -> None:
         """Capability name is 'email'."""
         assert EmailCapability().name == "email"
-
-    @pytest.mark.capability
-    def test_version(self) -> None:
-        """Capability version is '1.0.0'."""
-        assert EmailCapability().version == "1.0.0"
 
     @pytest.mark.capability
     def test_get_grammars_returns_all_email_grammars(self) -> None:
