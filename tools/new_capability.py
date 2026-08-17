@@ -324,6 +324,22 @@ class Test__PKG__Rule:
         assert self.rule.target_semantics == frozenset({"__NAME___recognition"})
         assert self.rule.requires_features == frozenset()
         assert self.rule.provenance.publication_year == __YEAR__
+
+    def test_matches(self) -> None:
+        from paxman.capabilities.__PKG__.contract import __PKG__Contract
+        from paxman.capabilities.__PKG__.notation import __PKG__Notation
+
+        contract = __PKG__Contract()
+        assert self.rule.matches(__PKG__Notation(value="example"), contract) is True
+
+    def test_normalize_returns_canonical_string(self) -> None:
+        from paxman.capabilities.__PKG__.contract import __PKG__Contract
+        from paxman.capabilities.__PKG__.notation import __PKG__Notation
+
+        contract = __PKG__Contract()
+        result = self.rule.normalize(__PKG__Notation(value="example"), contract)
+        assert isinstance(result, str)
+        assert result == "example"
 '''
 
 _TEST_CAPABILITY = '''"""Tests for the __PKG__ capability wiring (scaffold)."""
