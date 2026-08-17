@@ -537,8 +537,10 @@ for candidate in result.candidates:
     print(candidate.recognition_rule)  # "standard_recognition"
 ```
 
-`result.span` is the span of the resolved (winning) candidate; it is `None`
-when nothing was recognized (`MISSING`/`INVALID`).
+`result.span` is the source span of the single resolved value on `SUCCESS`; it
+is `None` for `MISSING`, `INVALID`, or `AMBIGUOUS`, since those cases have no
+single resolved entity. For `AMBIGUOUS` results, locate each mention via the
+per-candidate `Candidate.span`.
 
 ## Error Handling
 

@@ -103,8 +103,10 @@ the invariant.
 - **Caller-owned segmentation is now a hard, documented invariant** rather than
   a soft convention, so future capabilities cannot accidentally reintroduce
   multi-entity aggregation.
-- **No new public surface beyond one exception.** The `ExecutionResult` shape,
-  `Resolution` enum, and capability contracts are unchanged.
+- **New public surface.** One new exception, ``MultipleMentionsError``, plus two
+  new optional span fields: ``Candidate.span`` and ``ExecutionResult.span`` carry
+  the half-open ``[start, end)`` recognition range. The ``Resolution`` enum and
+  capability contracts are unchanged.
 
 ### Negative
 
