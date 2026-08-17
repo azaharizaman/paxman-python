@@ -333,7 +333,7 @@ name = "paxman"
 version = "0.2.0"
 source = { editable = "." }
 
-[package.optional-dependencies]
+[package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
     { name = "import-linter" },
@@ -343,24 +343,17 @@ dev = [
     { name = "ruff" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "import-linter" },
-]
-
 [package.metadata]
-requires-dist = [
-    { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.100" },
-    { name = "import-linter", marker = "extra == 'dev'", specifier = ">=2.10" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
-]
-provides-extras = ["dev"]
 
 [package.metadata.requires-dev]
-dev = [{ name = "import-linter", specifier = ">=2.13" }]
+dev = [
+    { name = "hypothesis", specifier = ">=6.100" },
+    { name = "import-linter", specifier = ">=2.13" },
+    { name = "pyright", specifier = ">=1.1" },
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest-cov", specifier = ">=5.0" },
+    { name = "ruff", specifier = ">=0.5" },
+]
 
 [[package]]
 name = "pluggy"
