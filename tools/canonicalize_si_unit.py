@@ -5,7 +5,7 @@ Quick CLI helper for trying SI Unit expressions by hand. Edit INPUT below
 
     uv run python tools/canonicalize_si_unit.py
     uv run python tools/canonicalize_si_unit.py "N·m"
-    uv run python tools/canonicalize_si_unit.py "metre per second" --year 2018
+    uv run python tools/canonicalize_si_unit.py "m/s" --year 2018
 
 Prints status, canonical value, and the surviving candidates with provenance.
 """

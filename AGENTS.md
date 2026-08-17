@@ -76,14 +76,14 @@ uv run ruff format --check paxman/ tests/             # format check
 uv run pyright                                        # strict typecheck
 uv run import-linter lint                             # layer boundaries
 uv run pytest                                         # all tests
-uv run pytest -m unit|capability|integration|e2e      # by marker (also: property, country, currency, isbn, money, url, si_unit)
+uv run pytest -m "unit or capability or integration or e2e"      # by marker (also: property, country, currency, isbn, money, url, si_unit)
 uv run pytest --cov=paxman --cov-report=term-missing --tb=short -q
 uv run coverage report --include="paxman/core/*,paxman/capabilities/*,paxman/engine/*,paxman/api/*" --fail-under=95
 uv run python tools/regenerate_isbn_range_data.py     # regenerate ISBN range message module
 uv run python tools/regenerate_si_prefix_data.py      # regenerate SIUnit prefixed-unit modules
 uv run python tools/regenerate_idna_uts46_data.py     # regenerate URL IDNA UTS #46 mapping
 ```
-Full pre-PR gate: `ruff check . && ruff format --check . && pyright && import-linter lint && pytest`
+Full pre-PR gate: `uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run import-linter lint && uv run pytest`
 
 ## NOTES
 - `paxman/capabilities/__init__.py` exports all ten shipped capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, SI Unit, URL); export completeness is enforced by `tests/unit/test_capability_exports.py`.

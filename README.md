@@ -62,7 +62,7 @@ Paxman ships with ten built-in capabilities:
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 | **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
-| **SI Unit** | SI unit expressions | 3 (symbol, name, compound) | 6 | BIPM SI Brochure, ISO 80000-1 |
+| **SI Unit** | SI unit expressions | 5 (symbol, name, compound, split_word_prefix, split_symbol_prefix) | 7 | BIPM SI Brochure, ISO 80000-1 |
 | **URL** | URLs | 1 (absolute-uri) | 1 | WHATWG URL Standard |
 
 ### Email Capability

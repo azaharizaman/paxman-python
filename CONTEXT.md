@@ -41,7 +41,7 @@ Capability-defined intermediate representation that Grammars must produce:
 - **Currency:** `CurrencyNotation(text, shape)` — `shape` is `"code"` / `"qualified_symbol"` / `"symbol"` / `"word"`; codes are grammar-folded to uppercase, words to lowercase, symbols keep exact casing
 - **Money:** `MoneyNotation(currency_part, amount_part, currency_shape, amount_shape)` — verbatim currency + amount tokens with grammar-assigned shape discriminators
 - **ISBN:** `ISBNNotation(shape, digits)` — `shape` is `"isbn10"` / `"isbn13"`, `digits` is the digit string (`X` only as final char of an isbn10 shape)
-- **SIUnit:** `SIUnitNotation(text, shape)` — `shape` is `"symbol"` / `"name"` / `"compound"`; `text` is the unit expression as written (symbols keep exact casing, names are grammar-folded to lowercase, compounds keep the written form)
+    - **SIUnit:** `SIUnitNotation(text, shape)` — `shape` is `"symbol"` / `"name"` / `"compound"` / `"split_word_prefix"` / `"split_symbol_prefix"`; `text` is the unit expression as written (symbols keep exact casing, names are grammar-folded to lowercase, compounds keep the written form)
 - **IP / Phone / URL:** capability-defined shapes for address / number / URI components
 
 **Note:** Capabilities define Notation using frozen dataclasses for type safety and immutability. The `as_list()` method bridges the typed notation to the generic `list[str]` interface.
@@ -777,13 +777,13 @@ paxman/
     │   ├── grammar/               # e164, tel_uri, international_00, national_recognition (+ common.py LEGACY)
     │   ├── rules/                 # e164_ed2010, rfc_3966_ed2004, nanp_ed2024
     │   └── rules/data/            # e164_country_codes, nanp_tables
-    ├── SIUnit/                    # grammar/ (3) + rules/ (2) + grammar/data/ + rules/data/ — BIPM SI Brochure, ISO 80000-1
+    ├── SIUnit/                    # grammar/ (5) + rules/ (3) + grammar/data/ + rules/data/ — BIPM SI Brochure, ISO 80000-1
     │   ├── capability.py          # SIUnitCapability
     │   ├── contract.py            # SIUnitContract
     │   ├── notation.py            # SIUnitNotation (text, shape)
-    │   ├── grammar/               # symbol, name, compound_recognition
+    │   ├── grammar/               # symbol, name, compound_recognition, split_word_recognition, split_symbol_recognition
     │   ├── grammar/data/          # unit_symbol_tokens, unit_name_tokens, compound_tokens (+ GENERATED via tools/regenerate_si_prefix_data.py)
-    │   ├── rules/                 # bipm_si_brochure_ed2019, iso_80000_ed2022
+    │   ├── rules/                 # bipm_si_brochure_ed2019, iso_80000_ed2022, split_prefixes
     │   └── rules/data/            # si_base_units, si_derived_units, si_nonsi_units, si_prefixes, unit_names (+ GENERATED prefixed_units, prefixed_unit_names)
     └── URL/                       # grammar/ (1) + rules/ (1) + rules/data/ — WHATWG URL Standard
         ├── capability.py          # URLCapability

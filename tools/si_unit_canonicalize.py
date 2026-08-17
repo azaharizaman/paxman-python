@@ -2,7 +2,7 @@
 
 Usage:
     uv run python tools/si_unit_canonicalize.py "kg"
-    uv run python tools/si_unit_canonicalize.py "metre per second"
+    uv run python tools/si_unit_canonicalize.py "m/s"
 
 Output: the canonical value on SUCCESS, otherwise one word:
 INVALID / AMBIGUOUS / MISSING.
