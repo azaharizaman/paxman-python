@@ -173,6 +173,11 @@ class Candidate:
         provenance: Sequence[Provenance],
         span: tuple[int, int] | None = None,
     ) -> None:
+        if span is not None and (span[0] < 0 or span[1] < span[0]):
+            raise ValueError(
+                f"Invalid span start={span[0]}, end={span[1]}: "
+                "expected 0 <= start <= end"
+            )
         object.__setattr__(self, "value", value)
         object.__setattr__(self, "recognition_rule", recognition_rule)
         object.__setattr__(self, "validation_rule", validation_rule)

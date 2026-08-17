@@ -90,3 +90,25 @@ class TestCandidate:
         # span participates in equality and hashing
         assert without != with_span
         assert hash(with_span) is not None
+
+    @pytest.mark.unit
+    def test_span_rejects_invalid_range(self) -> None:
+        prov = Provenance(
+            authority="IETF",
+            specification_name="RFC 5322",
+            kind="specification",
+            reference_url="https://tools.ietf.org/html/rfc5322",
+            version="2008",
+            lifecycle="active",
+            publication_year=2008,
+        )
+        base = dict(
+            value="test@example.com",
+            recognition_rule="standard_recognition",
+            validation_rule="Section 3.4.1-addr-spec",
+            provenance=[prov],
+        )
+        with pytest.raises(ValueError):
+            Candidate(**base, span=(-1, 2))
+        with pytest.raises(ValueError):
+            Candidate(**base, span=(4, 3))
