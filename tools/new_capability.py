@@ -473,6 +473,73 @@ def _wire_capabilities_init(init_path: Path, package: str) -> None:
     init_path.write_text(new_text, encoding="utf-8")
 
 
+def _wire_surface_guard(
+    surface_path: Path, package: str, name: str, default_format: str
+) -> None:
+    """Mirror the __all__ wiring into the homogeneity surface guard.
+
+    test_surface_covers_every_exported_capability asserts every name in
+    paxman.capabilities.__all__ appears in _CAPABILITY_SURFACES, so the
+    scaffold must add the new capability there too.
+    """
+    text = surface_path.read_text(encoding="utf-8")
+
+    import_lines: list[tuple[str, str]] = []
+    for line in text.splitlines():
+        match = re.match(
+            r"^from paxman\.capabilities\.(\w+)\.(capability|contract|notation) "
+            r"import (\w+)$",
+            line,
+        )
+        if match:
+            import_lines.append((match.group(1), line))
+    cap_import = (
+        f"from paxman.capabilities.{package}.capability import {package}Capability"
+    )
+    contract_import = (
+        f"from paxman.capabilities.{package}.contract import {package}Contract"
+    )
+    import_lines.append((package, cap_import))
+    import_lines.append((package, contract_import))
+    import_lines.sort(key=lambda item: item[0])
+    import_block = "\n".join(line for _, line in import_lines)
+
+    lines = text.splitlines()
+    start = next(
+        i for i, ln in enumerate(lines) if ln.startswith("from paxman.capabilities.")
+    )
+    end = next(i for i, ln in enumerate(lines) if ln.startswith("from paxman.core."))
+    text = "\n".join(lines[:start] + import_block.splitlines() + lines[end:]) + "\n"
+
+    match = re.search(r"(_CAPABILITY_SURFACES\s*=\s*\[)(.*?)(\n\])", text, re.DOTALL)
+    if match is None:
+        _fail(
+            "could not locate _CAPABILITY_SURFACES in "
+            "tests/unit/test_capability_surface.py"
+        )
+    header, body, tail = match.group(1), match.group(2), match.group(3)
+    existing_ids = re.findall(r'id="([^"]+)"', body)
+    new_entry = (
+        f"    pytest.param(\n"
+        f"        {package}Capability,\n"
+        f"        {package}Contract,\n"
+        f'        "{default_format}",\n'
+        f'        id="{name}",\n'
+        f"    ),"
+    )
+    entry_ends = [m.start() for m in re.finditer(r"\),", body)]
+    insert_idx = 0
+    while insert_idx < len(existing_ids) and existing_ids[insert_idx] < name:
+        insert_idx += 1
+    if insert_idx >= len(entry_ends):
+        new_body = body.rstrip() + "\n" + new_entry
+    else:
+        cut = entry_ends[insert_idx] + 2
+        new_body = body[:cut] + "\n" + new_entry + body[cut:]
+    text = text[: match.start()] + header + new_body + tail + text[match.end() :]
+    surface_path.write_text(text, encoding="utf-8")
+
+
 def main(argv: list[str]) -> int:
     """Scaffold a new capability. Returns 0 on success; exits 2 on refusal."""
     args = _parse_args(argv)
@@ -556,6 +623,10 @@ def main(argv: list[str]) -> int:
     # --- Wire paxman/capabilities/__init__.py (D4) ---
     _wire_capabilities_init(init_path, package)
 
+    surface_path = repo_root / "tests" / "unit" / "test_capability_surface.py"
+    if surface_path.exists():
+        _wire_surface_guard(surface_path, package, name, args.default_format)
+
     # --- Post-generation output (D6) ---
     print("Generated capability skeleton:")
     for path, _ in files:
@@ -568,6 +639,11 @@ def main(argv: list[str]) -> int:
     print("  4. Add grammar/data/ and rules/data/ when authority tables arrive.")
     print("  5. Register in your entry point; sweep README/CONTEXT/AGENTS docs.")
     print("  6. Delete or extend the placeholder grammar/rule as needed.")
+    print("  Note: the scaffold wires the capability into paxman.capabilities.__all__;")
+    print(
+        "        update tests/unit/test_capability_exports.py's ten-name set only when"
+    )
+    print("        promoting the capability to a shipped (registry-frozen) capability.")
 
     return 0
 
