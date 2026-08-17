@@ -4,7 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-_VALID_SHAPES = frozenset({"symbol", "name", "compound"})
+_VALID_SHAPES = frozenset(
+    {
+        "symbol",
+        "name",
+        "compound",
+        # A word/symbol prefix split across whitespace from its unit, captured
+        # as ONE span so the trailing unit is never emitted as a competing
+        # candidate (see grammar subsumption + split-prefix rules).
+        "split_word_prefix",
+        "split_symbol_prefix",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)

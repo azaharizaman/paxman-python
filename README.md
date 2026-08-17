@@ -355,6 +355,21 @@ result = paxman.canonicalize("megahertz", contract)
 contract = SIUnit.create_contract()
 result = paxman.canonicalize("m/s²", contract)
 # → "m/s2"
+
+# Spoken word-prefix form, merged only when opted in
+contract = SIUnit.create_contract(allow_split_word_prefixes=True)
+result = paxman.canonicalize("kilo gram", contract)
+# → "kg"
+
+# Symbol-prefix spacing is always rejected (no flag)
+contract = SIUnit.create_contract()
+result = paxman.canonicalize("k g", contract)
+# → Status: INVALID
+
+# Multi-solidus preserved only when opted in
+contract = SIUnit.create_contract(allow_multi_solidus=True)
+result = paxman.canonicalize("kg/m/s", contract)
+# → "kg/m/s"
 ```
 
 ---
@@ -391,6 +406,8 @@ Every capability provides a `create_contract()` factory method with common and c
 | Money | `output_format` | `str` | Output format (`"code_amount"` default, `"compact"`) |
 | Phone | `default_country` | `str` | ISO 3166-1 alpha-2 country code to resolve national numbers (e.g., `"US"`) |
 | Phone | `output_format` | `str` | Output format (`"e164"` default, `"rfc3966"`, `"national"`) |
+| SIUnit | `allow_split_word_prefixes` | `bool` | Merge a word prefix split from its unit by whitespace (e.g. `"kilo gram"` → `"kg"`) when True; default False rejects the spoken form (→ INVALID) |
+| SIUnit | `allow_multi_solidus` | `bool` | Preserve the legacy accept-multi-solidus behavior (e.g. `"kg/m/s"`) when True; default False rejects more than one top-level solidus (→ INVALID) per ISO 80000-1 §6.6.2 |
 
 ### Rule Pinning and Exclusion
 

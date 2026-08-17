@@ -25,8 +25,13 @@ from paxman.core.domain import Grammar, RecognitionMatch
 _EXPONENT = rf"[{EXPONENT_CHARACTERS}]*"
 _UNIT = rf"(?:°?[A-Za-zµΩÅ][A-Za-zµΩÅ0-9]*{_EXPONENT})"
 _SEP = f"[{COMPOUND_SEPARATORS}]"
+# A factor is either a bare unit or a parenthesized group of 1–4 units
+# joined by separators. ISO 80000-1 §6.6.2 prescribes parentheses as the
+# disambiguation for a solidus followed by another separator, so a
+# parenthesized denominator is a single compound factor (e.g. "(m·s²)").
+_FACTOR = rf"(?:{_UNIT}|\({_UNIT}(?:{_SEP}{_UNIT}){{0,3}}\))"
 _COMPOUND_RE = re.compile(
-    rf"(?<![\w\-+\u2212])(?P<body>{_UNIT}(?:{_SEP}{_UNIT}){{1,3}})(?![\w\-+\u2212])"
+    rf"(?<![\w\-+\u2212])(?P<body>{_FACTOR}(?:{_SEP}{_FACTOR}){{1,3}})(?![\w\-+\u2212])"
 )
 
 

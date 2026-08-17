@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.SIUnit.contract import SIUnitContract
 from paxman.capabilities.SIUnit.notation import SIUnitNotation
 from paxman.capabilities.SIUnit.rules.data.prefixed_units import PREFIXED_UNIT_SYMBOLS
 from paxman.capabilities.SIUnit.rules.data.si_base_units import BASE_UNIT_SYMBOLS
@@ -54,6 +55,9 @@ _SUPERSCRIPT_TRANSLATE = str.maketrans(
     }
 )
 _SEPARATOR_TRANSLATE = str.maketrans({"⋅": "·"})  # D3: U+22C5 dot → U+00B7
+# Split patterns are kept local (not imported from grammar/data) so rules
+# never import from the grammar tree (grammar↔rules purity scan).
+_SEPARATORS = "/·⋅"
 
 
 class SectionCompounds(Rule[SIUnitNotation]):
@@ -80,30 +84,135 @@ class SectionCompounds(Rule[SIUnitNotation]):
             return False
         if notation.shape != "compound":
             return False
-        return all(
-            self._symbol_part(group) in _FULL_SYMBOL_LEXICON
-            for group in re.split(r"[/·⋅]", notation.text)
+        # ISO 80000-1 §6.6.2: a solidus shall not be followed by a
+        # multiplication/division sign on the same line unless parentheses
+        # disambiguate. More than one TOP-LEVEL "/" (outside parentheses) is
+        # rejected unless the contract opts into the legacy behavior.
+        allow_multi = (
+            contract.allow_multi_solidus
+            if isinstance(contract, SIUnitContract)
+            else False
         )
+        if _count_top_level_slash(notation.text) > 1 and not allow_multi:
+            return False
+        # Every top-level factor (a bare unit or a parenthesized group) must
+        # validate against the full symbol lexicon.
+        return all(_valid_factor(f) for f in _top_level_factors(notation.text))
 
     def normalize(self, notation: SIUnitNotation, contract: Contract) -> str:
-        """Normalize to the canonical compound: ASCII exponents, "·" separators."""
-        return "".join(
-            part if part in ("/", "·", "⋅") else self._canonical_group(part)
-            for part in re.split(r"([/·⋅])", notation.text)
-        ).translate(_SEPARATOR_TRANSLATE)
+        """Normalize to the canonical compound: ASCII exponents, "·" separators.
 
-    @staticmethod
-    def _symbol_part(group: str) -> str:
-        """The symbol without its trailing exponent ("m/s2" -> "m/s2" group "m")."""
-        return _EXPONENT_SUFFIX.sub("", group)
+        Parentheses are preserved and their inner content is canonicalized
+        recursively; "·"/"⋅" stay as separators, "/" stays, superscripts fold
+        to ASCII, "l" -> "L".
+        """
+        return _canonical_compound(notation.text).translate(_SEPARATOR_TRANSLATE)
 
-    @classmethod
-    def _canonical_group(cls, group: str) -> str:
-        """Canonical group: ASCII exponent, "l" -> "L", symbol unchanged."""
-        match = _EXPONENT_SUFFIX.search(group)
-        if match is None:
-            return group
-        symbol = group[: match.start()]
-        exponent = group[match.start() :].translate(_SUPERSCRIPT_TRANSLATE)
-        canonical_symbol = "L" if symbol == "l" else symbol
-        return canonical_symbol + exponent
+
+def _symbol_part(group: str) -> str:
+    """The symbol without its trailing exponent ("m/s2" -> "m/s2" group "m")."""
+    return _EXPONENT_SUFFIX.sub("", group)
+
+
+def _canonical_group(group: str) -> str:
+    """Canonical group: ASCII exponent, "l" -> "L", symbol unchanged."""
+    match = _EXPONENT_SUFFIX.search(group)
+    if match is None:
+        return group
+    symbol = group[: match.start()]
+    exponent = group[match.start() :].translate(_SUPERSCRIPT_TRANSLATE)
+    canonical_symbol = "L" if symbol == "l" else symbol
+    return canonical_symbol + exponent
+
+
+def _count_top_level_slash(text: str) -> int:
+    """Count "/" characters that appear outside any parentheses.
+
+    A "/" inside a parenthesized factor does not count toward the
+    multi-solidus guard (ISO 80000-1 §6.6.2 allows one solidus per line,
+    with parentheses as the disambiguation).
+    """
+    count = 0
+    depth = 0
+    for ch in text:
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+        elif depth == 0 and ch == "/":
+            count += 1
+    return count
+
+
+def _top_level_factors(text: str) -> list[str]:
+    """Split a compound into its top-level factors (outside parentheses).
+
+    Separators ("/", "·", "⋅") at depth 0 break the compound into factors;
+    a parenthesized group is kept intact as a single factor.
+    """
+    factors: list[str] = []
+    depth = 0
+    current = ""
+    for ch in text:
+        if ch == "(":
+            depth += 1
+            current += ch
+        elif ch == ")":
+            depth -= 1
+            current += ch
+        elif depth == 0 and ch in _SEPARATORS:
+            factors.append(current)
+            current = ""
+        else:
+            current += ch
+    factors.append(current)
+    return factors
+
+
+def _valid_factor(factor: str) -> bool:
+    """Validate one compound factor against the full symbol lexicon.
+
+    A parenthesized factor's inner content must itself be a valid compound
+    (each inner part in the lexicon); a bare factor must be a known symbol.
+    """
+    if factor.startswith("(") and factor.endswith(")"):
+        inner = factor[1:-1]
+        return all(
+            _symbol_part(part) in _FULL_SYMBOL_LEXICON
+            for part in re.split(r"[/·⋅]", inner)
+        )
+    return _symbol_part(factor) in _FULL_SYMBOL_LEXICON
+
+
+def _canonical_compound(text: str) -> str:
+    """Render the canonical form of a compound, preserving parentheses.
+
+    Walks the text tracking parenthesis depth: top-level separators are
+    emitted verbatim, each top-level factor is canonicalized (recursively
+    when parenthesized), and inner content is canonicalized the same way.
+    """
+    out: list[str] = []
+    depth = 0
+    current = ""
+    for ch in text:
+        if ch == "(":
+            depth += 1
+            current += ch
+        elif ch == ")":
+            depth -= 1
+            current += ch
+        elif depth == 0 and ch in _SEPARATORS:
+            out.append(_canonical_factor(current))
+            out.append(ch)
+            current = ""
+        else:
+            current += ch
+    out.append(_canonical_factor(current))
+    return "".join(out)
+
+
+def _canonical_factor(factor: str) -> str:
+    """Canonicalize one factor: recurse into a parenthesized group, else a unit."""
+    if factor.startswith("(") and factor.endswith(")"):
+        return "(" + _canonical_compound(factor[1:-1]) + ")"
+    return _canonical_group(factor)

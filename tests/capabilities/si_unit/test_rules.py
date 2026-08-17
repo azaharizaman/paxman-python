@@ -15,6 +15,8 @@ from paxman.capabilities.SIUnit.rules.iso_80000_ed2022 import SectionCompounds
 from paxman.core.domain import RuleStrategy
 
 CONTRACT = SIUnitContract()
+# Opt-in contract that preserves the legacy accept-multi-solidus behavior.
+CONTRACT_MULTI_SOLIDUS = SIUnitContract(allow_multi_solidus=True)
 
 
 @pytest.mark.capability
@@ -258,3 +260,46 @@ class TestSectionCompounds:
         old = SIUnitContract(year=2021)
         assert not self.rule.matches(SIUnitNotation(text="m/s", shape="compound"), old)
         assert self.rule.matches(SIUnitNotation(text="m/s", shape="compound"), CONTRACT)
+
+    def test_rejects_multi_solidus_by_default(self) -> None:
+        # ISO 80000-1 §6.6.2: a solidus shall not be followed by a
+        # multiplication/division sign unless parentheses disambiguate.
+        # More than one top-level "/" is INVALID under the default contract.
+        assert not self.rule.matches(
+            SIUnitNotation(text="kg/m/s", shape="compound"), CONTRACT
+        )
+
+    def test_matches_multi_solidus_when_allowed(self) -> None:
+        # The legacy accept-multi-solidus behavior is preserved when the
+        # contract opts in via allow_multi_solidus=True.
+        assert self.rule.matches(
+            SIUnitNotation(text="kg/m/s", shape="compound"), CONTRACT_MULTI_SOLIDUS
+        )
+
+    def test_matches_parenthesized_denominator(self) -> None:
+        # ISO 80000-1 §6.6.2 prescribes parentheses as THE disambiguation,
+        # so a parenthesized denominator MUST resolve (not reject).
+        assert self.rule.matches(
+            SIUnitNotation(text="kg/(m·s²)", shape="compound"), CONTRACT
+        )
+
+    def test_rejects_unbalanced_parentheses(self) -> None:
+        # A parenthesized factor requires a closing ")"; an unbalanced
+        # expression is not a valid compound.
+        assert not self.rule.matches(
+            SIUnitNotation(text="kg/(m·s²", shape="compound"), CONTRACT
+        )
+
+    def test_normalize_parenthesized_denominator(self) -> None:
+        # The whole expression is captured as one compound span; parens are
+        # preserved, superscripts ASCII-ized, "·"/"/" preserved.
+        result = self.rule.normalize(
+            SIUnitNotation(text="kg/(m·s²)", shape="compound"), CONTRACT
+        )
+        assert result == "kg/(m·s2)"
+
+    def test_normalize_multi_solidus_when_allowed(self) -> None:
+        result = self.rule.normalize(
+            SIUnitNotation(text="kg/m/s", shape="compound"), CONTRACT_MULTI_SOLIDUS
+        )
+        assert result == "kg/m/s"

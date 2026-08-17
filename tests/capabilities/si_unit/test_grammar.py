@@ -93,12 +93,50 @@ class TestSymbolRecognition:
     @pytest.mark.parametrize(
         ("text", "expected"),
         [
+            # "m s" is the valid SI expression "metre second": two units, not a
+            # broken spaced prefix (m is also the metre unit, not prefix-only).
             ("m s", [("m", 0, 1, "m", "symbol"), ("s", 2, 3, "s", "symbol")]),
+            # Separated by a non-space keeps the two units distinct.
             ("m; s", [("m", 0, 1, "m", "symbol"), ("s", 3, 4, "s", "symbol")]),
         ],
     )
     def test_multiple_spans(self, text: str, expected: list[Span]) -> None:
         _assert_spans(text, expected, self.grammar.recognize(text))
+
+    @pytest.mark.parametrize(
+        ("text", "notation_text", "shape"),
+        [
+            # Prefix-ONLY symbols split across whitespace are rejectable spans.
+            ("k g", "k g", "split_symbol_prefix"),
+            ("µ g", "µ g", "split_symbol_prefix"),
+            ("da m", "da m", "split_symbol_prefix"),
+        ],
+    )
+    def test_split_prefix_shape(
+        self, text: str, notation_text: str, shape: str
+    ) -> None:
+        results = self.grammar.recognize(text)
+        assert results
+        first = results[0]
+        assert first.notation.text == notation_text
+        assert first.notation.shape == shape
+
+    @pytest.mark.parametrize(
+        ("text", "notation_text", "shape"),
+        [
+            # Dual-role prefix symbols stay two distinct units when spaced.
+            ("m s", "m", "symbol"),
+            ("N m", "N", "symbol"),
+        ],
+    )
+    def test_spaced_units_not_split(
+        self, text: str, notation_text: str, shape: str
+    ) -> None:
+        results = self.grammar.recognize(text)
+        assert results
+        first = results[0]
+        assert first.notation.text == notation_text
+        assert first.notation.shape == shape
 
 
 class TestNameRecognition:

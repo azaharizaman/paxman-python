@@ -17,6 +17,7 @@ from paxman.capabilities.SIUnit.rules.bipm_si_brochure_ed2019 import (
     SectionPrefixes,
 )
 from paxman.capabilities.SIUnit.rules.iso_80000_ed2022 import SectionCompounds
+from paxman.capabilities.SIUnit.rules.split_prefixes import SectionSplitWordPrefixes
 from paxman.core.capability import Capability
 from paxman.core.domain import Grammar, Rule
 
@@ -49,8 +50,9 @@ class SIUnitCapability(Capability[SIUnitNotation]):
         """Return all validation rule instances.
 
         Returns:
-            List of 6 rules: 5 BIPM sections (base, derived, non-SI,
-            prefixes, names) and 1 ISO 80000-1 compound section.
+            List of 7 rules: 5 BIPM sections (base, derived, non-SI,
+            prefixes, names), 1 ISO 80000-1 compound section, and 1
+            split-word-prefix rescue rule (opt-in via the contract flag).
         """
         return [
             SectionBaseUnits(),
@@ -59,6 +61,7 @@ class SIUnitCapability(Capability[SIUnitNotation]):
             SectionPrefixes(),
             SectionNames(),
             SectionCompounds(),
+            SectionSplitWordPrefixes(),
         ]
 
     @staticmethod
@@ -69,6 +72,8 @@ class SIUnitCapability(Capability[SIUnitNotation]):
         year: int | None = None,
         output_format: str | None = None,
         extra_grammars: Sequence[str] | None = None,
+        allow_multi_solidus: bool = False,
+        allow_split_word_prefixes: bool = False,
     ) -> SIUnitContract:
         """Factory method for creating contracts with proper defaults.
 
@@ -82,6 +87,14 @@ class SIUnitCapability(Capability[SIUnitNotation]):
             extra_grammars: Community grammar names (opt-in) to run
                 alongside the shipped grammars, in order (SEAM — the
                 surface guard's common block ends with this parameter).
+            allow_multi_solidus: When True, preserve the legacy behavior of
+                accepting compounds with more than one top-level solidus
+                (e.g. "kg/m/s"). Defaults to False, which rejects such
+                compounds per ISO 80000-1 §6.6.2.
+            allow_split_word_prefixes: When True, merge a word prefix split
+                from its unit by whitespace (e.g. "kilo gram" -> "kg").
+                Defaults to False, which rejects such input (a space
+                between a prefix word and unit is not standard SI).
 
         Returns:
             Configured SIUnitContract instance.
@@ -92,6 +105,8 @@ class SIUnitCapability(Capability[SIUnitNotation]):
             year=year,
             output_format=output_format,
             extra_grammars=tuple(extra_grammars) if extra_grammars else (),
+            allow_multi_solidus=allow_multi_solidus,
+            allow_split_word_prefixes=allow_split_word_prefixes,
         )
 
     # format_value: NOT overridden — the canonical value IS the "symbol"

@@ -29,3 +29,6 @@ class SIUnitContract(CapabilityContract):
     OFFERED_OUTPUT_FORMATS: ClassVar[frozenset[str]] = frozenset()
 
     capability_name: str = field(default="si_unit", init=False)
+
+    allow_multi_solidus: bool = False
+    allow_split_word_prefixes: bool = False
