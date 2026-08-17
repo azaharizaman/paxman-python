@@ -25,7 +25,8 @@ class SIUnitNotation:
     Attributes:
         text: The unit text. Symbols keep their exact casing; names are
             grammar-folded to lowercase; compounds keep the written form.
-        shape: One of "symbol", "name", "compound", "split_word_prefix", "split_symbol_prefix".
+        shape: One of "symbol", "name", "compound", "split_word_prefix",
+            "split_symbol_prefix".
     """
 
     text: str
