@@ -68,11 +68,6 @@ class TestIPCapability:
         assert IPCapability().name == "ip"
 
     @pytest.mark.capability
-    def test_version(self) -> None:
-        """Capability version is '1.0.0'."""
-        assert IPCapability().version == "1.0.0"
-
-    @pytest.mark.capability
     def test_get_grammars_returns_all_ip_grammars(self) -> None:
         """get_grammars() returns both IPv4 and IPv6 grammars."""
         cap = IPCapability()

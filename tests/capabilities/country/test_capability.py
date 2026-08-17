@@ -175,10 +175,6 @@ class TestCountryCapability:
         """Verify name matches expected value."""
         assert CountryCapability.name == "country"
 
-    def test_version(self) -> None:
-        """Verify version matches expected value."""
-        assert CountryCapability.version == "1.0.0"
-
     def test_get_grammars_returns_all(self) -> None:
         """Verify grammar count (4)."""
         cap = CountryCapability()

@@ -32,7 +32,6 @@ class DateCapability(Capability[DateNotation]):
     """Date canonicalization capability."""
 
     name = "date"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[DateNotation]]:
         return [

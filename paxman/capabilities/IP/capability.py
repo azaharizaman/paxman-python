@@ -22,7 +22,6 @@ class IPCapability(Capability[IPNotation]):
     """IP canonicalization capability."""
 
     name = "ip"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[IPNotation]]:
         return [

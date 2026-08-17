@@ -32,7 +32,6 @@ class CurrencyCapability(Capability[CurrencyNotation]):
     """
 
     name = "currency"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[CurrencyNotation]]:
         """Return all grammar instances.

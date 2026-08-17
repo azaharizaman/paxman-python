@@ -31,10 +31,6 @@ class TestURLCapability:
         """Capability name is 'url'."""
         assert URLCapability().name == "url"
 
-    def test_version(self) -> None:
-        """Capability version is '1.0.0'."""
-        assert URLCapability().version == "1.0.0"
-
     def test_get_grammars_returns_url_grammar(self) -> None:
         """get_grammars() returns exactly the absolute-URI grammar."""
         cap = URLCapability()

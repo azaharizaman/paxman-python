@@ -132,10 +132,6 @@ class TestPhoneCapability:
         """Verify capability name."""
         assert PhoneCapability.name == "phone"
 
-    def test_version(self) -> None:
-        """Verify capability version."""
-        assert PhoneCapability.version == "1.0.0"
-
     def test_get_grammars_returns_all(self) -> None:
         """Verify grammar count."""
         capability = PhoneCapability()

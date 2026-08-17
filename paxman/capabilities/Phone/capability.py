@@ -38,7 +38,6 @@ class PhoneCapability(Capability[PhoneNotation]):
     """
 
     name = "phone"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[PhoneNotation]]:
         """Return all grammar instances.

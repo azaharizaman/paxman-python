@@ -28,7 +28,6 @@ class Capability(ABC, Generic[NotationT]):
     """
 
     name: str
-    version: str
 
     @abstractmethod
     def get_grammars(self) -> list[Grammar[NotationT]]:

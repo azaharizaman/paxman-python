@@ -19,9 +19,7 @@ class TestSIUnitCapability:
         self.capability = SIUnitCapability()
 
     def test_metadata(self) -> None:
-        # name == "si_unit"; version == "1.0.0"
         assert self.capability.name == "si_unit"
-        assert self.capability.version == "1.0.0"
 
     def test_get_grammars(self) -> None:
         # 3 instances with names {symbol_recognition, name_recognition,

@@ -53,10 +53,6 @@ class TestDateCapability:
         cap = DateCapability()
         assert cap.name == "date"
 
-    def test_version(self) -> None:
-        cap = DateCapability()
-        assert cap.version == "1.0.0"
-
     def test_get_grammars_returns_all(self) -> None:
         cap = DateCapability()
         assert len(cap.get_grammars()) == 4

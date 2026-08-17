@@ -69,11 +69,6 @@ class TestEmailCapability:
         assert EmailCapability().name == "email"
 
     @pytest.mark.capability
-    def test_version(self) -> None:
-        """Capability version is '1.0.0'."""
-        assert EmailCapability().version == "1.0.0"
-
-    @pytest.mark.capability
     def test_get_grammars_returns_all_email_grammars(self) -> None:
         """get_grammars() returns all three email grammars."""
         cap = EmailCapability()

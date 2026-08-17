@@ -26,7 +26,6 @@ class URLCapability(Capability[URLNotation]):
     """
 
     name = "url"
-    version = "1.0.0"
 
     def get_grammars(self) -> list[Grammar[URLNotation]]:
         return [

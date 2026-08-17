@@ -8,10 +8,9 @@ from paxman.capabilities.ISBN.notation import ISBNNotation
 pytestmark = [pytest.mark.capability]
 
 
-def test_capability_name_version() -> None:
-    """ISBNCapability has the correct name and version."""
+def test_capability_name() -> None:
+    """ISBNCapability has the correct name."""
     assert ISBNCapability.name == "isbn"
-    assert ISBNCapability.version == "1.0.0"
 
 
 def test_get_grammars() -> None:
