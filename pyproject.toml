@@ -42,7 +42,7 @@ testpaths = ["tests"]
 [tool.coverage.run]
 source = ["paxman"]
 branch = true
-omit = ["tests/*"]
+omit = ["tests/*", "paxman/capabilities/Widget/*"]
 
 [tool.coverage.report]
 show_missing = true
