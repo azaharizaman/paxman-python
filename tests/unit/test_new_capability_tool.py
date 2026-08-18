@@ -30,6 +30,7 @@ if str(_REPO) not in sys.path:
 _PKG = _REPO / "paxman" / "capabilities" / "Widget"
 _TESTS = _REPO / "tests" / "capabilities" / "widget"
 _INIT = _REPO / "paxman" / "capabilities" / "__init__.py"
+_SURFACE = _REPO / "tests" / "unit" / "test_capability_surface.py"
 
 _ARGS = (
     "--name",
@@ -48,7 +49,8 @@ _ARGS = (
 @pytest.fixture(autouse=True)
 def scaffolded() -> Iterator[None]:
     """Run the scaffolder; restore the tree byte-for-byte afterwards."""
-    saved = _INIT.read_bytes()
+    saved_init = _INIT.read_bytes()
+    saved_surface = _SURFACE.read_bytes()
     try:
         yield
     finally:
@@ -56,13 +58,16 @@ def scaffolded() -> Iterator[None]:
             shutil.rmtree(_PKG)
         if _TESTS.exists():
             shutil.rmtree(_TESTS)
-        _INIT.write_bytes(saved)
+        _INIT.write_bytes(saved_init)
+        _SURFACE.write_bytes(saved_surface)
         # Purge cached generated modules so later tests / the main suite
         # re-read the restored (un-wired) __init__.py.
         for name in list(sys.modules):
             if name == "paxman.capabilities" or name.startswith(
                 "paxman.capabilities.Widget"
             ):
+                del sys.modules[name]
+            if name == "tests.unit.test_capability_surface":
                 del sys.modules[name]
         from paxman.core.discovery import reset_registry
 
