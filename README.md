@@ -611,6 +611,10 @@ except ValidationError as e:
     print(f"Validation failed in {e.rule}: {e}")
 ```
 
+### Working with Multi-Entity Input
+
+Paxman resolves one mention per `canonicalize()` call; input containing multiple entities raises `MultipleMentionsError`. For the caller-owned split-then-canonicalize pattern, see [docs/recipes/segmentation.md](docs/recipes/segmentation.md).
+
 ---
 
 ## Learn More
