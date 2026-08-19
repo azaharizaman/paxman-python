@@ -19,11 +19,9 @@ pip install paxman
 ```python
 import paxman
 from paxman.capabilities import Email
-from paxman.core.discovery import register_capability
 from paxman.core.domain import Resolution
 
-# Register the Email capability (once, before first use)
-register_capability(Email())
+paxman.register_all_shipped()  # once, before first use
 
 # Create a contract and canonicalize
 contract = Email.create_contract()
@@ -33,6 +31,10 @@ result = paxman.canonicalize("Contact user@Example.com", contract)
 if result.status == Resolution.SUCCESS:
     print(result.canonicalized_value)  # "user@example.com"
 ```
+
+To register only what you need, call `paxman.register_capability(Email())` per capability.
+
+**Registration and threading:** Registration — single (`register_capability`) or bootstrap (`paxman.register_all_shipped()`) — must complete from a single thread before the first `canonicalize()` call; the registry then freezes and reads are safe from any thread; registering later raises `CapabilityError`.
 
 ---
 
