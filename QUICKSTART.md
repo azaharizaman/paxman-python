@@ -18,10 +18,8 @@ pip install paxman
 import paxman
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.core.domain import Resolution
-from paxman.core.discovery import register_capability
 
-# Register the Email capability (once, before first use)
-register_capability(EmailCapability())
+paxman.register_all_shipped()  # once, before first use
 
 # Create a contract and canonicalize
 contract = EmailCapability.create_contract()
@@ -31,6 +29,10 @@ result = paxman.canonicalize("Contact user@Example.com", contract)
 if result.status == Resolution.SUCCESS:
     print(result.canonicalized_value)  # "user@example.com"
 ```
+
+To register only what you need, call `register_capability(EmailCapability())` per capability.
+
+Registration — single or bootstrap — must complete from a single thread before the first `canonicalize()` call; post-freeze reads are safe from any thread.
 
 That's it. Paxman recognized the email in your text, validated it against RFC 5322, and returned the lowercase canonical form.
 
