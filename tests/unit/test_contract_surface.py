@@ -1,7 +1,8 @@
-"""Item 5 — contract surface unification: CapabilityContract is the single source of truth.
+"""Item 5 — contract surface unification.
 
-These tests drive Task 3: they will FAIL until the engine removes getattr probes
-and Contract is demoted from public exports.
+CapabilityContract is the single source of truth. These tests drive Task 3:
+they will FAIL until the engine removes getattr probes and Contract is demoted
+from public exports.
 """
 
 from __future__ import annotations
@@ -44,7 +45,9 @@ def test_capability_contract_is_only_public_base() -> None:
         SIUnitContract,
         URLContract,
     ]:
-        assert issubclass(cls, CapabilityContract), f"{cls.__name__} must inherit CapabilityContract"
+        assert issubclass(cls, CapabilityContract), (
+            f"{cls.__name__} must inherit CapabilityContract"
+        )
 
 
 def test_engine_requires_extra_grammars_attribute() -> None:
@@ -69,10 +72,14 @@ def test_engine_requires_extra_grammars_attribute() -> None:
     import inspect
 
     src = inspect.getsource(_recognize)
-    assert 'getattr(contract, "extra_grammars"' not in src, "getattr probe must be removed from _recognize"
+    assert 'getattr(contract, "extra_grammars"' not in src, (
+        "getattr probe must be removed from _recognize"
+    )
 
     src2 = inspect.getsource(importlib.import_module("paxman.engine.orchestrator"))
-    assert 'getattr(contract, "extra_grammars"' not in src2, "all getattr probes for extra_grammars must be removed"
+    assert 'getattr(contract, "extra_grammars"' not in src2, (
+        "all getattr probes for extra_grammars must be removed"
+    )
 
 
 def test_contract_factory_docstring_mentions_ten() -> None:

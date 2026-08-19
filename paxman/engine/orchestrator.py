@@ -8,7 +8,7 @@ from importlib.metadata import version as _get_version
 from typing import Any
 
 from paxman.core.capability import Capability
-from paxman.core.contract import Contract
+from paxman.core.capability_contract import CapabilityContract
 from paxman.core.discovery import freeze_registry, get_capability
 from paxman.core.domain import (
     Candidate,
@@ -48,12 +48,12 @@ class ExecutionResult:
     status: Resolution
     canonicalized_value: str | None
     candidates: tuple[Candidate, ...]
-    contract: Contract
+    contract: CapabilityContract
     version_stamp: VersionStamp
     span: tuple[int, int] | None = None
 
 
-def run_capability(text: str, contract: Contract) -> ExecutionResult:
+def run_capability(text: str, contract: CapabilityContract) -> ExecutionResult:
     """Run the full pipeline: recognition → validation → result."""
     freeze_registry()
     capability = get_capability(contract.capability_name)
@@ -122,7 +122,7 @@ def _recognize(
     text: str,
     all_grammars: Sequence[Grammar[Any]],
     shipped_names: Sequence[str],
-    contract: Contract,
+    contract: CapabilityContract,
 ) -> list[RecognizedRep[Any]]:
     """Run active grammars, dedup contained matches per grammar, and order.
 
@@ -144,7 +144,7 @@ def _recognize(
     opt-in via ``extra_grammars`` in both cases.
     """
     supported_names = {g.name for g in all_grammars}
-    extra_grammars = getattr(contract, "extra_grammars", ())
+    extra_grammars = contract.extra_grammars
     declared = contract.active_grammars
     active_source = shipped_names if declared is None else declared
     # Deduplicate contract names, keeping first occurrence: each supported
@@ -243,7 +243,9 @@ def _dedup_spans(
     return kept
 
 
-def _filter_rules(all_rules: list[Rule[Any]], contract: Contract) -> list[Rule[Any]]:
+def _filter_rules(
+    all_rules: list[Rule[Any]], contract: CapabilityContract
+) -> list[Rule[Any]]:
     """Return rules based on pinning, exclusion, year, and feature filters.
 
     When pinned_rules is set, ONLY those rules run (excluded_rules is ignored).
@@ -479,7 +481,7 @@ def _extract_canonical_value(
 
 def _activated_rules(
     capability: Capability[Any],
-    contract: Contract,
+    contract: CapabilityContract,
     semantics_by_name: dict[str, str],
 ) -> list[Rule[Any]]:
     """Community rules opt in like grammars: a rule runs only when the
@@ -491,7 +493,7 @@ def _activated_rules(
     rule — even one targeting a shipped grammar — never affects results,
     keeping extension behavior deterministic per contract.
     """
-    extra_grammars = set(getattr(contract, "extra_grammars", ()))
+    extra_grammars = set(contract.extra_grammars)
     extra_semantics = {semantics_by_name.get(n, n) for n in extra_grammars}
     return [
         rule
