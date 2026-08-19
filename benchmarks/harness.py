@@ -40,8 +40,8 @@ def run_once(
         reset_registry()
         # Register only the needed capability for this scenario
         # (isolates import cost if lazy)
-        scenario["register"]()  # type: ignore[operator]
-        contract = scenario["contract_factory"]()  # type: ignore[operator]
+        scenario["register"]()
+        contract = scenario["contract_factory"]()
         start = time.perf_counter()
         canonicalize(text, contract)
         durations.append((time.perf_counter() - start) * 1000)
