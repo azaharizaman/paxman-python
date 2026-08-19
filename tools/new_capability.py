@@ -404,6 +404,23 @@ def _render(template: str, subs: dict[str, str]) -> str:
     return text
 
 
+def _escape_for_double_quoted(value: str) -> str:
+    """Escape *value* for safe interpolation inside a double-quoted Python string.
+
+    Handles the injection surface where CLI-provided strings are spliced into
+    ``\"...\"`` literals in generated source (authority, spec_name, spec_url,
+    spec_version, default_format). Escapes backslash, double-quote, and
+    control characters so the rendered file remains a single string literal.
+    """
+
+    return (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+    )
+
+
 _PACKAGE_NAME_RE = re.compile(r"^[A-Z][A-Za-z0-9]+$")
 _REGISTRY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _IMPORT_RE = re.compile(
@@ -442,9 +459,28 @@ def _fail(message: str) -> NoReturn:
 
 
 def _wire_capabilities_init(init_path: Path, package: str) -> None:
-    """Insert the import line + __all__ entry in alphabetical position."""
+    """Insert the import line + __all__ entry in alphabetical position.
+
+    Surgical edit: preserves the existing docstring, blank lines, and
+    comments by locating the last ``from paxman.capabilities.`` import line
+    and the ``__all__`` assignment via regex, then inserting only the new
+    entries. The previous implementation rebuilt the whole file from a
+    hard-coded template, which would drop future header comments.
+    """
+
     text = init_path.read_text(encoding="utf-8")
 
+    # --- Insert import in sorted position ---
+    import_lines = text.splitlines()
+    last_cap_import_idx = -1
+    for idx, line in enumerate(import_lines):
+        if _IMPORT_RE.match(line):
+            last_cap_import_idx = idx
+    if last_cap_import_idx == -1:
+        _fail("could not locate capability imports in paxman/capabilities/__init__.py")
+
+    # Build sorted import block (existing + new), then replace only the
+    # contiguous import block.
     imports: list[tuple[str, str]] = []
     for line in text.splitlines():
         match = _IMPORT_RE.match(line)
@@ -460,17 +496,31 @@ def _wire_capabilities_init(init_path: Path, package: str) -> None:
     imports.sort(key=lambda item: item[0])
     import_block = "\n".join(line for _, line in imports)
 
+    # Locate the contiguous block of capability imports to replace.
+    first_cap_idx = next(
+        idx for idx, line in enumerate(import_lines) if _IMPORT_RE.match(line)
+    )
+    # Find the end of the contiguous block (first non-import after first).
+    block_end = last_cap_import_idx + 1
+    # Preserve everything before the block and after it.
+    new_lines = (
+        import_lines[:first_cap_idx]
+        + import_block.splitlines()
+        + import_lines[block_end:]
+    )
+    text = "\n".join(new_lines) + "\n"
+
+    # --- Insert __all__ entry in sorted position ---
     all_match = re.search(r"__all__\s*=\s*\[(.*?)\]", text, re.DOTALL)
     if all_match is None:
         _fail("could not locate __all__ in paxman/capabilities/__init__.py")
     existing = re.findall(r'"([^"]+)"', all_match.group(1))
     entries = sorted(existing + [package])
     all_block = "[\n" + "".join(f'    "{entry}",\n' for entry in entries) + "]"
-
-    new_text = (
-        f'"""Paxman capabilities."""\n\n{import_block}\n\n__all__ = {all_block}\n'
+    text = (
+        text[: all_match.start()] + f"__all__ = {all_block}" + text[all_match.end() :]
     )
-    init_path.write_text(new_text, encoding="utf-8")
+    init_path.write_text(text, encoding="utf-8")
 
 
 def _wire_surface_guard(
@@ -523,8 +573,8 @@ def _wire_surface_guard(
         f"    pytest.param(\n"
         f"        {package}Capability,\n"
         f"        {package}Contract,\n"
-        f'        "{default_format}",\n'
-        f'        id="{name}",\n'
+        f'        "{_escape_for_double_quoted(default_format)}",\n'
+        f'        id="{_escape_for_double_quoted(name)}",\n'
         f"    ),"
     )
     entry_ends = [m.start() for m in re.finditer(r"\),", body)]
@@ -566,17 +616,27 @@ def main(argv: list[str]) -> int:
 
     authority_snake = _authority_snake(args.authority)
     rule_file = f"{authority_snake}_ed{args.publication_year}"
-    spec_version = "None" if args.spec_version is None else f'"{args.spec_version}"'
+    # Escape user strings for safe interpolation inside double-quoted literals.
+    # Defense-in-depth: even though Provenance fields are data, the templates
+    # splice them into ``"..."`` contexts, so quotes/newlines must be escaped.
+    esc_authority = _escape_for_double_quoted(args.authority)
+    esc_spec_name = _escape_for_double_quoted(args.spec_name)
+    esc_spec_url = _escape_for_double_quoted(args.spec_url)
+    esc_default_format = _escape_for_double_quoted(args.default_format)
+    if args.spec_version is None:
+        spec_version = "None"
+    else:
+        spec_version = f'"{_escape_for_double_quoted(args.spec_version)}"'
 
     subs = {
         "__PKG__": package,
         "__NAME__": name,
-        "__AUTH__": args.authority,
-        "__SPEC_NAME__": args.spec_name,
-        "__SPEC_URL__": args.spec_url,
+        "__AUTH__": esc_authority,
+        "__SPEC_NAME__": esc_spec_name,
+        "__SPEC_URL__": esc_spec_url,
         "__YEAR__": str(args.publication_year),
         "__SPEC_VER__": spec_version,
-        "__DEF_FMT__": args.default_format,
+        "__DEF_FMT__": esc_default_format,
         "__AUTH_SNAKE__": authority_snake,
         "__RULE_FILE__": rule_file,
     }

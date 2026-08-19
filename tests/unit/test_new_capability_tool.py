@@ -61,13 +61,17 @@ def scaffolded() -> Iterator[None]:
         _INIT.write_bytes(saved_init)
         _SURFACE.write_bytes(saved_surface)
         # Purge cached generated modules so later tests / the main suite
-        # re-read the restored (un-wired) __init__.py.
+        # re-read the restored (un-wired) __init__.py. Match the exact
+        # Widget package (and its submodules) — not WidgetTest/WidgetFoo etc.
         for name in list(sys.modules):
-            if name == "paxman.capabilities" or name.startswith(
-                "paxman.capabilities.Widget"
+            if name == "paxman.capabilities.Widget" or name.startswith(
+                "paxman.capabilities.Widget."
             ):
                 del sys.modules[name]
-            if name == "tests.unit.test_capability_surface":
+            if name in (
+                "paxman.capabilities",
+                "tests.unit.test_capability_surface",
+            ):
                 del sys.modules[name]
         from paxman.core.discovery import reset_registry
 
