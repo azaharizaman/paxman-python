@@ -118,6 +118,24 @@ def _assert_unique_names(kind: str, items: Sequence[Grammar[Any] | Rule[Any]]) -
         raise CapabilityError(f"Duplicate {kind} name(s): {duplicates}")
 
 
+def _extra_grammars_of(contract: CapabilityContract) -> tuple[str, ...]:
+    """Resolve a contract's opt-in community grammar names (ADR-0007).
+
+    ``CapabilityContract`` always defines ``extra_grammars``; a legacy or
+    duck-typed contract that does not inherit it violates the contract surface
+    and must fail fast with :class:`ContractError` -- never a raw
+    ``AttributeError`` -- pointing the caller at ``CapabilityContract``.
+    """
+    extra = getattr(contract, "extra_grammars", None)
+    if extra is None:
+        name = getattr(contract, "capability_name", type(contract).__name__)
+        raise ContractError(
+            f"Contract {name!r} lacks 'extra_grammars'; "
+            "contracts must inherit CapabilityContract (ADR-0007)."
+        )
+    return tuple(extra)
+
+
 def _recognize(
     text: str,
     all_grammars: Sequence[Grammar[Any]],
@@ -144,7 +162,7 @@ def _recognize(
     opt-in via ``extra_grammars`` in both cases.
     """
     supported_names = {g.name for g in all_grammars}
-    extra_grammars = contract.extra_grammars
+    extra_grammars = _extra_grammars_of(contract)
     declared = contract.active_grammars
     active_source = shipped_names if declared is None else declared
     # Deduplicate contract names, keeping first occurrence: each supported
@@ -493,7 +511,7 @@ def _activated_rules(
     rule — even one targeting a shipped grammar — never affects results,
     keeping extension behavior deterministic per contract.
     """
-    extra_grammars = set(contract.extra_grammars)
+    extra_grammars = set(_extra_grammars_of(contract))
     extra_semantics = {semantics_by_name.get(n, n) for n in extra_grammars}
     return [
         rule

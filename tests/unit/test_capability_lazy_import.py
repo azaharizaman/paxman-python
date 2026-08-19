@@ -28,6 +28,12 @@ def test_import_email_does_not_import_url_data() -> None:
         if mod.startswith("paxman.capabilities"):
             del sys.modules[mod]
 
+    import paxman.capabilities as cap_mod
+
+    # Clear any cached lazy attribute so the import below is genuinely exercised
+    # (otherwise a prior test's cached class would short-circuit __getattr__).
+    cap_mod.__dict__.pop("Email", None)
+
     import paxman.capabilities  # package itself  # noqa: F401
 
     # Import Email via lazy path
@@ -35,15 +41,14 @@ def test_import_email_does_not_import_url_data() -> None:
 
     # URL's heavy module should NOT have been imported transitively
     assert "paxman.capabilities.URL.rules.data.idna_uts46_data" not in sys.modules
-    assert "paxman.capabilities.URL" not in sys.modules or True  # noqa: SIM222, E501  # if Email doesn't import URL, second is not needed
     # At minimum, importing Email must not have imported all 10 capability packages
-    # Count loaded capability submodules — should be <= 2 (Email package + its deps)
+    # Count loaded capability submodules — Email package + its own deps only
     loaded = [m for m in sys.modules if m.startswith("paxman.capabilities.")]
     # Email package loads Email + its submodules, but not other capabilities
     assert len(loaded) <= 15, f"Expected lazy import, got {loaded}"
     # Ensure no other top-level capability package was loaded
     caps_loaded = {m.split(".")[2] for m in loaded if len(m.split(".")) >= 3}
-    assert caps_loaded <= {"Email"}, (  # noqa: E501
+    assert caps_loaded <= {"Email"}, (
         f"Lazy import leaked other capabilities: {caps_loaded}"
     )
 
