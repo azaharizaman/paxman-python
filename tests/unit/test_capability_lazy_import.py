@@ -39,8 +39,13 @@ def test_import_email_does_not_import_url_data() -> None:
     # At minimum, importing Email must not have imported all 10 capability packages
     # Count loaded capability submodules — should be <= 2 (Email package + its deps)
     loaded = [m for m in sys.modules if m.startswith("paxman.capabilities.")]
-    # Email package loads Email + maybe shared core, but not other capabilities
-    assert len(loaded) <= 4, f"Expected lazy import, got {loaded}"
+    # Email package loads Email + its submodules, but not other capabilities
+    assert len(loaded) <= 15, f"Expected lazy import, got {loaded}"
+    # Ensure no other top-level capability package was loaded
+    caps_loaded = {m.split(".")[2] for m in loaded if len(m.split(".")) >= 3}
+    assert caps_loaded <= {"Email"}, (  # noqa: E501
+        f"Lazy import leaked other capabilities: {caps_loaded}"
+    )
 
 
 def test_all_still_exported_via_all() -> None:
