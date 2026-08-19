@@ -190,6 +190,8 @@ The system produces one of four resolution statuses:
 
 Ambiguity is detected at the value level, not the candidate level. Multiple candidates with the same canonical value still produce SUCCESS. Ambiguity requires genuinely different canonical outputs from different authoritative sources.
 
+For multi-entity input, segmentation is caller-owned — see the [segmentation recipe](docs/recipes/segmentation.md) (ADR-0004 companion).
+
 ---
 
 ## Error Handling
