@@ -30,6 +30,7 @@ markers = [
     "integration: integration tests",
     "e2e: end-to-end tests",
     "property: property-based tests (Hypothesis)",
+    "benchmark: benchmark harness tests",
     "country: country capability tests",
     "currency: currency capability tests",
     "isbn: isbn capability tests",
@@ -46,7 +47,7 @@ branch = true
 # it is scaffolded into the real tree and must not dent per-package coverage.
 # Real scaffolded capabilities (e.g. Timezone) are committed and intentionally covered,
 # so do not broaden this to Widget* — the test fixture cleans up byte-for-byte.
-omit = ["tests/*", "paxman/capabilities/Widget/*"]
+omit = ["tests/*", "paxman/capabilities/Widget/*", "benchmarks/*"]
 
 [tool.coverage.report]
 show_missing = true
