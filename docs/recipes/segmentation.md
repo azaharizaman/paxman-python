@@ -109,7 +109,7 @@ Per mention, the four statuses keep their exact meanings (see
 * `MISSING` — nothing recognized.
 * `AMBIGUOUS` — one mention, multiple authorities disagree.
 
-`MultipleMentionsError` is **not** a Paxman status. It is a segmenter bug
+`MultipleMentionsError` is **not** a Paxman status (it is a `PaxmanError` exception, not a `Resolution` status). It is a segmenter bug
 detector: two mentions landed in one slice and they disagree on value. It never
 represents Paxman state; it tells you to tighten the segmenter so each slice
 holds at most one mention. Handle it as an invariant violation in the caller,
@@ -135,8 +135,10 @@ that was wrong, not Paxman's verdict.
 
 (c) **Don't widen a segment to "give context."** Adding surrounding words to
 help Paxman understand a mention backfires: extra text that contains another
-mention triggers `MultipleMentionsError`. Keep slices tight to one presumed
-entity; Paxman is stateless per call and needs no surrounding document context.
+mention with a *different* canonical value triggers `MultipleMentionsError`
+(identical values still coalesce to `SUCCESS` per ADR-0004). Keep slices tight
+to one presumed entity; Paxman is stateless per call and needs no surrounding
+document context.
 
 ---
 
