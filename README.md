@@ -614,5 +614,5 @@ except ValidationError as e:
 ## Learn More
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — architectural principles and design decisions
-- [HOW_TO_ADD_NEW_CAPABILITY.md](HOW_TO_ADD_NEW_CAPABILITY.md) — guide to adding new domain capabilities
+- [HOW_TO_ADD_NEW_CAPABILITY.md](HOW_TO_ADD_NEW_CAPABILITY.md) — guide to adding new domain capabilities. To add a new capability, start from the `tools/new_capability.py` scaffolder (see HOW_TO_ADD_NEW_CAPABILITY.md, Step 0) which generates the full skeleton.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — development setup and contribution guidelines

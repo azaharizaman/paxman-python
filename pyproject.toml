@@ -42,7 +42,11 @@ testpaths = ["tests"]
 [tool.coverage.run]
 source = ["paxman"]
 branch = true
-omit = ["tests/*"]
+# Widget is the transient package used only by tests/unit/test_new_capability_tool.py;
+# it is scaffolded into the real tree and must not dent per-package coverage.
+# Real scaffolded capabilities (e.g. Timezone) are committed and intentionally covered,
+# so do not broaden this to Widget* — the test fixture cleans up byte-for-byte.
+omit = ["tests/*", "paxman/capabilities/Widget/*"]
 
 [tool.coverage.report]
 show_missing = true

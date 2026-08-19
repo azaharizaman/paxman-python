@@ -36,6 +36,8 @@ Before implementing a capability or changing recognition or validation logic, re
 - [HOW_TO_ADD_NEW_GRAMMAR.md](HOW_TO_ADD_NEW_GRAMMAR.md) — conventions for writing grammars that recognize input without validating it.
 - [TESTING_STRATEGY.md](TESTING_STRATEGY.md) — the project's TDD and testing expectations, including purity scans and registry hygiene.
 
+When adding a capability, start with the scaffolder: `uv run python tools/new_capability.py <PackageName> --name <snake> --authority <str> --spec-name <str> --spec-url <str> --publication-year <int>` generates the full skeleton; see HOW_TO_ADD_NEW_CAPABILITY.md, Step 0.
+
 These guides document the contribution patterns; the code under `paxman/` remains the source of truth.
 
 ---
