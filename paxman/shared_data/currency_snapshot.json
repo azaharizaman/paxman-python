@@ -1,0 +1,1609 @@
+{
+  "_meta": {
+    "authority": "Unicode CLDR v47 (en + es) + ISO 4217:2015 list-one",
+    "citation": "CLDR common/main/en.xml, common/main/es.xml; ISO 4217 list-one 2015 (SIX Financial Information AG, 2026-01-01, amended through #180)",
+    "currency_codes_full_count": 178,
+    "currency_codes_money_count": 165,
+    "generated_by": "tools/_extract_currency_snapshot.py union of Currency+Money tables as of 2026-08-19",
+    "name_count": 62,
+    "symbol_count": 67
+  },
+  "cldr_currencies": {
+    "name_to_codes_currency": {
+      "afghani": [
+        "AFN"
+      ],
+      "baht": [
+        "THB"
+      ],
+      "bolivar": [
+        "VES"
+      ],
+      "boliviano": [
+        "BOB"
+      ],
+      "cedi": [
+        "GHS"
+      ],
+      "colon": [
+        "CRC"
+      ],
+      "cordoba": [
+        "NIO"
+      ],
+      "dinar": [
+        "KWD"
+      ],
+      "dirham": [
+        "AED"
+      ],
+      "dollar": [
+        "USD"
+      ],
+      "dong": [
+        "VND"
+      ],
+      "dram": [
+        "AMD"
+      ],
+      "euro": [
+        "EUR"
+      ],
+      "florin": [
+        "AWG"
+      ],
+      "forint": [
+        "HUF"
+      ],
+      "franc": [
+        "CHF"
+      ],
+      "guarani": [
+        "PYG"
+      ],
+      "hryvnia": [
+        "UAH"
+      ],
+      "kina": [
+        "PGK"
+      ],
+      "kip": [
+        "LAK"
+      ],
+      "koruna": [
+        "CZK"
+      ],
+      "krona": [
+        "SEK"
+      ],
+      "krone": [
+        "NOK"
+      ],
+      "kwacha": [
+        "MWK"
+      ],
+      "kyat": [
+        "MMK"
+      ],
+      "lari": [
+        "GEL"
+      ],
+      "lempira": [
+        "HNL"
+      ],
+      "leu": [
+        "RON"
+      ],
+      "lilangeni": [
+        "SZL"
+      ],
+      "lira": [
+        "TRY"
+      ],
+      "manat": [
+        "AZN"
+      ],
+      "mark": [
+        "BAM"
+      ],
+      "naira": [
+        "NGN"
+      ],
+      "nakfa": [
+        "ERN"
+      ],
+      "pataca": [
+        "MOP"
+      ],
+      "peso": [
+        "MXN"
+      ],
+      "pound": [
+        "GBP"
+      ],
+      "pula": [
+        "BWP"
+      ],
+      "quetzal": [
+        "GTQ"
+      ],
+      "rand": [
+        "ZAR"
+      ],
+      "real": [
+        "BRL"
+      ],
+      "rial": [
+        "IRR"
+      ],
+      "riel": [
+        "KHR"
+      ],
+      "ringgit": [
+        "MYR"
+      ],
+      "riyal": [
+        "SAR"
+      ],
+      "ruble": [
+        "RUB"
+      ],
+      "rufiyaa": [
+        "MVR"
+      ],
+      "rupee": [
+        "INR"
+      ],
+      "rupiah": [
+        "IDR"
+      ],
+      "shekel": [
+        "ILS"
+      ],
+      "sol": [
+        "PEN"
+      ],
+      "som": [
+        "KGS"
+      ],
+      "somoni": [
+        "TJS"
+      ],
+      "taka": [
+        "BDT"
+      ],
+      "tala": [
+        "WST"
+      ],
+      "tenge": [
+        "KZT"
+      ],
+      "tugrik": [
+        "MNT"
+      ],
+      "vatu": [
+        "VUV"
+      ],
+      "won": [
+        "KRW"
+      ],
+      "yen": [
+        "JPY"
+      ],
+      "yuan": [
+        "CNY"
+      ],
+      "zloty": [
+        "PLN"
+      ]
+    },
+    "name_to_codes_money": {
+      "Afghani": [
+        "AFN"
+      ],
+      "Baht": [
+        "THB"
+      ],
+      "Bolivar": [
+        "VES"
+      ],
+      "Boliviano": [
+        "BOB"
+      ],
+      "Cedi": [
+        "GHS"
+      ],
+      "Colon": [
+        "CRC"
+      ],
+      "Cordoba": [
+        "NIO"
+      ],
+      "Dinar": [
+        "KWD"
+      ],
+      "Dirham": [
+        "AED"
+      ],
+      "Dollar": [
+        "USD"
+      ],
+      "Dong": [
+        "VND"
+      ],
+      "Dram": [
+        "AMD"
+      ],
+      "Euro": [
+        "EUR"
+      ],
+      "Florin": [
+        "AWG"
+      ],
+      "Forint": [
+        "HUF"
+      ],
+      "Franc": [
+        "CHF"
+      ],
+      "Guarani": [
+        "PYG"
+      ],
+      "Hryvnia": [
+        "UAH"
+      ],
+      "Kina": [
+        "PGK"
+      ],
+      "Kip": [
+        "LAK"
+      ],
+      "Koruna": [
+        "CZK"
+      ],
+      "Krona": [
+        "SEK"
+      ],
+      "Krone": [
+        "NOK"
+      ],
+      "Kwacha": [
+        "MWK"
+      ],
+      "Kyat": [
+        "MMK"
+      ],
+      "Lari": [
+        "GEL"
+      ],
+      "Lempira": [
+        "HNL"
+      ],
+      "Leu": [
+        "RON"
+      ],
+      "Lilangeni": [
+        "SZL"
+      ],
+      "Lira": [
+        "TRY"
+      ],
+      "Manat": [
+        "AZN"
+      ],
+      "Mark": [
+        "BAM"
+      ],
+      "Naira": [
+        "NGN"
+      ],
+      "Nakfa": [
+        "ERN"
+      ],
+      "Pataca": [
+        "MOP"
+      ],
+      "Peso": [
+        "MXN"
+      ],
+      "Pound": [
+        "GBP"
+      ],
+      "Pula": [
+        "BWP"
+      ],
+      "Quetzal": [
+        "GTQ"
+      ],
+      "Rand": [
+        "ZAR"
+      ],
+      "Real": [
+        "BRL"
+      ],
+      "Rial": [
+        "IRR"
+      ],
+      "Riel": [
+        "KHR"
+      ],
+      "Ringgit": [
+        "MYR"
+      ],
+      "Riyal": [
+        "SAR"
+      ],
+      "Ruble": [
+        "RUB"
+      ],
+      "Rufiyaa": [
+        "MVR"
+      ],
+      "Rupee": [
+        "INR"
+      ],
+      "Rupiah": [
+        "IDR"
+      ],
+      "Shekel": [
+        "ILS"
+      ],
+      "Sol": [
+        "PEN"
+      ],
+      "Som": [
+        "KGS"
+      ],
+      "Somoni": [
+        "TJS"
+      ],
+      "Taka": [
+        "BDT"
+      ],
+      "Tala": [
+        "WST"
+      ],
+      "Tenge": [
+        "KZT"
+      ],
+      "Tugrik": [
+        "MNT"
+      ],
+      "Vatu": [
+        "VUV"
+      ],
+      "Won": [
+        "KRW"
+      ],
+      "Yen": [
+        "JPY"
+      ],
+      "Yuan": [
+        "CNY"
+      ],
+      "Zloty": [
+        "PLN"
+      ]
+    },
+    "symbol_to_codes": {
+      "$": [
+        "ARS",
+        "AUD",
+        "BBD",
+        "BMD",
+        "BND",
+        "BSD",
+        "BZD",
+        "CAD",
+        "CLP",
+        "COP",
+        "CUP",
+        "DOP",
+        "FJD",
+        "GYD",
+        "HKD",
+        "JMD",
+        "KYD",
+        "LRD",
+        "MXN",
+        "NAD",
+        "NZD",
+        "SBD",
+        "SGD",
+        "SRD",
+        "TTD",
+        "TWD",
+        "USD",
+        "UYU",
+        "XCD"
+      ],
+      "A$": [
+        "AUD"
+      ],
+      "Ar": [
+        "MGA"
+      ],
+      "Bs": [
+        "BOB"
+      ],
+      "C$": [
+        "NIO"
+      ],
+      "CA$": [
+        "CAD"
+      ],
+      "CF": [
+        "KMF"
+      ],
+      "CFPF": [
+        "XPF"
+      ],
+      "CN¥": [
+        "CNY"
+      ],
+      "Cg.": [
+        "XCG"
+      ],
+      "Db": [
+        "STN"
+      ],
+      "EC$": [
+        "XCD"
+      ],
+      "E£": [
+        "EGP"
+      ],
+      "FCFA": [
+        "XAF"
+      ],
+      "FG": [
+        "GNF"
+      ],
+      "Ft": [
+        "HUF"
+      ],
+      "GH₵": [
+        "GHS"
+      ],
+      "HK$": [
+        "HKD"
+      ],
+      "K": [
+        "MMK"
+      ],
+      "KM": [
+        "BAM"
+      ],
+      "Kz": [
+        "AOA"
+      ],
+      "Kč": [
+        "CZK"
+      ],
+      "L": [
+        "HNL",
+        "RON"
+      ],
+      "L£": [
+        "LBP"
+      ],
+      "MX$": [
+        "MXN"
+      ],
+      "NT$": [
+        "TWD"
+      ],
+      "NZ$": [
+        "NZD"
+      ],
+      "P": [
+        "BWP"
+      ],
+      "Q": [
+        "GTQ"
+      ],
+      "R": [
+        "ZAR"
+      ],
+      "R$": [
+        "BRL"
+      ],
+      "RF": [
+        "RWF"
+      ],
+      "RM": [
+        "MYR"
+      ],
+      "Rp": [
+        "IDR"
+      ],
+      "Rs": [
+        "LKR",
+        "MUR",
+        "NPR",
+        "PKR"
+      ],
+      "T$": [
+        "TOP"
+      ],
+      "US$": [
+        "USD"
+      ],
+      "ZK": [
+        "ZMW"
+      ],
+      "kr": [
+        "DKK",
+        "ISK",
+        "NOK",
+        "SEK"
+      ],
+      "lei": [
+        "RON"
+      ],
+      "zł": [
+        "PLN"
+      ],
+      "£": [
+        "FKP",
+        "GBP",
+        "GIP",
+        "SHP",
+        "SSP",
+        "SYP"
+      ],
+      "¥": [
+        "CNY",
+        "JPY"
+      ],
+      "р.": [
+        "BYN"
+      ],
+      "֏": [
+        "AMD"
+      ],
+      "؋": [
+        "AFN"
+      ],
+      "৳": [
+        "BDT"
+      ],
+      "฿": [
+        "THB"
+      ],
+      "៛": [
+        "KHR"
+      ],
+      "₡": [
+        "CRC"
+      ],
+      "₦": [
+        "NGN"
+      ],
+      "₩": [
+        "KPW",
+        "KRW"
+      ],
+      "₪": [
+        "ILS"
+      ],
+      "₫": [
+        "VND"
+      ],
+      "€": [
+        "EUR"
+      ],
+      "₭": [
+        "LAK"
+      ],
+      "₮": [
+        "MNT"
+      ],
+      "₱": [
+        "PHP"
+      ],
+      "₲": [
+        "PYG"
+      ],
+      "₴": [
+        "UAH"
+      ],
+      "₸": [
+        "KZT"
+      ],
+      "₹": [
+        "INR"
+      ],
+      "₺": [
+        "TRY"
+      ],
+      "₼": [
+        "AZN"
+      ],
+      "₽": [
+        "RUB"
+      ],
+      "₾": [
+        "GEL"
+      ],
+      "⃀": [
+        "KGS"
+      ]
+    }
+  },
+  "grammar": {
+    "symbol_tokens": [
+      "CFPF",
+      "FCFA",
+      "CA$",
+      "CN¥",
+      "Cg.",
+      "EC$",
+      "GH₵",
+      "HK$",
+      "MX$",
+      "NT$",
+      "NZ$",
+      "US$",
+      "lei",
+      "A$",
+      "Ar",
+      "Bs",
+      "C$",
+      "CF",
+      "Db",
+      "E£",
+      "FG",
+      "Ft",
+      "KM",
+      "Kz",
+      "Kč",
+      "L£",
+      "R$",
+      "RF",
+      "RM",
+      "Rp",
+      "Rs",
+      "T$",
+      "ZK",
+      "kr",
+      "zł",
+      "K",
+      "L",
+      "P",
+      "Q",
+      "R",
+      "р.",
+      "$",
+      "£",
+      "¥",
+      "֏",
+      "؋",
+      "৳",
+      "฿",
+      "៛",
+      "₡",
+      "₦",
+      "₩",
+      "₪",
+      "₫",
+      "€",
+      "₭",
+      "₮",
+      "₱",
+      "₲",
+      "₴",
+      "₸",
+      "₹",
+      "₺",
+      "₼",
+      "₽",
+      "₾",
+      "⃀"
+    ],
+    "word_tokens_currency": [
+      "boliviano",
+      "lilangeni",
+      "afghani",
+      "bolivar",
+      "cordoba",
+      "guarani",
+      "hryvnia",
+      "lempira",
+      "quetzal",
+      "ringgit",
+      "rufiyaa",
+      "dirham",
+      "dollar",
+      "florin",
+      "forint",
+      "koruna",
+      "kwacha",
+      "pataca",
+      "rupiah",
+      "shekel",
+      "somoni",
+      "tugrik",
+      "colon",
+      "dinar",
+      "franc",
+      "krona",
+      "krone",
+      "manat",
+      "naira",
+      "nakfa",
+      "pound",
+      "riyal",
+      "ruble",
+      "rupee",
+      "tenge",
+      "zloty",
+      "baht",
+      "cedi",
+      "dong",
+      "dram",
+      "euro",
+      "kina",
+      "kyat",
+      "lari",
+      "lira",
+      "mark",
+      "peso",
+      "pula",
+      "rand",
+      "real",
+      "rial",
+      "riel",
+      "taka",
+      "tala",
+      "vatu",
+      "yuan",
+      "kip",
+      "leu",
+      "sol",
+      "som",
+      "won",
+      "yen"
+    ],
+    "word_tokens_money": [
+      "Boliviano",
+      "Lilangeni",
+      "Afghani",
+      "Bolivar",
+      "Cordoba",
+      "Guarani",
+      "Hryvnia",
+      "Lempira",
+      "Quetzal",
+      "Ringgit",
+      "Rufiyaa",
+      "Dirham",
+      "Dollar",
+      "Florin",
+      "Forint",
+      "Koruna",
+      "Kwacha",
+      "Pataca",
+      "Rupiah",
+      "Shekel",
+      "Somoni",
+      "Tugrik",
+      "Colon",
+      "Dinar",
+      "Franc",
+      "Krona",
+      "Krone",
+      "Manat",
+      "Naira",
+      "Nakfa",
+      "Pound",
+      "Riyal",
+      "Ruble",
+      "Rupee",
+      "Tenge",
+      "Zloty",
+      "Baht",
+      "Cedi",
+      "Dong",
+      "Dram",
+      "Euro",
+      "Kina",
+      "Kyat",
+      "Lari",
+      "Lira",
+      "Mark",
+      "Peso",
+      "Pula",
+      "Rand",
+      "Real",
+      "Rial",
+      "Riel",
+      "Taka",
+      "Tala",
+      "Vatu",
+      "Yuan",
+      "Kip",
+      "Leu",
+      "Sol",
+      "Som",
+      "Won",
+      "Yen"
+    ]
+  },
+  "iso4217": {
+    "currency_codes_full": [
+      "AED",
+      "AFN",
+      "ALL",
+      "AMD",
+      "AOA",
+      "ARS",
+      "AUD",
+      "AWG",
+      "AZN",
+      "BAM",
+      "BBD",
+      "BDT",
+      "BHD",
+      "BIF",
+      "BMD",
+      "BND",
+      "BOB",
+      "BOV",
+      "BRL",
+      "BSD",
+      "BTN",
+      "BWP",
+      "BYN",
+      "BZD",
+      "CAD",
+      "CDF",
+      "CHE",
+      "CHF",
+      "CHW",
+      "CLF",
+      "CLP",
+      "CNY",
+      "COP",
+      "COU",
+      "CRC",
+      "CUP",
+      "CVE",
+      "CZK",
+      "DJF",
+      "DKK",
+      "DOP",
+      "DZD",
+      "EGP",
+      "ERN",
+      "ETB",
+      "EUR",
+      "FJD",
+      "FKP",
+      "GBP",
+      "GEL",
+      "GHS",
+      "GIP",
+      "GMD",
+      "GNF",
+      "GTQ",
+      "GYD",
+      "HKD",
+      "HNL",
+      "HTG",
+      "HUF",
+      "IDR",
+      "ILS",
+      "INR",
+      "IQD",
+      "IRR",
+      "ISK",
+      "JMD",
+      "JOD",
+      "JPY",
+      "KES",
+      "KGS",
+      "KHR",
+      "KMF",
+      "KPW",
+      "KRW",
+      "KWD",
+      "KYD",
+      "KZT",
+      "LAK",
+      "LBP",
+      "LKR",
+      "LRD",
+      "LSL",
+      "LYD",
+      "MAD",
+      "MDL",
+      "MGA",
+      "MKD",
+      "MMK",
+      "MNT",
+      "MOP",
+      "MRU",
+      "MUR",
+      "MVR",
+      "MWK",
+      "MXN",
+      "MXV",
+      "MYR",
+      "MZN",
+      "NAD",
+      "NGN",
+      "NIO",
+      "NOK",
+      "NPR",
+      "NZD",
+      "OMR",
+      "PAB",
+      "PEN",
+      "PGK",
+      "PHP",
+      "PKR",
+      "PLN",
+      "PYG",
+      "QAR",
+      "RON",
+      "RSD",
+      "RUB",
+      "RWF",
+      "SAR",
+      "SBD",
+      "SCR",
+      "SDG",
+      "SEK",
+      "SGD",
+      "SHP",
+      "SLE",
+      "SOS",
+      "SRD",
+      "SSP",
+      "STN",
+      "SVC",
+      "SYP",
+      "SZL",
+      "THB",
+      "TJS",
+      "TMT",
+      "TND",
+      "TOP",
+      "TRY",
+      "TTD",
+      "TWD",
+      "TZS",
+      "UAH",
+      "UGX",
+      "USD",
+      "USN",
+      "UYI",
+      "UYU",
+      "UYW",
+      "UZS",
+      "VED",
+      "VES",
+      "VND",
+      "VUV",
+      "WST",
+      "XAD",
+      "XAF",
+      "XAG",
+      "XAU",
+      "XBA",
+      "XBB",
+      "XBC",
+      "XBD",
+      "XCD",
+      "XCG",
+      "XDR",
+      "XOF",
+      "XPD",
+      "XPF",
+      "XPT",
+      "XSU",
+      "XTS",
+      "XUA",
+      "XXX",
+      "YER",
+      "ZAR",
+      "ZMW",
+      "ZWG"
+    ],
+    "currency_codes_money": [
+      "AED",
+      "AFN",
+      "ALL",
+      "AMD",
+      "AOA",
+      "ARS",
+      "AUD",
+      "AWG",
+      "AZN",
+      "BAM",
+      "BBD",
+      "BDT",
+      "BHD",
+      "BIF",
+      "BMD",
+      "BND",
+      "BOB",
+      "BOV",
+      "BRL",
+      "BSD",
+      "BTN",
+      "BWP",
+      "BYN",
+      "BZD",
+      "CAD",
+      "CDF",
+      "CHE",
+      "CHF",
+      "CHW",
+      "CLF",
+      "CLP",
+      "CNY",
+      "COP",
+      "COU",
+      "CRC",
+      "CUP",
+      "CVE",
+      "CZK",
+      "DJF",
+      "DKK",
+      "DOP",
+      "DZD",
+      "EGP",
+      "ERN",
+      "ETB",
+      "EUR",
+      "FJD",
+      "FKP",
+      "GBP",
+      "GEL",
+      "GHS",
+      "GIP",
+      "GMD",
+      "GNF",
+      "GTQ",
+      "GYD",
+      "HKD",
+      "HNL",
+      "HTG",
+      "HUF",
+      "IDR",
+      "ILS",
+      "INR",
+      "IQD",
+      "IRR",
+      "ISK",
+      "JMD",
+      "JOD",
+      "JPY",
+      "KES",
+      "KGS",
+      "KHR",
+      "KMF",
+      "KPW",
+      "KRW",
+      "KWD",
+      "KYD",
+      "KZT",
+      "LAK",
+      "LBP",
+      "LKR",
+      "LRD",
+      "LSL",
+      "LYD",
+      "MAD",
+      "MDL",
+      "MGA",
+      "MKD",
+      "MMK",
+      "MNT",
+      "MOP",
+      "MRU",
+      "MUR",
+      "MVR",
+      "MWK",
+      "MXN",
+      "MXV",
+      "MYR",
+      "MZN",
+      "NAD",
+      "NGN",
+      "NIO",
+      "NOK",
+      "NPR",
+      "NZD",
+      "OMR",
+      "PAB",
+      "PEN",
+      "PGK",
+      "PHP",
+      "PKR",
+      "PLN",
+      "PYG",
+      "QAR",
+      "RON",
+      "RSD",
+      "RUB",
+      "RWF",
+      "SAR",
+      "SBD",
+      "SCR",
+      "SDG",
+      "SEK",
+      "SGD",
+      "SHP",
+      "SLE",
+      "SOS",
+      "SRD",
+      "SSP",
+      "STN",
+      "SVC",
+      "SYP",
+      "SZL",
+      "THB",
+      "TJS",
+      "TMT",
+      "TND",
+      "TOP",
+      "TRY",
+      "TTD",
+      "TWD",
+      "TZS",
+      "UAH",
+      "UGX",
+      "USD",
+      "USN",
+      "UYI",
+      "UYU",
+      "UYW",
+      "UZS",
+      "VED",
+      "VES",
+      "VND",
+      "VUV",
+      "WST",
+      "XAD",
+      "XAF",
+      "XCD",
+      "XCG",
+      "XOF",
+      "XPF",
+      "YER",
+      "ZAR",
+      "ZMW",
+      "ZWG"
+    ],
+    "excluded_no_minor_units": [
+      "XAG",
+      "XAU",
+      "XBA",
+      "XBB",
+      "XBC",
+      "XBD",
+      "XDR",
+      "XPD",
+      "XPT",
+      "XSU",
+      "XTS",
+      "XUA",
+      "XXX"
+    ],
+    "minor_units": {
+      "AED": 2,
+      "AFN": 2,
+      "ALL": 2,
+      "AMD": 2,
+      "AOA": 2,
+      "ARS": 2,
+      "AUD": 2,
+      "AWG": 2,
+      "AZN": 2,
+      "BAM": 2,
+      "BBD": 2,
+      "BDT": 2,
+      "BHD": 3,
+      "BIF": 0,
+      "BMD": 2,
+      "BND": 2,
+      "BOB": 2,
+      "BOV": 2,
+      "BRL": 2,
+      "BSD": 2,
+      "BTN": 2,
+      "BWP": 2,
+      "BYN": 2,
+      "BZD": 2,
+      "CAD": 2,
+      "CDF": 2,
+      "CHE": 2,
+      "CHF": 2,
+      "CHW": 2,
+      "CLF": 4,
+      "CLP": 0,
+      "CNY": 2,
+      "COP": 2,
+      "COU": 2,
+      "CRC": 2,
+      "CUP": 2,
+      "CVE": 2,
+      "CZK": 2,
+      "DJF": 0,
+      "DKK": 2,
+      "DOP": 2,
+      "DZD": 2,
+      "EGP": 2,
+      "ERN": 2,
+      "ETB": 2,
+      "EUR": 2,
+      "FJD": 2,
+      "FKP": 2,
+      "GBP": 2,
+      "GEL": 2,
+      "GHS": 2,
+      "GIP": 2,
+      "GMD": 2,
+      "GNF": 0,
+      "GTQ": 2,
+      "GYD": 2,
+      "HKD": 2,
+      "HNL": 2,
+      "HTG": 2,
+      "HUF": 2,
+      "IDR": 2,
+      "ILS": 2,
+      "INR": 2,
+      "IQD": 3,
+      "IRR": 2,
+      "ISK": 0,
+      "JMD": 2,
+      "JOD": 3,
+      "JPY": 0,
+      "KES": 2,
+      "KGS": 2,
+      "KHR": 2,
+      "KMF": 0,
+      "KPW": 2,
+      "KRW": 0,
+      "KWD": 3,
+      "KYD": 2,
+      "KZT": 2,
+      "LAK": 2,
+      "LBP": 2,
+      "LKR": 2,
+      "LRD": 2,
+      "LSL": 2,
+      "LYD": 3,
+      "MAD": 2,
+      "MDL": 2,
+      "MGA": 2,
+      "MKD": 2,
+      "MMK": 2,
+      "MNT": 2,
+      "MOP": 2,
+      "MRU": 2,
+      "MUR": 2,
+      "MVR": 2,
+      "MWK": 2,
+      "MXN": 2,
+      "MXV": 2,
+      "MYR": 2,
+      "MZN": 2,
+      "NAD": 2,
+      "NGN": 2,
+      "NIO": 2,
+      "NOK": 2,
+      "NPR": 2,
+      "NZD": 2,
+      "OMR": 3,
+      "PAB": 2,
+      "PEN": 2,
+      "PGK": 2,
+      "PHP": 2,
+      "PKR": 2,
+      "PLN": 2,
+      "PYG": 0,
+      "QAR": 2,
+      "RON": 2,
+      "RSD": 2,
+      "RUB": 2,
+      "RWF": 0,
+      "SAR": 2,
+      "SBD": 2,
+      "SCR": 2,
+      "SDG": 2,
+      "SEK": 2,
+      "SGD": 2,
+      "SHP": 2,
+      "SLE": 2,
+      "SOS": 2,
+      "SRD": 2,
+      "SSP": 2,
+      "STN": 2,
+      "SVC": 2,
+      "SYP": 2,
+      "SZL": 2,
+      "THB": 2,
+      "TJS": 2,
+      "TMT": 2,
+      "TND": 3,
+      "TOP": 2,
+      "TRY": 2,
+      "TTD": 2,
+      "TWD": 2,
+      "TZS": 2,
+      "UAH": 2,
+      "UGX": 0,
+      "USD": 2,
+      "USN": 2,
+      "UYI": 0,
+      "UYU": 2,
+      "UYW": 4,
+      "UZS": 2,
+      "VED": 2,
+      "VES": 2,
+      "VND": 0,
+      "VUV": 0,
+      "WST": 2,
+      "XAD": 2,
+      "XAF": 0,
+      "XCD": 2,
+      "XCG": 2,
+      "XOF": 0,
+      "XPF": 0,
+      "YER": 2,
+      "ZAR": 2,
+      "ZMW": 2,
+      "ZWG": 2
+    }
+  },
+  "symbol_to_codes": {
+    "$": [
+      "ARS",
+      "AUD",
+      "BBD",
+      "BMD",
+      "BND",
+      "BSD",
+      "BZD",
+      "CAD",
+      "CLP",
+      "COP",
+      "CUP",
+      "DOP",
+      "FJD",
+      "GYD",
+      "HKD",
+      "JMD",
+      "KYD",
+      "LRD",
+      "MXN",
+      "NAD",
+      "NZD",
+      "SBD",
+      "SGD",
+      "SRD",
+      "TTD",
+      "TWD",
+      "USD",
+      "UYU",
+      "XCD"
+    ],
+    "A$": [
+      "AUD"
+    ],
+    "Ar": [
+      "MGA"
+    ],
+    "Bs": [
+      "BOB"
+    ],
+    "C$": [
+      "NIO"
+    ],
+    "CA$": [
+      "CAD"
+    ],
+    "CF": [
+      "KMF"
+    ],
+    "CFPF": [
+      "XPF"
+    ],
+    "CN¥": [
+      "CNY"
+    ],
+    "Cg.": [
+      "XCG"
+    ],
+    "Db": [
+      "STN"
+    ],
+    "EC$": [
+      "XCD"
+    ],
+    "E£": [
+      "EGP"
+    ],
+    "FCFA": [
+      "XAF"
+    ],
+    "FG": [
+      "GNF"
+    ],
+    "Ft": [
+      "HUF"
+    ],
+    "GH₵": [
+      "GHS"
+    ],
+    "HK$": [
+      "HKD"
+    ],
+    "K": [
+      "MMK"
+    ],
+    "KM": [
+      "BAM"
+    ],
+    "Kz": [
+      "AOA"
+    ],
+    "Kč": [
+      "CZK"
+    ],
+    "L": [
+      "HNL",
+      "RON"
+    ],
+    "L£": [
+      "LBP"
+    ],
+    "MX$": [
+      "MXN"
+    ],
+    "NT$": [
+      "TWD"
+    ],
+    "NZ$": [
+      "NZD"
+    ],
+    "P": [
+      "BWP"
+    ],
+    "Q": [
+      "GTQ"
+    ],
+    "R": [
+      "ZAR"
+    ],
+    "R$": [
+      "BRL"
+    ],
+    "RF": [
+      "RWF"
+    ],
+    "RM": [
+      "MYR"
+    ],
+    "Rp": [
+      "IDR"
+    ],
+    "Rs": [
+      "LKR",
+      "MUR",
+      "NPR",
+      "PKR"
+    ],
+    "T$": [
+      "TOP"
+    ],
+    "US$": [
+      "USD"
+    ],
+    "ZK": [
+      "ZMW"
+    ],
+    "kr": [
+      "DKK",
+      "ISK",
+      "NOK",
+      "SEK"
+    ],
+    "lei": [
+      "RON"
+    ],
+    "zł": [
+      "PLN"
+    ],
+    "£": [
+      "FKP",
+      "GBP",
+      "GIP",
+      "SHP",
+      "SSP",
+      "SYP"
+    ],
+    "¥": [
+      "CNY",
+      "JPY"
+    ],
+    "р.": [
+      "BYN"
+    ],
+    "֏": [
+      "AMD"
+    ],
+    "؋": [
+      "AFN"
+    ],
+    "৳": [
+      "BDT"
+    ],
+    "฿": [
+      "THB"
+    ],
+    "៛": [
+      "KHR"
+    ],
+    "₡": [
+      "CRC"
+    ],
+    "₦": [
+      "NGN"
+    ],
+    "₩": [
+      "KPW",
+      "KRW"
+    ],
+    "₪": [
+      "ILS"
+    ],
+    "₫": [
+      "VND"
+    ],
+    "€": [
+      "EUR"
+    ],
+    "₭": [
+      "LAK"
+    ],
+    "₮": [
+      "MNT"
+    ],
+    "₱": [
+      "PHP"
+    ],
+    "₲": [
+      "PYG"
+    ],
+    "₴": [
+      "UAH"
+    ],
+    "₸": [
+      "KZT"
+    ],
+    "₹": [
+      "INR"
+    ],
+    "₺": [
+      "TRY"
+    ],
+    "₼": [
+      "AZN"
+    ],
+    "₽": [
+      "RUB"
+    ],
+    "₾": [
+      "GEL"
+    ],
+    "⃀": [
+      "KGS"
+    ]
+  }
+}
