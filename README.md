@@ -613,7 +613,7 @@ except ValidationError as e:
 
 ### Working with Multi-Entity Input
 
-Paxman resolves one mention per `canonicalize()` call; input containing multiple entities raises `MultipleMentionsError`. For the caller-owned split-then-canonicalize pattern, see [docs/recipes/segmentation.md](docs/recipes/segmentation.md).
+Paxman resolves one mention per `canonicalize()` call; `MultipleMentionsError` occurs only when distinct recognized mentions in one slice resolve to different canonical values — identical canonical values still coalesce to `SUCCESS`. For the caller-owned split-then-canonicalize pattern, see [docs/recipes/segmentation.md](docs/recipes/segmentation.md).
 
 ---
 

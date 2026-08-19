@@ -53,19 +53,21 @@ contract = Email.create_contract()
 # Caller-owned segmentation: a coarse pattern finds mention candidates…
 EMAIL_LIKE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
-def canonicalize_emails(text: str) -> list[tuple[str, str, str]]:
-    """Return (raw, canonical, position) for every email mention."""
-    out: list[tuple[str, str, str]] = []
+def canonicalize_emails(text: str) -> list[tuple[str, Resolution, str | None, tuple[int, int] | None]]:
+    """Return (raw, status, canonical, absolute_span) for every email candidate."""
+    out: list[tuple[str, Resolution, str | None, tuple[int, int] | None]] = []
     for m in EMAIL_LIKE.finditer(text):
         try:
             result = paxman.canonicalize(m.group(0), contract)
         except MultipleMentionsError:
             # Your segmenter let two mentions through — tighten it.
             raise
-        if result.status is Resolution.SUCCESS:
-            out.append(
-                (m.group(0), result.canonicalized_value or "", str(m.start()))
-            )
+        abs_span = (
+            (m.start() + result.span[0], m.start() + result.span[1])
+            if result.span is not None
+            else None
+        )
+        out.append((m.group(0), result.status, result.canonicalized_value, abs_span))
     return out
 ```
 
@@ -130,8 +132,7 @@ drops mentions that would have been `INVALID`/`AMBIGUOUS` honestly.
 grammars may disagree on where a mention starts or ends. Always feed the
 segmenter's slice to `canonicalize()` and **trust the returned status** — an
 honest `INVALID` or `AMBIGUOUS` beats pre-filtering or trimming the slice to
-force a `SUCCESS`. If a slice is rejected, it is the segmenter's candidate
-that was wrong, not Paxman's verdict.
+force a `SUCCESS`. Only `MultipleMentionsError` indicates a segmentation error; `INVALID` and `AMBIGUOUS` are valid per-mention outcomes that tell you the candidate was recognized but not validated or was ambiguous, so handle them as domain results rather than discarding them as segmentation failures.
 
 (c) **Don't widen a segment to "give context."** Adding surrounding words to
 help Paxman understand a mention backfires: extra text that contains another
