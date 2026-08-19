@@ -438,6 +438,8 @@ Every contract and rule in the codebase follows the same structural rules. The `
 
 **1. Every contract MUST inherit `CapabilityContract`**
 
+Subclass `CapabilityContract` (never `Contract` directly). `Contract` is engine-internal since ADR-0007.
+
 Import it from `paxman.core.contract` (defined in `paxman/core/capability_contract.py`). Your contract is a frozen dataclass subclass:
 
 ```python
