@@ -30,7 +30,7 @@ if result.status == Resolution.SUCCESS:
     print(result.canonicalized_value)  # "user@example.com"
 ```
 
-To register only what you need, call `register_capability(EmailCapability())` per capability.
+To register only what you need, call `paxman.register_capability(EmailCapability())` per capability.
 
 Registration — single or bootstrap — must complete from a single thread before the first `canonicalize()` call; post-freeze reads are safe from any thread.
 
