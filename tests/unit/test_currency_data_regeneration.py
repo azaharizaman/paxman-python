@@ -12,4 +12,7 @@ def test_currency_data_not_drifted() -> None:
         capture_output=True,
         text=True,
     )
-    assert proc.returncode == 0, f"DRIFT: {proc.stderr or proc.stdout}\nRun: uv run python tools/regenerate_currency_data.py"
+    assert proc.returncode == 0, (
+        f"DRIFT: {proc.stderr or proc.stdout}\n"
+        "Run: uv run python tools/regenerate_currency_data.py"
+    )

@@ -49,6 +49,12 @@ jobs:
       - name: Import lint
         run: uv run import-linter lint
 
+      - name: Check generated Currency/Money data drift
+        run: uv run python tools/regenerate_currency_data.py --check
+
+      - name: Check generated SIUnit data drift
+        run: uv run python tools/regenerate_si_prefix_data.py --check
+
       - name: Tests with coverage
         run: uv run pytest --cov=paxman --cov-report=term-missing --cov-report=html --tb=short -q
 

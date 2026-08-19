@@ -93,6 +93,10 @@ class _LocalizedFixtureContract:
         return ["name_recognition"]
 
     @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return ()
+
+    @property
     def excluded_rules(self) -> list[str]:
         return []
 
@@ -177,6 +181,10 @@ class _DanglingFeatureContract:
     @property
     def active_grammars(self) -> list[str]:
         return ["name_recognition"]
+
+    @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return ()
 
     @property
     def excluded_rules(self) -> list[str]:
