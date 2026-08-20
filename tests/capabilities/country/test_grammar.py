@@ -4,8 +4,7 @@ from paxman.capabilities.Country.grammar.alpha2_recognition import Alpha2Grammar
 from paxman.capabilities.Country.grammar.alpha3_recognition import Alpha3Grammar
 from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
 from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
-from paxman.capabilities.Country.name_normalization import normalize_name
-from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.notation import CountryNotation, normalize_name
 
 
 class TestAlpha2Grammar:

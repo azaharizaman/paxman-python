@@ -26,8 +26,7 @@ from paxman.capabilities.Country.grammar.data.historical_names import (
 from paxman.capabilities.Country.grammar.data.localized_names import (
     LOCALIZED_NAME_KEYS,
 )
-from paxman.capabilities.Country.name_normalization import normalize_name
-from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.notation import CountryNotation, normalize_name
 from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Email.notation import EmailNotation
 from paxman.capabilities.IP.notation import IPNotation

@@ -15,10 +15,21 @@ from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.capabilities.URL.notation import URLNotation
 from paxman.core.domain import Grammar, RecognitionMatch
+
+# Verbatim copy of Phone/grammar/common.py:strip_separators (the legacy helper
+# retired in ADR-0008 Task 10) so this frozen reference stays self-contained.
+_SEPARATORS = str.maketrans("", "", " ().-")
+_SEPARATORS_WITH_PLUS = str.maketrans("", "", "+ ().-")
+
+
+def strip_separators(value: str, *, plus: bool = False) -> str:
+    """Remove phone separators from a raw match (legacy verbatim)."""
+    if plus:
+        return value.translate(_SEPARATORS_WITH_PLUS)
+    return value.translate(_SEPARATORS)
 
 # ---------------------------------------------------------------------------
 # Phone / E.164 (verbatim)
