@@ -424,7 +424,7 @@ def _escape_for_double_quoted(value: str) -> str:
 _PACKAGE_NAME_RE = re.compile(r"^[A-Z][A-Za-z0-9]+$")
 _REGISTRY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 _IMPORT_RE = re.compile(
-    r"^from paxman\.capabilities\.(\w+)\.capability import (\w+)Capability as (\w+)$"
+    r"^\s*from paxman\.capabilities\.(\w+)\.capability import (\w+)Capability as (\w+)$"
 )
 
 
@@ -466,51 +466,112 @@ def _wire_capabilities_init(init_path: Path, package: str) -> None:
     and the ``__all__`` assignment via regex, then inserting only the new
     entries. The previous implementation rebuilt the whole file from a
     hard-coded template, which would drop future header comments.
+
+    Supports both eager (PEP 562 pre-Item 8) and lazy (PEP 562 __getattr__)
+    layouts. In lazy mode also wires ``_LAZY`` and the ``TYPE_CHECKING`` block.
     """
 
     text = init_path.read_text(encoding="utf-8")
 
-    # --- Insert import in sorted position ---
-    import_lines = text.splitlines()
-    last_cap_import_idx = -1
-    for idx, line in enumerate(import_lines):
-        if _IMPORT_RE.match(line):
-            last_cap_import_idx = idx
-    if last_cap_import_idx == -1:
-        _fail("could not locate capability imports in paxman/capabilities/__init__.py")
+    is_lazy = "_LAZY" in text and "if TYPE_CHECKING:" in text
 
-    # Build sorted import block (existing + new), then replace only the
-    # contiguous import block.
-    imports: list[tuple[str, str]] = []
-    for line in text.splitlines():
-        match = _IMPORT_RE.match(line)
-        if match:
-            imports.append((match.group(3), line))
-    imports.append(
-        (
-            package,
-            f"from paxman.capabilities.{package}.capability "
-            f"import {package}Capability as {package}",
+    if is_lazy:
+        # --- Lazy layout: wire _LAZY dict ---
+        lazy_match = re.search(r"_LAZY:\s*dict\[.*?\] = \{(.*?)\}", text, re.DOTALL)
+        if lazy_match is None:
+            _fail("could not locate _LAZY in paxman/capabilities/__init__.py")
+        lazy_body = lazy_match.group(1)
+        # collect existing keys: "Name": ("module", "Attr"),
+        existing_lazy: dict[str, str] = {}
+        for lm in re.finditer(r'"(\w+)":\s*\("([^"]+)",\s*"([^"]+)"\)', lazy_body):
+            existing_lazy[lm.group(1)] = (
+                f'    "{lm.group(1)}": ("{lm.group(2)}", "{lm.group(3)}"),'
+            )
+        # add new entry
+        new_lazy_line = (
+            f'    "{package}": ("paxman.capabilities.{package}.capability", '
+            f'"{package}Capability"),'
         )
-    )
-    imports.sort(key=lambda item: item[0])
-    import_block = "\n".join(line for _, line in imports)
+        existing_lazy[package] = new_lazy_line
+        sorted_lazy_lines = [existing_lazy[k] for k in sorted(existing_lazy)]
+        text = (
+            text[: lazy_match.start(1)]
+            + "\n"
+            + "\n".join(sorted_lazy_lines)
+            + "\n"
+            + text[lazy_match.end(1) :]
+        )
 
-    # Locate the contiguous block of capability imports to replace.
-    first_cap_idx = next(
-        idx for idx, line in enumerate(import_lines) if _IMPORT_RE.match(line)
-    )
-    # Find the end of the contiguous block (first non-import after first).
-    block_end = last_cap_import_idx + 1
-    # Preserve everything before the block and after it.
-    new_lines = (
-        import_lines[:first_cap_idx]
-        + import_block.splitlines()
-        + import_lines[block_end:]
-    )
-    text = "\n".join(new_lines) + "\n"
+        # --- Wire TYPE_CHECKING block ---
+        tc_match = re.search(
+            r"if TYPE_CHECKING:\n((?:[ \t]+from paxman\.capabilities\.\w+\.capability "  # noqa: E501
+            r"import \w+Capability as \w+\n?)+)",
+            text,
+        )
+        if tc_match is None:
+            _fail(
+                "could not locate TYPE_CHECKING imports in "  # noqa: E501
+                "paxman/capabilities/__init__.py"
+            )
+        tc_body = tc_match.group(1)
+        tc_imports: dict[str, str] = {}
+        for line in tc_body.splitlines():
+            m = _IMPORT_RE.match(line)
+            if m:
+                alias = m.group(3)
+                tc_imports[alias] = line
+        new_tc_line = (  # noqa: E501
+            f"    from paxman.capabilities.{package}.capability import "
+            f"{package}Capability as {package}"
+        )
+        tc_imports[package] = new_tc_line
+        sorted_tc = [tc_imports[k] for k in sorted(tc_imports)]
+        new_tc_block = "\n".join(sorted_tc) + "\n"
+        text = text[: tc_match.start(1)] + new_tc_block + text[tc_match.end(1) :]
+    else:
+        # --- Eager layout (legacy) ---
+        import_lines = text.splitlines()
+        last_cap_import_idx = -1
+        for idx, line in enumerate(import_lines):
+            if _IMPORT_RE.match(line):
+                last_cap_import_idx = idx
+        if last_cap_import_idx == -1:
+            _fail(  # noqa: E501
+                "could not locate capability imports in paxman/capabilities/__init__.py"
+            )
 
-    # --- Insert __all__ entry in sorted position ---
+        # Build sorted import block (existing + new), then replace only the
+        # contiguous import block.
+        imports: list[tuple[str, str]] = []
+        for line in text.splitlines():
+            match = _IMPORT_RE.match(line)
+            if match:
+                imports.append((match.group(3), line))
+        imports.append(
+            (
+                package,
+                f"from paxman.capabilities.{package}.capability "
+                f"import {package}Capability as {package}",
+            )
+        )
+        imports.sort(key=lambda item: item[0])
+        import_block = "\n".join(line for _, line in imports)
+
+        # Locate the contiguous block of capability imports to replace.
+        first_cap_idx = next(
+            idx for idx, line in enumerate(import_lines) if _IMPORT_RE.match(line)
+        )
+        # Find the end of the contiguous block (first non-import after first).
+        block_end = last_cap_import_idx + 1
+        # Preserve everything before the block and after it.
+        new_lines = (
+            import_lines[:first_cap_idx]
+            + import_block.splitlines()
+            + import_lines[block_end:]
+        )
+        text = "\n".join(new_lines) + "\n"
+
+    # --- Insert __all__ entry in sorted position (shared) ---
     all_match = re.search(r"__all__\s*=\s*\[(.*?)\]", text, re.DOTALL)
     if all_match is None:
         _fail("could not locate __all__ in paxman/capabilities/__init__.py")

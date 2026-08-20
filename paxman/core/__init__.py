@@ -1,5 +1,5 @@
 from paxman.core.capability import Capability
-from paxman.core.contract import Contract
+from paxman.core.capability_contract import CapabilityContract
 from paxman.core.discovery import (
     freeze_registry,
     get_capability,
@@ -38,9 +38,9 @@ from paxman.core.extensions import (
 
 __all__ = [
     "Capability",
+    "CapabilityContract",
     "CapabilityError",
     "Candidate",
-    "Contract",
     "ContractError",
     "Grammar",
     "GrammarRule",

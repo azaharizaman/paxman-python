@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from paxman.core.contract import Contract
+from paxman.core.capability_contract import CapabilityContract
 from paxman.engine.orchestrator import ExecutionResult, run_capability
 
 
 def canonicalize(
     text: str,
-    contract: Contract,
+    contract: CapabilityContract,
 ) -> ExecutionResult:
     """Canonicalize text using the specified contract.
 

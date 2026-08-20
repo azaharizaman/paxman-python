@@ -245,6 +245,10 @@ class _ErrorContract:
         return ["crash_grammar"]
 
     @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return ()
+
+    @property
     def excluded_rules(self) -> list[str]:
         return []
 
@@ -427,6 +431,10 @@ class _PhantomContract:
     @property
     def active_grammars(self) -> list[str]:
         return ["phantom_grammar"]
+
+    @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return ()
 
     @property
     def excluded_rules(self) -> list[str]:

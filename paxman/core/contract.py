@@ -1,3 +1,10 @@
+"""Contract protocol — ENGINE-INTERNAL since ADR-0007.
+
+Public contracts MUST inherit `CapabilityContract`. This Protocol is retained
+only for internal structural typing of the engine boundary and is NOT part of
+the public API. Do not import it from `paxman.core` — import `CapabilityContract`.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

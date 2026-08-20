@@ -71,12 +71,8 @@ class Capability(ABC, Generic[NotationT]):
 class ContractFactory(Protocol):
     """Factory protocol for capability contract creation.
 
-    Every capability exposes a ``create_contract`` staticmethod with the
-    unanimous common parameter block — ``excluded_rules``, ``pinned_rules``,
-    ``year``, ``output_format``, all keyword-only — followed by capability-
-    specific parameters.  This protocol makes that common block structural:
-    every shipped capability class satisfies it by declaring ``create_contract``
-    with those parameters (plus their own extras).
+    Every shipped capability class (ten as of 0.2.0) satisfies it by declaring
+    ``create_contract`` with the unanimous common parameter block.
     """
 
     @staticmethod

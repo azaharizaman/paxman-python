@@ -125,6 +125,10 @@ class _FormattingContract:
         return ["token_grammar"]
 
     @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return ()
+
+    @property
     def excluded_rules(self) -> list[str]:
         return []
 
@@ -262,6 +266,10 @@ class _DualFormattingContract:
     @property
     def active_grammars(self) -> list[str]:
         return ["dual_alpha_grammar", "dual_beta_grammar"]
+
+    @property
+    def extra_grammars(self) -> tuple[str, ...]:
+        return ()
 
     @property
     def excluded_rules(self) -> list[str]:
