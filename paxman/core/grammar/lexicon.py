@@ -26,7 +26,7 @@ class LexiconAlternation:
     between Currency and Money without per-file copy-paste (ADR-0008 D4).
     """
 
-    tokens: frozenset[str] | set[str] | list[str]
+    tokens: frozenset[str] | set[str] | list[str] | tuple[str, ...]
     longest_first: bool = True
 
     ordered_tokens: list[str] = field(init=False)

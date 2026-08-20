@@ -1,4 +1,4 @@
-"""ISO 4217 alpha-3 currency code recognition grammar.
+"""ISO 4217 alpha-3 currency code recognition grammar (staged pipeline).
 
 Recognizes a standalone 3-letter ASCII code shape (case-insensitive) as
 one span-bearing token. Case folding is the grammar's concern (Country
@@ -12,19 +12,22 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Currency.notation import CurrencyNotation
-from paxman.core.domain import Grammar, RecognitionMatch
-
-# Sign characters ('-', U+2212, '+') are outside the identifier grammar; the
-# boundary guards reject sign-adjacent tokens (mirrors Money's code grammar).
-_CODE_PATTERN = re.compile(r"(?<![\w\-+\u2212])(?P<code>[A-Za-z]{3})(?![\w\-+\u2212])")
+from paxman.core.grammar import PipelineGrammar, RegexStage, StandardPre
 
 
-class CodeRecognition(Grammar[CurrencyNotation]):
+def _code_notation(match: re.Match[str]) -> CurrencyNotation:
+    """Fold the matched 3-letter code to uppercase at recognition."""
+    return CurrencyNotation(text=match.group(0).upper(), shape="code")
+
+
+class CodeRecognition(PipelineGrammar[CurrencyNotation]):
     """Recognizes standalone ISO 4217 alpha-3 code shapes.
 
     Matches a 3-letter ASCII code in any casing: "USD", "usd", "Gbp".
     The grammar folds the token to uppercase at recognition; the rule
-    validates against CURRENCY_CODES.
+    validates against CURRENCY_CODES. Sign characters ('-', U+2212, '+')
+    are outside the identifier grammar; the word_sign boundary guards
+    reject sign-adjacent tokens (mirrors Money's code grammar).
 
     Examples: "USD" -> text "USD", shape "code"
               "usd" -> text "USD", shape "code"
@@ -36,28 +39,8 @@ class CodeRecognition(Grammar[CurrencyNotation]):
     semantics = "code_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[CurrencyNotation]]:
-        """Extract standalone 3-letter code tokens from text.
-
-        Args:
-            text: Raw input text.
-
-        Returns:
-            List of span-bearing matches with shape "code" notations.
-        """
-        if not text.strip():
-            return []
-        matches: list[RecognitionMatch[CurrencyNotation]] = []
-        for match in _CODE_PATTERN.finditer(text):
-            matches.append(
-                RecognitionMatch(
-                    notation=CurrencyNotation(
-                        text=match.group("code").upper(),
-                        shape="code",
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[CurrencyNotation](empty_guard=True)
+    regex = RegexStage(
+        pattern=r"(?<![\w\-+\u2212])(?P<code>[A-Za-z]{3})(?![\w\-+\u2212])",
+        notation_fn=_code_notation,
+    )

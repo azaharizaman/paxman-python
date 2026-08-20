@@ -1,10 +1,9 @@
-"""CLDR currency display-name word recognition grammar.
+"""CLDR currency display-name word recognition grammar (staged pipeline).
 
 Recognizes a standalone currency display-name word (case-insensitive) as
 one span-bearing token. The alternation is built from WORD_TOKENS
-(longest-first). Case folding is the grammar's concern (Country/ISBN
-precedent): the token is emitted lowercase so the rule is a pure
-lowercase-key table lookup. Syntax only.
+(longest-first) and guarded by word_sign boundaries; the token is emitted
+lowercase so the rule is a pure lowercase-key table lookup. Syntax only.
 """
 
 from __future__ import annotations
@@ -13,22 +12,27 @@ import re
 
 from paxman.capabilities.Currency.grammar.data.currency_words import WORD_TOKENS
 from paxman.capabilities.Currency.notation import CurrencyNotation
-from paxman.core.domain import Grammar, RecognitionMatch
-
-_WORD_ALTERNATION = "|".join(re.escape(token) for token in WORD_TOKENS)
-_WORD_PATTERN = re.compile(
-    rf"(?<![\w\-+\u2212])(?:{_WORD_ALTERNATION})(?![\w\-+\u2212])",
-    re.IGNORECASE,
+from paxman.core.grammar import (
+    BoundaryGuard,
+    LexiconStage,
+    PipelineGrammar,
+    StandardPre,
 )
 
 
-class WordRecognition(Grammar[CurrencyNotation]):
+def _word_notation(token: str) -> CurrencyNotation:
+    """Fold the matched display-name word to lowercase at recognition."""
+    return CurrencyNotation(text=token.lower(), shape="word")
+
+
+class WordRecognition(PipelineGrammar[CurrencyNotation]):
     """Recognizes standalone CLDR currency display-name word tokens.
 
-    Matching is case-insensitive; the emitted text is the token folded to
-    lowercase so the rule's NAME_TO_CODES lookup is an exact lowercase-key
-    hit. "Euro"/"euro"/"EURO" all emit text "euro". Word boundaries keep
-    the match inside one token: "Dollars" does not match "Dollar".
+    Matching is case-insensitive (``re.IGNORECASE`` on the guarded
+    alternation); the emitted text is the token folded to lowercase so the
+    rule's NAME_TO_CODES lookup is an exact lowercase-key hit. "Euro"/
+    "euro"/"EURO" all emit text "euro". Word boundaries keep the match
+    inside one token: "Dollars" does not match "Dollar".
 
     Examples: "Euro" -> text "euro", shape "word"
               "US Dollar" -> the "Dollar" span matches (text "dollar");
@@ -41,28 +45,11 @@ class WordRecognition(Grammar[CurrencyNotation]):
     semantics = "word_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[CurrencyNotation]]:
-        """Extract standalone display-name word tokens from text.
-
-        Args:
-            text: Raw input text.
-
-        Returns:
-            List of span-bearing matches with shape "word" notations.
-        """
-        if not text.strip():
-            return []
-        matches: list[RecognitionMatch[CurrencyNotation]] = []
-        for match in _WORD_PATTERN.finditer(text):
-            matches.append(
-                RecognitionMatch(
-                    notation=CurrencyNotation(
-                        text=match.group(0).lower(),
-                        shape="word",
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[CurrencyNotation](empty_guard=True)
+    lexicon = LexiconStage(
+        tokens=WORD_TOKENS,
+        boundary=BoundaryGuard.word_sign(),
+        longest_first=True,
+        notation_fn=_word_notation,
+        flags=re.IGNORECASE,
+    )

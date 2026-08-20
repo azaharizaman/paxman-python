@@ -19,9 +19,16 @@ class BoundaryGuard:
     lookbehind: str
     lookahead: str
 
-    def wrap(self, alternation: str) -> re.Pattern[str]:
-        """Wrap an alternation with this guard's lookarounds and compile."""
-        return re.compile(rf"{self.lookbehind}(?:{alternation}){self.lookahead}")
+    def wrap(self, alternation: str, flags: int = 0) -> re.Pattern[str]:
+        """Wrap an alternation with this guard's lookarounds and compile.
+
+        Args:
+            alternation: The escaped ``|``-joined token alternation.
+            flags: Optional ``re`` flags (e.g. ``re.IGNORECASE``) passed to
+                ``re.compile`` so case-insensitive lexicon grammars (Currency
+                word, Money word) preserve the old ``re.IGNORECASE`` behavior.
+        """
+        return re.compile(rf"{self.lookbehind}(?:{alternation}){self.lookahead}", flags)
 
     # Factory constructors — one per distinct semantic variant.
     @classmethod

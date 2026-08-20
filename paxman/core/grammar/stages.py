@@ -78,10 +78,11 @@ class RegexStage(Generic[NotationT]):
 class LexiconStage(Generic[NotationT]):
     """Lexicon parser stage: alternation scan guarded by a BoundaryGuard."""
 
-    tokens: frozenset[str] | set[str] | list[str]
+    tokens: frozenset[str] | set[str] | list[str] | tuple[str, ...]
     boundary: BoundaryGuard
     longest_first: bool = True
     notation_fn: Callable[[str], NotationT] | None = None
+    flags: int = 0
 
     def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
         if self.notation_fn is None:
@@ -89,7 +90,7 @@ class LexiconStage(Generic[NotationT]):
         from paxman.core.grammar.lexicon import LexiconAlternation
 
         alt = LexiconAlternation(tokens=self.tokens, longest_first=self.longest_first)
-        pat = self.boundary.wrap(alt.alternation)
+        pat = self.boundary.wrap(alt.alternation, self.flags)
         new_matches: list[RecognitionMatch[NotationT]] = list(state.matches)
         for m in pat.finditer(state.text):
             token = m.group(0)
