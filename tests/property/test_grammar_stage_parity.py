@@ -22,11 +22,29 @@ import pytest
 from paxman.capabilities.Currency.grammar.code_recognition import CodeRecognition
 from paxman.capabilities.Currency.grammar.symbol_recognition import SymbolRecognition
 from paxman.capabilities.Currency.grammar.word_recognition import WordRecognition
+from paxman.capabilities.Money.grammar.code_recognition import (
+    CodeRecognition as MoneyCodeRecognition,
+)
+from paxman.capabilities.Money.grammar.symbol_recognition import (
+    SymbolRecognition as MoneySymbolRecognition,
+)
+from paxman.capabilities.Money.grammar.word_recognition import (
+    WordRecognition as MoneyWordRecognition,
+)
 from paxman.core.domain import Grammar
 from tests.property._legacy_currency_grammars import (
     LegacyCodeRecognition,
     LegacySymbolRecognition,
     LegacyWordRecognition,
+)
+from tests.property._legacy_money_grammars import (
+    LegacyCodeRecognition as LegacyMoneyCodeRecognition,
+)
+from tests.property._legacy_money_grammars import (
+    LegacySymbolRecognition as LegacyMoneySymbolRecognition,
+)
+from tests.property._legacy_money_grammars import (
+    LegacyWordRecognition as LegacyMoneyWordRecognition,
 )
 
 # Import harness helper — implemented in this task.
@@ -117,5 +135,58 @@ def test_currency_grammar_parity(
 
     Proves the PipelineGrammar declarations emit the same spans and notations
     as the old bespoke recognize() bodies (ADR-0008 §4.1 migration gate).
+    """
+    assert_grammar_parity(legacy, new, text)
+
+
+# Money migration (Task 6): old bespoke recognize() vs new PipelineGrammar
+# declaration using AmountComposer (S4 fused either-order span-merge). Each
+# tuple is (legacy_grammar, new_grammar, text). The corpus covers both
+# either-order arrangements, qualified/bare symbols, case-insensitive words,
+# amount/sign-glued rejections, and inside-token rejections — every branch
+# the migration must preserve byte-identically.
+MONEY_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    # Code — either order, glued/inside-token rejections.
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "USD500"),
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "USD 500"),
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "500 USD"),
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "100MYR"),
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "USD"),  # no amount
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "usd 500"),  # lowercase
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), "xUSD500"),  # inside
+    (LegacyMoneyCodeRecognition(), MoneyCodeRecognition(), ""),  # empty
+    # Symbol — qualified vs bare, either order, glued/inside rejections.
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "US$50.79"),
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "$500"),
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "RM100"),
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "€5"),
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "500 €"),
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "1.000,00 €"),
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "US$"),  # no amount
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "$"),  # no amount
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "x€"),  # inside
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "€5"),  # glued
+    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), ""),  # empty
+    # Word — case-insensitive, either order, plural/glued rejections.
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "18 Dollar"),
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "500 euro"),
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "500 Ringgit"),
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "500 Euro"),
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "Dollars"),  # plural
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "euro500"),  # glued
+    (LegacyMoneyWordRecognition(), MoneyWordRecognition(), ""),  # empty
+]
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), MONEY_PARITY_CASES)
+def test_money_grammar_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Money grammars.
+
+    Proves the AmountComposer (S4) PipelineGrammar declarations emit the same
+    spans and notations as the old bespoke recognize() bodies (ADR-0008 §4.1
+    migration gate).
     """
     assert_grammar_parity(legacy, new, text)

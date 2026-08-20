@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from paxman.core.grammar.boundary import BoundaryGuard
+from paxman.core.grammar.composer import AmountComposer
 from paxman.core.grammar.lexicon import LexiconAlternation
 from paxman.core.grammar.pipeline import PipelineGrammar
 from paxman.core.grammar.stages import (
@@ -15,6 +16,7 @@ from paxman.core.grammar.stages import (
 )
 
 __all__ = [
+    "AmountComposer",
     "BoundaryGuard",
     "LexiconAlternation",
     "LexiconStage",
