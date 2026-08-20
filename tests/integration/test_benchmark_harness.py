@@ -5,7 +5,16 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.benchmark
+from paxman.core.discovery import reset_registry
+
+pytestmark = [pytest.mark.benchmark, pytest.mark.integration]
+
+
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    reset_registry()
+    yield
+    reset_registry()
 
 
 def test_harness_runs_one_scenario() -> None:

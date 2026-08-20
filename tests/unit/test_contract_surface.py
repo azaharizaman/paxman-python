@@ -56,16 +56,45 @@ def test_capability_contract_is_only_public_base() -> None:
         )
 
 
-def test_engine_no_getattr_fallback_in_recognize() -> None:
-    """`_recognize` must access extra_grammars directly (no silent getattr fallback)."""
-    import inspect
+def test_recognize_requires_extra_grammars() -> None:
+    """_recognize fails fast with ContractError when contract lacks extra_grammars."""
 
-    import paxman.engine.orchestrator as orch
+    from dataclasses import dataclass
+    from typing import cast
 
-    src = inspect.getsource(orch._recognize)
-    assert 'getattr(contract, "extra_grammars"' not in src, (
-        "getattr probe must be removed from _recognize"
-    )
+    from paxman.core.capability_contract import CapabilityContract
+    from paxman.core.errors import ContractError
+    from paxman.engine.orchestrator import _recognize
+
+    @dataclass(frozen=True)
+    class _BadContract:
+        capability_name: str = "email"
+        # NOTE: no extra_grammars attribute at all
+
+    with pytest.raises(ContractError):
+        _recognize("hello", [], [], cast(CapabilityContract, _BadContract()))
+
+
+def test_activated_rules_requires_extra_grammars() -> None:
+    """_activated_rules fails fast without extra_grammars."""
+
+    from dataclasses import dataclass
+    from typing import cast
+
+    from paxman.capabilities.Email.capability import EmailCapability
+    from paxman.core.capability_contract import CapabilityContract
+    from paxman.core.errors import ContractError
+    from paxman.engine.orchestrator import _activated_rules
+
+    @dataclass(frozen=True)
+    class _BadContract:
+        capability_name: str = "email"
+        # NOTE: no extra_grammars attribute at all
+
+    with pytest.raises(ContractError):
+        _activated_rules(
+            EmailCapability(), cast(CapabilityContract, _BadContract()), {}
+        )
 
 
 def test_engine_requires_extra_grammars_attribute() -> None:
