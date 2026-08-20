@@ -50,10 +50,11 @@ class RegexStage(Generic[NotationT]):
 
     pattern: str
     notation_fn: Callable[[re.Match[str]], NotationT] | None = None
+    flags: int = 0
     _compiled: re.Pattern[str] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "_compiled", re.compile(self.pattern))
+        object.__setattr__(self, "_compiled", re.compile(self.pattern, self.flags))
 
     def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
         if self.notation_fn is None:

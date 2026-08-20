@@ -31,6 +31,15 @@ from paxman.capabilities.Money.grammar.symbol_recognition import (
 from paxman.capabilities.Money.grammar.word_recognition import (
     WordRecognition as MoneyWordRecognition,
 )
+from paxman.capabilities.SIUnit.grammar.compound_recognition import (
+    CompoundRecognition as SiCompoundRecognition,
+)
+from paxman.capabilities.SIUnit.grammar.name_recognition import (
+    NameRecognition as SiNameRecognition,
+)
+from paxman.capabilities.SIUnit.grammar.symbol_recognition import (
+    SymbolRecognition as SiSymbolRecognition,
+)
 from paxman.core.domain import Grammar
 from tests.property._legacy_currency_grammars import (
     LegacyCodeRecognition,
@@ -45,6 +54,15 @@ from tests.property._legacy_money_grammars import (
 )
 from tests.property._legacy_money_grammars import (
     LegacyWordRecognition as LegacyMoneyWordRecognition,
+)
+from tests.property._legacy_siunit_grammars import (
+    LegacyCompoundRecognition as LegacySiCompound,
+)
+from tests.property._legacy_siunit_grammars import (
+    LegacyNameRecognition as LegacySiName,
+)
+from tests.property._legacy_siunit_grammars import (
+    LegacySymbolRecognition as LegacySiSymbol,
 )
 
 # Import harness helper — implemented in this task.
@@ -189,4 +207,104 @@ def test_money_grammar_parity(
     spans and notations as the old bespoke recognize() bodies (ADR-0008 §4.1
     migration gate).
     """
+    assert_grammar_parity(legacy, new, text)
+
+
+# SIUnit migration (Task 7): old bespoke recognize() vs new PipelineGrammar
+# declarations (S3 lexicon + S5 split-prefix classifier + S4 compound). Each
+# tuple is (legacy_grammar, new_grammar, text). The corpus covers attached
+# symbols, prefix-only split symbols (rejectable spans), dual-role spaced
+# units (two units, not a split), the ° degree guard, case-folded names,
+# word-prefix splits, multi-word names, and compound shapes — every branch
+# the migration must preserve byte-identically.
+SIUNIT_SYMBOL_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacySiSymbol(), SiSymbolRecognition(), "kg"),
+    (LegacySiSymbol(), SiSymbolRecognition(), "MHz"),
+    (LegacySiSymbol(), SiSymbolRecognition(), "k g"),  # split_symbol_prefix
+    (LegacySiSymbol(), SiSymbolRecognition(), "da m"),  # split_symbol_prefix
+    (LegacySiSymbol(), SiSymbolRecognition(), "µ g"),  # split_symbol_prefix
+    (LegacySiSymbol(), SiSymbolRecognition(), "m s"),  # two units, not split
+    (LegacySiSymbol(), SiSymbolRecognition(), "N m"),  # two units, not split
+    (LegacySiSymbol(), SiSymbolRecognition(), "m/s"),  # symbol "m" only
+    (LegacySiSymbol(), SiSymbolRecognition(), "m/s²"),  # symbol "m" only
+    (LegacySiSymbol(), SiSymbolRecognition(), "kg/m/s"),  # symbol "kg" only
+    (LegacySiSymbol(), SiSymbolRecognition(), "m·kg"),  # symbol "m" only
+    (LegacySiSymbol(), SiSymbolRecognition(), "kPa"),  # prefixed symbol
+    (LegacySiSymbol(), SiSymbolRecognition(), "°C"),  # degree special name
+    (LegacySiSymbol(), SiSymbolRecognition(), "25°C"),  # degree guard reject
+    (LegacySiSymbol(), SiSymbolRecognition(), "xkg"),  # inside-token reject
+    (LegacySiSymbol(), SiSymbolRecognition(), "kg5"),  # digit-glued reject
+    (LegacySiSymbol(), SiSymbolRecognition(), "2m"),  # digit-glued reject
+    (LegacySiSymbol(), SiSymbolRecognition(), "   kg   "),  # whitespace span
+    (LegacySiSymbol(), SiSymbolRecognition(), "kilo gram"),  # not a symbol
+    (LegacySiSymbol(), SiSymbolRecognition(), "degree celsius"),  # not a symbol
+    (LegacySiSymbol(), SiSymbolRecognition(), "Pa"),
+    (LegacySiSymbol(), SiSymbolRecognition(), "min"),
+    (LegacySiSymbol(), SiSymbolRecognition(), "da"),  # bare prefix
+    (LegacySiSymbol(), SiSymbolRecognition(), "k"),  # bare prefix
+    (LegacySiSymbol(), SiSymbolRecognition(), ""),  # empty
+]
+
+SIUNIT_NAME_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacySiName(), SiNameRecognition(), "kilogram"),
+    (LegacySiName(), SiNameRecognition(), "Kilogram"),  # case fold
+    (LegacySiName(), SiNameRecognition(), "KILOGRAM"),  # case fold
+    (LegacySiName(), SiNameRecognition(), "kelvin"),
+    (LegacySiName(), SiNameRecognition(), "degree celsius"),  # name, not split
+    (LegacySiName(), SiNameRecognition(), "Degree Celsius"),  # case fold
+    (LegacySiName(), SiNameRecognition(), "megahertz"),
+    (LegacySiName(), SiNameRecognition(), "kilometre"),
+    (LegacySiName(), SiNameRecognition(), "kilo gram"),  # split_word_prefix
+    (LegacySiName(), SiNameRecognition(), "kelvin pascal"),  # two names
+    (LegacySiName(), SiNameRecognition(), "5kilogram"),  # digit-glued reject
+    (LegacySiName(), SiNameRecognition(), "kilogram5"),  # digit-glued reject
+    (LegacySiName(), SiNameRecognition(), "xkelvin"),  # inside-token reject
+    (LegacySiName(), SiNameRecognition(), "kg"),  # not a name
+    (LegacySiName(), SiNameRecognition(), "kilograms"),  # plural reject
+    (LegacySiName(), SiNameRecognition(), ""),  # empty
+]
+
+SIUNIT_COMPOUND_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacySiCompound(), SiCompoundRecognition(), "m/s²"),
+    (LegacySiCompound(), SiCompoundRecognition(), "m/s2"),
+    (LegacySiCompound(), SiCompoundRecognition(), "km/h"),
+    (LegacySiCompound(), SiCompoundRecognition(), "N·m"),
+    (LegacySiCompound(), SiCompoundRecognition(), "N⋅m"),
+    (LegacySiCompound(), SiCompoundRecognition(), "kg·m/s²"),
+    (LegacySiCompound(), SiCompoundRecognition(), "g/cm³"),
+    (LegacySiCompound(), SiCompoundRecognition(), "m·s⁻²"),
+    (LegacySiCompound(), SiCompoundRecognition(), "m/°C"),
+    (LegacySiCompound(), SiCompoundRecognition(), "µg/mL"),
+    (LegacySiCompound(), SiCompoundRecognition(), "QQQ/zzz"),  # shape-only
+    (LegacySiCompound(), SiCompoundRecognition(), "m/sx"),  # shape-only
+    (LegacySiCompound(), SiCompoundRecognition(), "xN·m"),  # shape-only
+    (LegacySiCompound(), SiCompoundRecognition(), "m"),  # single unit reject
+    (LegacySiCompound(), SiCompoundRecognition(), "m s"),  # space reject
+    (LegacySiCompound(), SiCompoundRecognition(), "5m/s"),  # digit-glued reject
+    (LegacySiCompound(), SiCompoundRecognition(), ""),  # empty
+]
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), SIUNIT_SYMBOL_PARITY_CASES)
+def test_siunit_symbol_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated SIUnit symbol grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), SIUNIT_NAME_PARITY_CASES)
+def test_siunit_name_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated SIUnit name grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), SIUNIT_COMPOUND_PARITY_CASES)
+def test_siunit_compound_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated SIUnit compound grammar."""
     assert_grammar_parity(legacy, new, text)
