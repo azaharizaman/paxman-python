@@ -1,22 +1,48 @@
-"""E.164 international number recognition grammar."""
+"""E.164 international number recognition grammar (staged pipeline).
+
+Recognizes a leading "+" followed by digits with optional separators
+(space, dash, dot, parens). The grammar is intentionally loose — validation
+happens in rules. The negative lookbehind (via BoundaryGuard.e164()) excludes
+word characters, ":", and "." so email plus-tags, algebra, decimals, and
+"tel:+..." are NOT double-matched. The trailing digit-ending lookbehind
+forces the match to end on a digit so trailing separators/whitespace/
+punctuation are not swallowed. A PostStage trims runaway matches at the
+15-digit E.164 window (ADR-0008 S5) so a following number is not merged into
+the span.
+"""
 
 from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.domain import RecognitionMatch
+from paxman.core.grammar import (
+    BoundaryGuard,
+    PipelineGrammar,
+    PostStage,
+    RegexStage,
+    StandardPre,
+)
 
-# A "+" followed by digits with optional separators (space, dash, dot, parens).
-# The grammar is intentionally loose — validation happens in rules. The
-# negative lookbehind excludes word characters (letters, digits, underscore),
-# ":" and "." — so email plus-tags ("user+123@"), algebra ("x+11"), decimals
-# (".+1.5"), and "tel:+..." (which the tel-URI grammar handles) are NOT
-# double-matched. The trailing (?<=\d) lookbehind forces the match to end on
-# a digit, so the trailing character class cannot swallow separators,
-# whitespace, or sentence punctuation after the number.
-_E164_PATTERN = re.compile(r"(?<![\w:.])\+\d[\d\s().\-]*(?<=\d)")
+# Digits are preserved; space, dash, dot, and parentheses are removed.
+_SEPARATORS_WITH_PLUS = str.maketrans("", "", "+ ().-")
+
+
+def strip_separators(value: str, *, plus: bool = False) -> str:
+    """Remove phone separators from a raw match.
+
+    Args:
+        value: Raw match text (digits, separators, optional leading "+").
+        plus: Also strip a leading "+" (E.164 and tel-URI matches).
+
+    Returns:
+        The digit-only number.
+    """
+    if plus:
+        return value.translate(_SEPARATORS_WITH_PLUS)
+    return value.translate(str.maketrans("", "", " ().-"))
+
 
 # Maximum E.164 number length in digits (spec limit; the grammar trims
 # runaway matches at this boundary). Duplicated from the rule module on
@@ -49,7 +75,34 @@ def _trim_to_e164_boundary(raw: str) -> str:
     return raw
 
 
-class E164Grammar(Grammar[PhoneNotation]):
+# Body: "+" then digits with optional separators, ending on a digit. The
+# leading lookbehind is supplied by BoundaryGuard.e164() (ADR-0008 D5) so no
+# hard-coded lookaround literal remains in this file.
+_E164_BODY = r"\+\d[\d\s().\-]*(?<=\d)"
+_GUARD = BoundaryGuard.e164()
+_E164_PATTERN = _GUARD.lookbehind + _E164_BODY
+
+
+def _e164_notation(match: re.Match[str]) -> PhoneNotation:
+    """Map a raw E.164 match to its digit-only notation (trimmed to 15 digits)."""
+    raw = _trim_to_e164_boundary(match.group(0))
+    return PhoneNotation(shape="e164", value=strip_separators(raw, plus=True))
+
+
+def _e164_trim(
+    match: RecognitionMatch[PhoneNotation],
+) -> RecognitionMatch[PhoneNotation]:
+    """Adjust the span to the trimmed 15-digit window (end = start + len)."""
+    raw = _trim_to_e164_boundary(match.raw_text)
+    return RecognitionMatch(
+        notation=match.notation,
+        start=match.start,
+        end=match.start + len(raw),
+        raw_text=raw,
+    )
+
+
+class E164Grammar(PipelineGrammar[PhoneNotation]):
     """Recognizes E.164-style international numbers (leading +).
 
     Examples: "+15551234567", "+1 555 123 4567", "+44-20-7946-0958"
@@ -60,25 +113,6 @@ class E164Grammar(Grammar[PhoneNotation]):
     semantics = "e164_international"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
-        """Extract e164 patterns from text.
-
-        Returns:
-            List of RecognitionMatches; notation.value is the digit-only
-            number (leading "+" and separators removed).
-        """
-        matches: list[RecognitionMatch[PhoneNotation]] = []
-        for match in _E164_PATTERN.finditer(text):
-            raw_text = _trim_to_e164_boundary(match.group(0))
-            matches.append(
-                RecognitionMatch(
-                    notation=PhoneNotation(
-                        shape="e164",
-                        value=strip_separators(raw_text, plus=True),
-                    ),
-                    start=match.start(),
-                    end=match.start() + len(raw_text),
-                    raw_text=raw_text,
-                )
-            )
-        return matches
+    pre = StandardPre[PhoneNotation](empty_guard=True)
+    regex = RegexStage[PhoneNotation](pattern=_E164_PATTERN, notation_fn=_e164_notation)
+    post = PostStage[PhoneNotation](transform=_e164_trim)

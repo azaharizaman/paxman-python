@@ -31,6 +31,12 @@ from paxman.capabilities.Money.grammar.symbol_recognition import (
 from paxman.capabilities.Money.grammar.word_recognition import (
     WordRecognition as MoneyWordRecognition,
 )
+from paxman.capabilities.Phone.grammar.e164_recognition import E164Grammar
+from paxman.capabilities.Phone.grammar.international_00_recognition import (
+    International00Grammar,
+)
+from paxman.capabilities.Phone.grammar.national_recognition import NationalGrammar
+from paxman.capabilities.Phone.grammar.tel_uri_recognition import TelUriGrammar
 from paxman.capabilities.SIUnit.grammar.compound_recognition import (
     CompoundRecognition as SiCompoundRecognition,
 )
@@ -39,6 +45,9 @@ from paxman.capabilities.SIUnit.grammar.name_recognition import (
 )
 from paxman.capabilities.SIUnit.grammar.symbol_recognition import (
     SymbolRecognition as SiSymbolRecognition,
+)
+from paxman.capabilities.URL.grammar.absolute_uri_recognition import (
+    AbsoluteUriRecognition,
 )
 from paxman.core.domain import Grammar
 from tests.property._legacy_currency_grammars import (
@@ -54,6 +63,13 @@ from tests.property._legacy_money_grammars import (
 )
 from tests.property._legacy_money_grammars import (
     LegacyWordRecognition as LegacyMoneyWordRecognition,
+)
+from tests.property._legacy_phone_url_grammars import (
+    LegacyAbsoluteUriRecognition,
+    LegacyE164Grammar,
+    LegacyInternational00Grammar,
+    LegacyNationalGrammar,
+    LegacyTelUriGrammar,
 )
 from tests.property._legacy_siunit_grammars import (
     LegacyCompoundRecognition as LegacySiCompound,
@@ -307,4 +323,145 @@ def test_siunit_compound_parity(
     legacy: Grammar[Any], new: Grammar[Any], text: str
 ) -> None:
     """Byte-identical RecognitionMatch parity for migrated SIUnit compound grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+# Phone migration (Task 8): old bespoke recognize() vs new PipelineGrammar
+# declarations (S5 RegexStage + PostStage trim). Each tuple is
+# (legacy_grammar, new_grammar, text). The corpus covers the E.164 15-digit
+# window trim, the 00-prefix lookbehind (incl. "+00" / digit / dot rejections),
+# the tel-URI scheme + extension, the NANP national 4-chain lookbehind, and
+# every branch the migration must preserve byte-identically.
+PHONE_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    # E.164 — normal forms + separators.
+    (LegacyE164Grammar(), E164Grammar(), "+15551234567"),
+    (LegacyE164Grammar(), E164Grammar(), "+1 555 123 4567"),
+    (LegacyE164Grammar(), E164Grammar(), "+44-20-7946-0958"),
+    (LegacyE164Grammar(), E164Grammar(), "+1.555.123.4567"),
+    (LegacyE164Grammar(), E164Grammar(), "+1 (555) 123-4567"),
+    # E.164 — runaway trim at the 15-digit window (end = start + len(trimmed)).
+    (LegacyE164Grammar(), E164Grammar(), "+15551234567 5551234567"),
+    # E.164 — oversized first run is NOT truncated (validation rejects later).
+    (LegacyE164Grammar(), E164Grammar(), "+12345678901234567890"),
+    # E.164 — rejections (no plus, national, word-char-before-+).
+    (LegacyE164Grammar(), E164Grammar(), "15551234567"),
+    (LegacyE164Grammar(), E164Grammar(), "(555) 123-4567"),
+    (LegacyE164Grammar(), E164Grammar(), "user+123@example.com"),
+    (LegacyE164Grammar(), E164Grammar(), "a+123"),
+    (LegacyE164Grammar(), E164Grammar(), "x+11=y"),
+    (LegacyE164Grammar(), E164Grammar(), "1+11=12"),
+    # E.164 — in-text span + multiple + trailing period.
+    (LegacyE164Grammar(), E164Grammar(), "Call +1 555 123 4567 now"),
+    (LegacyE164Grammar(), E164Grammar(), "+15551234567 or +442079460958"),
+    (LegacyE164Grammar(), E164Grammar(), "End of +15551234567."),
+    (LegacyE164Grammar(), E164Grammar(), ""),  # empty
+    # tel-URI — normal, dashes, extension, in-text, uppercase scheme.
+    (LegacyTelUriGrammar(), TelUriGrammar(), "tel:+15551234567"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "tel:+1-201-555-0123"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "tel:+15551234567;ext=890"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "Reach me at tel:+15551234567 now"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "TEL:+15551234567"),
+    # tel-URI — rejections (no scheme, no-plus local, scheme inside word).
+    (LegacyTelUriGrammar(), TelUriGrammar(), "+15551234567"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "tel:2125550123"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "tel:15551234567"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "tel:44 20 7946 0958"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "hotel:+15551234567"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), "xtel:+15551234567"),
+    (LegacyTelUriGrammar(), TelUriGrammar(), ""),  # empty
+    # International 00 — normal, compact, in-text, trailing period.
+    (LegacyInternational00Grammar(), International00Grammar(), "00 44 20 7946 0958"),
+    (LegacyInternational00Grammar(), International00Grammar(), "00442079460958"),
+    (
+        LegacyInternational00Grammar(),
+        International00Grammar(),
+        "Dial 00 44 20 7946 0958 from abroad",
+    ),
+    (LegacyInternational00Grammar(), International00Grammar(), "00 44 20 7946 0958."),
+    # International 00 — rejections (plus, single zero, digit/dot/word before).
+    (LegacyInternational00Grammar(), International00Grammar(), "+442079460958"),
+    (LegacyInternational00Grammar(), International00Grammar(), "0 44 20 7946 0958"),
+    (LegacyInternational00Grammar(), International00Grammar(), "100442079460958"),
+    (LegacyInternational00Grammar(), International00Grammar(), "+00442079460958"),
+    (LegacyInternational00Grammar(), International00Grammar(), "0.00442079460958"),
+    (LegacyInternational00Grammar(), International00Grammar(), "user00123@example.com"),
+    (LegacyInternational00Grammar(), International00Grammar(), "x0044 20 7946 0958"),
+    (LegacyInternational00Grammar(), International00Grammar(), ""),  # empty
+    # National — parens, dashes, dots, spaces, trunk, in-text.
+    (LegacyNationalGrammar(), NationalGrammar(), "(555) 123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "555-123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "555.123.4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "555 123 4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "1-555-123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "1 (555) 123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "Call (555) 123-4567 today"),
+    # National — rejections (international in all separator shapes, tel-URI, short).
+    (LegacyNationalGrammar(), NationalGrammar(), "+15551234567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "+1-555-123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "+1 555 123 4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "+1.555.123.4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "+1 (555) 123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "tel:+1-201-555-0123"),
+    (LegacyNationalGrammar(), NationalGrammar(), "tel:+15551234567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "tel:+1 (555) 123-4567"),
+    (LegacyNationalGrammar(), NationalGrammar(), "555-1234"),
+    (LegacyNationalGrammar(), NationalGrammar(), ""),  # empty
+]
+
+
+# URL migration (Task 8): old bespoke recognize() vs new PipelineGrammar
+# declaration (S5 RegexStage + PostStage paren-balance/D16 drop). Each tuple
+# is (legacy_grammar, new_grammar, text). The corpus covers the Appendix C
+# paren-balance trim, the D16 bare-scheme drop, the scheme-char left
+# boundary, multi-line spans, and shape-only recognition — every branch the
+# migration must preserve byte-identically.
+URL_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    # Paren-balance trim + bare-scheme drop.
+    (
+        LegacyAbsoluteUriRecognition(),
+        AbsoluteUriRecognition(),
+        "https://example.com/path_(with_parens)",
+    ),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "Note:"),  # bare scheme
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "(https://example.com)"),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "http://exa\nmple.com/"),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "http://example.com."),
+    # Left boundary: word rejection keeps "ahttps" span, digit start rejected.
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "ahttps://example.com"),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "1https://example.com"),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "(https://example.com"),
+    # Non-ASCII body + shape-only recognition.
+    (
+        LegacyAbsoluteUriRecognition(),
+        AbsoluteUriRecognition(),
+        "mailto:user@münchen.de",
+    ),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "https://"),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "http://99999/"),
+    # All-paren body collapses to bare scheme -> dropped.
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "https:))))"),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), "https://example.com))"),
+    # Double-quote right boundary.
+    (
+        LegacyAbsoluteUriRecognition(),
+        AbsoluteUriRecognition(),
+        '"https://example.com/"',
+    ),
+    (LegacyAbsoluteUriRecognition(), AbsoluteUriRecognition(), ""),  # empty
+]
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), PHONE_PARITY_CASES)
+def test_phone_grammar_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Phone grammars."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), URL_PARITY_CASES)
+def test_url_grammar_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated URL grammar."""
     assert_grammar_parity(legacy, new, text)

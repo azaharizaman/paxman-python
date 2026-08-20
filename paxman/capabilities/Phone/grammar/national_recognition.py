@@ -1,4 +1,4 @@
-"""NANP national number recognition grammar.
+"""NANP national number recognition grammar (staged pipeline).
 
 Recognizes domestic (NANP-style) dialing formats: optional trunk "1",
 optional parenthesized NPA, then 3-3-4 digit groups with any of space,
@@ -12,34 +12,37 @@ import re
 
 from paxman.capabilities.Phone.grammar.common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import (
+    BoundaryGuard,
+    PipelineGrammar,
+    RegexStage,
+    StandardPre,
+)
 
 # Optional trunk 1, optional (NPA), NXX, XXXX. NPA first digit 2-9 is a
 # recognition heuristic — strict validation (including NXX first digit 2-9)
 # happens in the rules. NXX is deliberately loose here so the grammar
-# recognizes the NANP *shape* even for unassignable exchanges (e.g.,
+# recognizes the NANP *shape* even for unassignable exchanges (e.g.
 # "555-123-4567"), which the NANP rule then rejects as INVALID.
 #
-# Four fixed-width negative lookbehinds ensure this grammar does NOT match
-# inside E.164 numbers or tel: URIs (those belong to the e164 / tel-URI
-# grammars). They reject a match when the characters immediately before it
-# belong to an international number:
-#   1. digit or "+"          -> "+15551234567" (compact)
-#   2. separator after d/+   -> "+1-555-123-4567", "+1 555 123 4567", "+1.555..."
-#   3. "( " after sep after d/+ -> "+1 (555) 123-4567" (parens w/ separator)
-#   4. "(" directly after d/+ -> "+1(555)123-4567"  (parens, no separator)
-#
-# No-plus local tel: URIs ("tel:212-555-6789") are NOT global numbers
-# (RFC 3966 §3.1) and are not recognized by the tel-URI grammar; their
-# NANP-shaped number content may be recognized here as a national number.
-_NATIONAL_PATTERN = re.compile(
-    r"(?<![\d+])(?<![\d+][\s.\-])(?<![\d+][\s.\-]\()(?<![\d+]\()"
-    r"(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?"
-    r"(\d{3})[\s.\-]?(\d{4})(?!\d)"
-)
+# The four fixed-width negative lookbehinds (via BoundaryGuard.phone_national())
+# ensure this grammar does NOT match inside E.164 numbers or tel: URIs (those
+# belong to the e164 / tel-URI grammars). They reject a match when the
+# characters immediately before it belong to an international number. The
+# trailing lookahead (also from the guard) rejects a digit immediately after
+# the number. No hard-coded lookaround literal remains in this file (ADR-0008
+# D5).
+_NATIONAL_BODY = r"(?:1[\s.\-]?)?\(?([2-9]\d{2})\)?[\s.\-]?(\d{3})[\s.\-]?(\d{4})"
+_GUARD = BoundaryGuard.phone_national()
+_NATIONAL_PATTERN = _GUARD.lookbehind + _NATIONAL_BODY + _GUARD.lookahead
 
 
-class NationalGrammar(Grammar[PhoneNotation]):
+def _national_notation(match: re.Match[str]) -> PhoneNotation:
+    """Map a national match to its digit-only notation (trunk 1 preserved)."""
+    return PhoneNotation(shape="national", value=strip_separators(match.group(0)))
+
+
+class NationalGrammar(PipelineGrammar[PhoneNotation]):
     """Recognizes NANP national dialing formats.
 
     Examples: "(555) 123-4567", "555-123-4567", "1-555-123-4567"
@@ -50,21 +53,7 @@ class NationalGrammar(Grammar[PhoneNotation]):
     semantics = "national_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
-        """Extract national patterns from text.
-
-        Returns:
-            List of RecognitionMatches; notation.value is the digit-only
-            number; a leading trunk "1" is preserved when present.
-        """
-        return [
-            RecognitionMatch(
-                notation=PhoneNotation(
-                    shape="national", value=strip_separators(match.group(0))
-                ),
-                start=match.start(),
-                end=match.end(),
-                raw_text=match.group(0),
-            )
-            for match in _NATIONAL_PATTERN.finditer(text)
-        ]
+    pre = StandardPre[PhoneNotation](empty_guard=True)
+    regex = RegexStage[PhoneNotation](
+        pattern=_NATIONAL_PATTERN, notation_fn=_national_notation
+    )

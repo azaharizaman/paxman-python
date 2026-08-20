@@ -9,6 +9,7 @@ from paxman.core.grammar.pipeline import PipelineGrammar
 from paxman.core.grammar.stages import (
     LexiconStage,
     PipelineState,
+    PostStage,
     RegexStage,
     Stage,
     StandardPre,
@@ -22,6 +23,7 @@ __all__ = [
     "LexiconStage",
     "PipelineGrammar",
     "PipelineState",
+    "PostStage",
     "RegexStage",
     "Stage",
     "StandardPre",

@@ -109,6 +109,34 @@ class LexiconStage(Generic[NotationT]):
 
 
 @dataclass(frozen=True, slots=True)
+class PostStage(Generic[NotationT]):
+    """Post-processing stage: applies a transform to each emitted match.
+
+    Used for span-trimming behaviors that the regex span alone cannot
+    express — e.g. the E.164 15-digit window trim (end = start +
+    len(trimmed_raw)) and the URL paren-balance trim with bare-scheme drop
+    (D16). The transform maps a ``RecognitionMatch`` to a (possibly
+    different) ``RecognitionMatch``, or to ``None`` to drop the match
+    entirely. Capability-specific trim logic lives in the grammar file's
+    transform closure; this stage stays capability-agnostic.
+    """
+
+    transform: Callable[
+        [RecognitionMatch[NotationT]], RecognitionMatch[NotationT] | None
+    ]
+
+    def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
+        new_matches: list[RecognitionMatch[NotationT]] = []
+        for m in state.matches:
+            result = self.transform(m)
+            if result is not None:
+                new_matches.append(result)
+        return PipelineState(
+            text=state.text, matches=new_matches, scratch=dict(state.scratch)
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class WholeInputLookup(Generic[NotationT]):
     """S2 whole-input membership — a LexiconStage variant for Country/name_recognition.
 

@@ -55,6 +55,15 @@ class BoundaryGuard:
         return cls(lookbehind=r"(?<![\w:.])", lookahead=r"")
 
     @classmethod
+    def e164_00(cls) -> BoundaryGuard:
+        """International 00-prefix: like e164() but also excludes a leading "+".
+
+        Contradictory "+00..." input is left to the e164 grammar; the 00
+        grammar must not treat it as a 00-prefixed number.
+        """
+        return cls(lookbehind=r"(?<![\w:.+])", lookahead=r"")
+
+    @classmethod
     def scheme_char(cls) -> BoundaryGuard:
         return cls(lookbehind=r"(?<![A-Za-z0-9+.\-])", lookahead=r"")
 
