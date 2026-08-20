@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Generic, Protocol, TypeVar
 
 from paxman.core.domain import RecognitionMatch
+from paxman.core.grammar.boundary import BoundaryGuard
 
 NotationT = TypeVar("NotationT")
 
@@ -71,3 +72,75 @@ class RegexStage(Generic[NotationT]):
         return PipelineState(
             text=state.text, matches=new_matches, scratch=dict(state.scratch)
         )
+
+
+@dataclass(frozen=True, slots=True)
+class LexiconStage(Generic[NotationT]):
+    """Lexicon parser stage: alternation scan guarded by a BoundaryGuard."""
+
+    tokens: frozenset[str] | set[str] | list[str]
+    boundary: BoundaryGuard
+    longest_first: bool = True
+    notation_fn: Callable[[str], NotationT] | None = None
+
+    def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
+        if self.notation_fn is None:
+            return state
+        from paxman.core.grammar.lexicon import LexiconAlternation
+
+        alt = LexiconAlternation(tokens=self.tokens, longest_first=self.longest_first)
+        pat = self.boundary.wrap(alt.alternation)
+        new_matches: list[RecognitionMatch[NotationT]] = list(state.matches)
+        for m in pat.finditer(state.text):
+            token = m.group(0)
+            new_matches.append(
+                RecognitionMatch(
+                    notation=self.notation_fn(token),
+                    start=m.start(),
+                    end=m.end(),
+                    raw_text=token,
+                )
+            )
+        return PipelineState(
+            text=state.text, matches=new_matches, scratch=dict(state.scratch)
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class WholeInputLookup(Generic[NotationT]):
+    """S2 whole-input membership — a LexiconStage variant for Country/name_recognition.
+
+    The entire (trimmed) input is looked up against a set of normalized keys.
+    The emitted match carries the *original* trimmed text and span (D7), not the
+    normalized key. ``normalizer`` is required: Country must pass its
+    ``normalize_name`` so that the lookup key is derived deterministically rather
+    than by a hard-coded ``lower()`` that would break other capabilities.
+    """
+
+    keys: frozenset[str] | set[str]
+    normalizer: Callable[[str], str]
+    notation_fn: Callable[[str], NotationT] | None = None
+
+    def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
+        if self.notation_fn is None:
+            return state
+        trimmed = state.text.strip()
+        if not trimmed:
+            return state
+        normalized = self.normalizer(trimmed)
+        if normalized in self.keys:
+            start = len(state.text) - len(state.text.lstrip())
+            end = start + len(trimmed)
+            new_matches: list[RecognitionMatch[NotationT]] = list(state.matches)
+            new_matches.append(
+                RecognitionMatch(
+                    notation=self.notation_fn(trimmed),
+                    start=start,
+                    end=end,
+                    raw_text=trimmed,
+                )
+            )
+            return PipelineState(
+                text=state.text, matches=new_matches, scratch=dict(state.scratch)
+            )
+        return state
