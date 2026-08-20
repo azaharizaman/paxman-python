@@ -88,3 +88,17 @@ class BoundaryGuard:
             lookbehind=r"(?:^|(?<=[\s,;([ ]))",
             lookahead=r"(?:$|(?=[\s,;().\]]))",
         )
+
+    @classmethod
+    def isbn_trail(cls) -> BoundaryGuard:
+        # Trailing guard for ISBN-13/ISBN-10: the address must not be
+        # immediately preceded by a separator (whitespace, colon, hyphen),
+        # which would mean it is glued to surrounding label text.
+        return cls(lookbehind=r"(?<![\s:-])", lookahead=r"")
+
+    @classmethod
+    def isbn10_lead(cls) -> BoundaryGuard:
+        # Leading guard for ISBN-10: the address must not be immediately
+        # preceded by a digit or a digit followed by a separator, which would
+        # mean it is glued to surrounding digits (e.g. an ID run).
+        return cls(lookbehind=r"(?<!\d)(?<!\d[ -])", lookahead=r"")

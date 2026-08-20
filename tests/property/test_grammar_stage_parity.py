@@ -19,9 +19,36 @@ from typing import Any
 
 import pytest
 
+from paxman.capabilities.Country.grammar.alpha2_recognition import Alpha2Grammar
+from paxman.capabilities.Country.grammar.alpha3_recognition import Alpha3Grammar
+from paxman.capabilities.Country.grammar.name_recognition import NameGrammar
+from paxman.capabilities.Country.grammar.numeric_recognition import NumericGrammar
 from paxman.capabilities.Currency.grammar.code_recognition import CodeRecognition
 from paxman.capabilities.Currency.grammar.symbol_recognition import SymbolRecognition
 from paxman.capabilities.Currency.grammar.word_recognition import WordRecognition
+from paxman.capabilities.Date.grammar.european_recognition import EuropeanDateGrammar
+from paxman.capabilities.Date.grammar.iso8601_recognition import ISO8601DateGrammar
+from paxman.capabilities.Date.grammar.slash_iso_recognition import (
+    SlashISODateGrammar,
+)
+from paxman.capabilities.Date.grammar.us_recognition import USDateGrammar
+from paxman.capabilities.Email.grammar.localhost_recognition import (
+    LocalhostEmailGrammar,
+)
+from paxman.capabilities.Email.grammar.obfuscated_recognition import (
+    ObfuscatedEmailGrammar,
+)
+from paxman.capabilities.Email.grammar.standard_recognition import (
+    StandardEmailGrammar,
+)
+from paxman.capabilities.IP.grammar.ipv4_recognition import IPv4Grammar
+from paxman.capabilities.IP.grammar.ipv6_recognition import IPv6Grammar
+from paxman.capabilities.ISBN.grammar.isbn10_recognition import (
+    ISBN10RecognitionGrammar,
+)
+from paxman.capabilities.ISBN.grammar.isbn13_recognition import (
+    ISBN13RecognitionGrammar,
+)
 from paxman.capabilities.Money.grammar.code_recognition import (
     CodeRecognition as MoneyCodeRecognition,
 )
@@ -70,6 +97,23 @@ from tests.property._legacy_phone_url_grammars import (
     LegacyInternational00Grammar,
     LegacyNationalGrammar,
     LegacyTelUriGrammar,
+)
+from tests.property._legacy_remaining_grammars import (
+    LegacyAlpha2Grammar,
+    LegacyAlpha3Grammar,
+    LegacyEuropeanDateGrammar,
+    LegacyIPv4Grammar,
+    LegacyIPv6Grammar,
+    LegacyISBN10RecognitionGrammar,
+    LegacyISBN13RecognitionGrammar,
+    LegacyISO8601DateGrammar,
+    LegacyLocalhostEmailGrammar,
+    LegacyNameGrammar,
+    LegacyNumericGrammar,
+    LegacyObfuscatedEmailGrammar,
+    LegacySlashISODateGrammar,
+    LegacyStandardEmailGrammar,
+    LegacyUSDateGrammar,
 )
 from tests.property._legacy_siunit_grammars import (
     LegacyCompoundRecognition as LegacySiCompound,
@@ -464,4 +508,408 @@ def test_phone_grammar_parity(
 @pytest.mark.parametrize(("legacy", "new", "text"), URL_PARITY_CASES)
 def test_url_grammar_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
     """Byte-identical RecognitionMatch parity for migrated URL grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+# ---------------------------------------------------------------------------
+# Remaining S1+S2 grammars (Task 9): Date, Email, IP, ISBN, Country.
+# Old bespoke recognize() (legacy snapshot) vs new PipelineGrammar
+# declaration. Each tuple is (legacy_grammar, new_grammar, text). The corpus
+# covers valid matches, rejections (inside-token, digit-glued, word-glued),
+# empty, whitespace, and representative capability-test inputs — every branch
+# the migration must preserve byte-identically.
+# ---------------------------------------------------------------------------
+
+DATE_ISO_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyISO8601DateGrammar(), ISO8601DateGrammar(), "2026-01-15"),
+    (LegacyISO8601DateGrammar(), ISO8601DateGrammar(), "2026/01/15"),  # no match
+    (
+        LegacyISO8601DateGrammar(),
+        ISO8601DateGrammar(),
+        "12026-01-15",
+    ),  # digit-glued reject
+    (
+        LegacyISO8601DateGrammar(),
+        ISO8601DateGrammar(),
+        "2026-01-261",
+    ),  # digit-glued reject
+    (
+        LegacyISO8601DateGrammar(),
+        ISO8601DateGrammar(),
+        "Dates: 2026-07-26 and 2025-12-31",
+    ),
+    (LegacyISO8601DateGrammar(), ISO8601DateGrammar(), "x 2026-07-26 y"),
+    (
+        LegacyISO8601DateGrammar(),
+        ISO8601DateGrammar(),
+        "  2026-01-15  ",
+    ),  # whitespace span
+    (LegacyISO8601DateGrammar(), ISO8601DateGrammar(), ""),  # empty
+    (LegacyISO8601DateGrammar(), ISO8601DateGrammar(), "No dates here"),  # no match
+]
+
+DATE_US_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyUSDateGrammar(), USDateGrammar(), "07/26/2026"),  # 4-digit year
+    (LegacyUSDateGrammar(), USDateGrammar(), "07/26/26"),  # 2-digit year
+    (LegacyUSDateGrammar(), USDateGrammar(), "7/26/2026"),  # single-digit month
+    (LegacyUSDateGrammar(), USDateGrammar(), "1207/26/2026"),  # digit-glued reject
+    (LegacyUSDateGrammar(), USDateGrammar(), "07/26/20261"),  # digit-glued reject
+    (
+        LegacyUSDateGrammar(),
+        USDateGrammar(),
+        "Dates: 07/26/2026 and 12/31/2025",
+    ),  # 4-digit x2
+    (
+        LegacyUSDateGrammar(),
+        USDateGrammar(),
+        "Dates: 07/26/26 and 12/31/25",
+    ),  # 2-digit x2
+    (LegacyUSDateGrammar(), USDateGrammar(), "x 07/26/2026 y"),
+    (LegacyUSDateGrammar(), USDateGrammar(), ""),  # empty
+    (LegacyUSDateGrammar(), USDateGrammar(), "No dates here"),  # no match
+]
+
+DATE_EUROPEAN_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "26/07/2026"),  # 4-digit year
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "26/07/26"),  # 2-digit year
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "6/7/2026"),  # single-digit
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "1226/07/2026"),  # reject
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "26/07/20261"),  # reject
+    (
+        LegacyEuropeanDateGrammar(),
+        EuropeanDateGrammar(),
+        "Dates: 26/07/2026 and 31/12/2025",
+    ),
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "x 26/07/2026 y"),
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), ""),  # empty
+    (LegacyEuropeanDateGrammar(), EuropeanDateGrammar(), "No dates here"),  # no match
+]
+
+DATE_SLASH_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacySlashISODateGrammar(), SlashISODateGrammar(), "2026/07/26"),
+    (LegacySlashISODateGrammar(), SlashISODateGrammar(), "2026/7/6"),  # single-digit
+    (
+        LegacySlashISODateGrammar(),
+        SlashISODateGrammar(),
+        "07/26/2026",
+    ),  # no match (US order)
+    (LegacySlashISODateGrammar(), SlashISODateGrammar(), "12026/07/26"),  # reject
+    (LegacySlashISODateGrammar(), SlashISODateGrammar(), "2026/07/261"),  # reject
+    (
+        LegacySlashISODateGrammar(),
+        SlashISODateGrammar(),
+        "Dates: 2026/07/26 and 2025/12/31",
+    ),
+    (LegacySlashISODateGrammar(), SlashISODateGrammar(), "x 2026/07/26 y"),
+    (LegacySlashISODateGrammar(), SlashISODateGrammar(), ""),  # empty
+]
+
+EMAIL_STANDARD_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (
+        LegacyStandardEmailGrammar(),
+        StandardEmailGrammar(),
+        "Contact us at user@example.com",
+    ),
+    (
+        LegacyStandardEmailGrammar(),
+        StandardEmailGrammar(),
+        "Send to first.last@domain.co.uk",
+    ),
+    (LegacyStandardEmailGrammar(), StandardEmailGrammar(), "user+tag@gmail.com"),
+    (
+        LegacyStandardEmailGrammar(),
+        StandardEmailGrammar(),
+        "Email a@b.com or c@d.org",
+    ),  # two
+    (LegacyStandardEmailGrammar(), StandardEmailGrammar(), "not an email"),  # no match
+    (
+        LegacyStandardEmailGrammar(),
+        StandardEmailGrammar(),
+        "user at example dot com",
+    ),  # no match
+    (LegacyStandardEmailGrammar(), StandardEmailGrammar(), ""),  # empty
+]
+
+EMAIL_OBFUSCATED_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (
+        LegacyObfuscatedEmailGrammar(),
+        ObfuscatedEmailGrammar(),
+        "Contact user at example dot com",
+    ),
+    (
+        LegacyObfuscatedEmailGrammar(),
+        ObfuscatedEmailGrammar(),
+        "Email user at gmail.com",
+    ),
+    (
+        LegacyObfuscatedEmailGrammar(),
+        ObfuscatedEmailGrammar(),
+        "user@example.com",
+    ),  # no match
+    (
+        LegacyObfuscatedEmailGrammar(),
+        ObfuscatedEmailGrammar(),
+        "no email here",
+    ),  # no match
+    (LegacyObfuscatedEmailGrammar(), ObfuscatedEmailGrammar(), ""),  # empty
+]
+
+EMAIL_LOCALHOST_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyLocalhostEmailGrammar(), LocalhostEmailGrammar(), "Send to admin@localhost"),
+    (LegacyLocalhostEmailGrammar(), LocalhostEmailGrammar(), "user@localhost:8080"),
+    (
+        LegacyLocalhostEmailGrammar(),
+        LocalhostEmailGrammar(),
+        "user@example.com",
+    ),  # no match
+    (
+        LegacyLocalhostEmailGrammar(),
+        LocalhostEmailGrammar(),
+        "no email here",
+    ),  # no match
+    (LegacyLocalhostEmailGrammar(), LocalhostEmailGrammar(), ""),  # empty
+]
+
+IPV4_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyIPv4Grammar(), IPv4Grammar(), "192.168.1.1"),
+    (LegacyIPv4Grammar(), IPv4Grammar(), "10.0.0.1"),
+    (LegacyIPv4Grammar(), IPv4Grammar(), "foo 192.168.1.1 bar"),
+    (LegacyIPv4Grammar(), IPv4Grammar(), "192.168.1.1 and 10.0.0.1"),  # two
+    (LegacyIPv4Grammar(), IPv4Grammar(), "256.1.1.1"),  # regex-valid (no range check)
+    (LegacyIPv4Grammar(), IPv4Grammar(), "not an ip"),  # no match
+    (LegacyIPv4Grammar(), IPv4Grammar(), ""),  # empty
+]
+
+IPV6_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (
+        LegacyIPv6Grammar(),
+        IPv6Grammar(),
+        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+    ),  # full
+    (LegacyIPv6Grammar(), IPv6Grammar(), "2001:db8:85a3::8a2e:370:7334"),  # compressed
+    (LegacyIPv6Grammar(), IPv6Grammar(), "::1"),  # loopback
+    (LegacyIPv6Grammar(), IPv6Grammar(), "fe80::1"),  # link-local
+    (LegacyIPv6Grammar(), IPv6Grammar(), "::"),  # all-zeros
+    (LegacyIPv6Grammar(), IPv6Grammar(), "See 2001:db8::1 here"),  # in-text
+    (LegacyIPv6Grammar(), IPv6Grammar(), "not ipv6"),  # no match
+    (LegacyIPv6Grammar(), IPv6Grammar(), ""),  # empty
+]
+
+ISBN13_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyISBN13RecognitionGrammar(), ISBN13RecognitionGrammar(), "9780306406157"),
+    (LegacyISBN13RecognitionGrammar(), ISBN13RecognitionGrammar(), "978-0-11-000222-4"),
+    (
+        LegacyISBN13RecognitionGrammar(),
+        ISBN13RecognitionGrammar(),
+        "ISBN 9780306406157",
+    ),
+    (
+        LegacyISBN13RecognitionGrammar(),
+        ISBN13RecognitionGrammar(),
+        "ISBN: 978-0-11-000222-4",
+    ),
+    (
+        LegacyISBN13RecognitionGrammar(),
+        ISBN13RecognitionGrammar(),
+        "foo 9780306406157 bar",
+    ),
+    (
+        LegacyISBN13RecognitionGrammar(),
+        ISBN13RecognitionGrammar(),
+        "978030640615",
+    ),  # 12 digits
+    (
+        LegacyISBN13RecognitionGrammar(),
+        ISBN13RecognitionGrammar(),
+        "x9780306406157",
+    ),  # glued
+    (LegacyISBN13RecognitionGrammar(), ISBN13RecognitionGrammar(), ""),  # empty
+]
+
+ISBN10_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyISBN10RecognitionGrammar(), ISBN10RecognitionGrammar(), "0306406152"),
+    (LegacyISBN10RecognitionGrammar(), ISBN10RecognitionGrammar(), "0-306-40615-2"),
+    (LegacyISBN10RecognitionGrammar(), ISBN10RecognitionGrammar(), "ISBN 0306406152"),
+    (
+        LegacyISBN10RecognitionGrammar(),
+        ISBN10RecognitionGrammar(),
+        "ISBN: 0-306-40615-2",
+    ),
+    (
+        LegacyISBN10RecognitionGrammar(),
+        ISBN10RecognitionGrammar(),
+        "foo 0306406152 bar",
+    ),
+    (
+        LegacyISBN10RecognitionGrammar(),
+        ISBN10RecognitionGrammar(),
+        "030640615",
+    ),  # 9 digits
+    (LegacyISBN10RecognitionGrammar(), ISBN10RecognitionGrammar(), ""),  # empty
+]
+
+COUNTRY_ALPHA2_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "US"),
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "us"),  # case fold
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "GB"),
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "US and GB"),  # two
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "USA"),  # 3 letters, no match
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "xUS"),  # inside-token reject
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), "  US  "),  # whitespace span
+    (LegacyAlpha2Grammar(), Alpha2Grammar(), ""),  # empty
+]
+
+COUNTRY_ALPHA3_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyAlpha3Grammar(), Alpha3Grammar(), "USA"),
+    (LegacyAlpha3Grammar(), Alpha3Grammar(), "usa"),  # case fold
+    (LegacyAlpha3Grammar(), Alpha3Grammar(), "GBR"),
+    (LegacyAlpha3Grammar(), Alpha3Grammar(), "US"),  # 2 letters, no match
+    (LegacyAlpha3Grammar(), Alpha3Grammar(), "xUSA"),  # inside-token reject
+    (LegacyAlpha3Grammar(), Alpha3Grammar(), ""),  # empty
+]
+
+COUNTRY_NUMERIC_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyNumericGrammar(), NumericGrammar(), "840"),
+    (LegacyNumericGrammar(), NumericGrammar(), "4"),
+    (LegacyNumericGrammar(), NumericGrammar(), "004"),
+    (LegacyNumericGrammar(), NumericGrammar(), "840 and 124"),  # two
+    (LegacyNumericGrammar(), NumericGrammar(), "1234"),  # 4 digits, no match
+    (LegacyNumericGrammar(), NumericGrammar(), "US"),  # letters, no match
+    (LegacyNumericGrammar(), NumericGrammar(), ""),  # empty
+]
+
+COUNTRY_NAME_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
+    (LegacyNameGrammar(), NameGrammar(), "United States"),  # original case preserved
+    (LegacyNameGrammar(), NameGrammar(), "  united states  "),  # whitespace + case fold
+    (LegacyNameGrammar(), NameGrammar(), "USA"),  # not a name
+    (LegacyNameGrammar(), NameGrammar(), "Alemania"),  # localized name
+    (LegacyNameGrammar(), NameGrammar(), "Burma"),  # historical name
+    (LegacyNameGrammar(), NameGrammar(), "840"),  # numeric, not name
+    (LegacyNameGrammar(), NameGrammar(), "XYZ"),  # unknown name
+    (LegacyNameGrammar(), NameGrammar(), ""),  # empty
+]
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), DATE_ISO_PARITY_CASES)
+def test_date_iso8601_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Date ISO-8601 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), DATE_US_PARITY_CASES)
+def test_date_us_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Date US grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), DATE_EUROPEAN_PARITY_CASES)
+def test_date_european_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Date European grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), DATE_SLASH_PARITY_CASES)
+def test_date_slash_iso_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Date slash-ISO grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), EMAIL_STANDARD_PARITY_CASES)
+def test_email_standard_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Email standard grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), EMAIL_OBFUSCATED_PARITY_CASES)
+def test_email_obfuscated_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Email obfuscated grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), EMAIL_LOCALHOST_PARITY_CASES)
+def test_email_localhost_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Email localhost grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), IPV4_PARITY_CASES)
+def test_ipv4_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated IPv4 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), IPV6_PARITY_CASES)
+def test_ipv6_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated IPv6 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), ISBN13_PARITY_CASES)
+def test_isbn13_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated ISBN-13 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), ISBN10_PARITY_CASES)
+def test_isbn10_parity(legacy: Grammar[Any], new: Grammar[Any], text: str) -> None:
+    """Byte-identical RecognitionMatch parity for migrated ISBN-10 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), COUNTRY_ALPHA2_PARITY_CASES)
+def test_country_alpha2_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Country alpha-2 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), COUNTRY_ALPHA3_PARITY_CASES)
+def test_country_alpha3_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Country alpha-3 grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), COUNTRY_NUMERIC_PARITY_CASES)
+def test_country_numeric_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Country numeric grammar."""
+    assert_grammar_parity(legacy, new, text)
+
+
+@pytest.mark.property
+@pytest.mark.parametrize(("legacy", "new", "text"), COUNTRY_NAME_PARITY_CASES)
+def test_country_name_parity(
+    legacy: Grammar[Any], new: Grammar[Any], text: str
+) -> None:
+    """Byte-identical RecognitionMatch parity for migrated Country name grammar."""
     assert_grammar_parity(legacy, new, text)

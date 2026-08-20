@@ -1,36 +1,34 @@
-"""Standard email recognition grammar."""
+"""Standard email recognition grammar (staged pipeline).
+
+Recognizes user@domain.tld. The word boundaries are kept verbatim (``\\b`` is
+a word boundary, not a hard-coded lookaround class — ADR-0008 D5). Syntax
+only: the grammar never validates the address.
+"""
 
 from __future__ import annotations
 
 import re
 
 from paxman.capabilities.Email.notation import EmailNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import PipelineGrammar, RegexStage, StandardPre
 
-_STANDARD_PATTERN = re.compile(
-    r"\b[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
-)
+_STANDARD_PATTERN = r"\b[A-Za-z0-9][A-Za-z0-9._%+-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 
 
-class StandardEmailGrammar(Grammar[EmailNotation]):
+def _standard_notation(match: re.Match[str]) -> EmailNotation:
+    """Map a standard email match to its local/domain notation."""
+    local, domain = match.group(0).split("@")
+    return EmailNotation(local_part=local, domain_part=domain)
+
+
+class StandardEmailGrammar(PipelineGrammar[EmailNotation]):
     """Standard email recognition: user@domain.tld."""
 
     name = "standard_recognition"
     semantics = "rfc5322_addr_spec"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[EmailNotation]]:
-        matches: list[RecognitionMatch[EmailNotation]] = []
-        for match in _STANDARD_PATTERN.finditer(text):
-            matches.append(
-                RecognitionMatch(
-                    notation=EmailNotation(
-                        local_part=match.group(0).split("@")[0],
-                        domain_part=match.group(0).split("@")[1],
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[EmailNotation](empty_guard=True)
+    regex = RegexStage[EmailNotation](
+        pattern=_STANDARD_PATTERN, notation_fn=_standard_notation
+    )

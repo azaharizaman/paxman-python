@@ -1,6 +1,8 @@
-"""Slash-ISO date grammar — recognizes YYYY/MM/DD format.
+"""Slash-ISO date recognition grammar (staged pipeline).
 
-Notation mapping: N1=year, N2=month, N3=day
+Recognizes YYYY/MM/DD format. The digit lookarounds (via BoundaryGuard.digit())
+keep the pattern disjoint from surrounding digits. Notation mapping:
+N1=year, N2=month, N3=day.
 """
 
 from __future__ import annotations
@@ -8,12 +10,20 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Date.notation import DateNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
-_SLASH_ISO_PATTERN = re.compile(r"(?<!\d)(\d{4})/(\d{1,2})/(\d{1,2})(?!\d)")
+_GUARD = BoundaryGuard.digit()
+_SLASH_ISO_PATTERN = (
+    _GUARD.lookbehind + r"(\d{4})/(\d{1,2})/(\d{1,2})" + _GUARD.lookahead
+)
 
 
-class SlashISODateGrammar(Grammar[DateNotation]):
+def _slash_iso_notation(match: re.Match[str]) -> DateNotation:
+    """Map a slash-ISO match to its year/month/day notation."""
+    return DateNotation(N1=match.group(1), N2=match.group(2), N3=match.group(3))
+
+
+class SlashISODateGrammar(PipelineGrammar[DateNotation]):
     """Slash-delimited ISO date recognition: YYYY/MM/DD.
 
     Shares the ISO 8601 position mapping (N1=year, N2=month, N3=day) with a
@@ -32,15 +42,7 @@ class SlashISODateGrammar(Grammar[DateNotation]):
     semantics = "iso8601_calendar_date"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
-        """Extract YYYY/MM/DD date patterns from text."""
-        return [
-            RecognitionMatch(
-                notation=DateNotation(N1=year, N2=month, N3=day),
-                start=match.start(),
-                end=match.end(),
-                raw_text=match.group(0),
-            )
-            for match in _SLASH_ISO_PATTERN.finditer(text)
-            for year, month, day in [match.groups()]
-        ]
+    pre = StandardPre[DateNotation](empty_guard=True)
+    regex = RegexStage[DateNotation](
+        pattern=_SLASH_ISO_PATTERN, notation_fn=_slash_iso_notation
+    )

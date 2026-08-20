@@ -1,16 +1,28 @@
-"""Alpha-3 country code recognition grammar."""
+"""Alpha-3 country code recognition grammar (staged pipeline).
+
+Recognizes exactly 3 ASCII letters as an alpha-3 country code shape. The word
+boundary is supplied by BoundaryGuard.word_only() (ADR-0008 D5) so no
+hard-coded lookaround literal remains in this file. Syntax only: the grammar
+never resolves the code to a country.
+"""
 
 from __future__ import annotations
 
 import re
 
 from paxman.capabilities.Country.notation import CountryNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
-_ALPHA3_PATTERN = re.compile(r"\b[A-Za-z]{3}\b")
+_GUARD = BoundaryGuard.word_only()
+_ALPHA3_PATTERN = _GUARD.lookbehind + r"[A-Za-z]{3}" + _GUARD.lookahead
 
 
-class Alpha3Grammar(Grammar[CountryNotation]):
+def _alpha3_notation(match: re.Match[str]) -> CountryNotation:
+    """Map an alpha-3 match to its upper-cased notation."""
+    return CountryNotation(shape="alpha3", value=match.group(0).upper())
+
+
+class Alpha3Grammar(PipelineGrammar[CountryNotation]):
     """Recognizes exactly 3 ASCII letters as alpha-3 country code shape.
 
     Examples: "USA", "GBR", "usa", "gbr"
@@ -21,27 +33,7 @@ class Alpha3Grammar(Grammar[CountryNotation]):
     semantics = "alpha3_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
-        """Extract alpha-3 patterns from text.
-
-        Args:
-            text: Raw input text.
-
-        Returns:
-            List of span-bearing matches with shape="alpha3" notations.
-        """
-        if not text.strip():
-            return []
-        matches: list[RecognitionMatch[CountryNotation]] = []
-        for match in _ALPHA3_PATTERN.finditer(text):
-            matches.append(
-                RecognitionMatch(
-                    notation=CountryNotation(
-                        shape="alpha3", value=match.group(0).upper()
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[CountryNotation](empty_guard=True)
+    regex = RegexStage[CountryNotation](
+        pattern=_ALPHA3_PATTERN, notation_fn=_alpha3_notation
+    )

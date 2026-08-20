@@ -1,6 +1,8 @@
-"""ISO 8601 date grammar — recognizes YYYY-MM-DD format.
+"""ISO 8601 date recognition grammar (staged pipeline).
 
-Notation mapping: N1=year, N2=month, N3=day
+Recognizes YYYY-MM-DD format. The digit lookarounds are supplied by
+BoundaryGuard.digit() (ADR-0008 D5) so no hard-coded lookaround literal
+remains in this file. Notation mapping: N1=year, N2=month, N3=day.
 """
 
 from __future__ import annotations
@@ -8,12 +10,18 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Date.notation import DateNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
-_ISO8601_PATTERN = re.compile(r"(?<!\d)(\d{4})-(\d{2})-(\d{2})(?!\d)")
+_GUARD = BoundaryGuard.digit()
+_ISO8601_PATTERN = _GUARD.lookbehind + r"(\d{4})-(\d{2})-(\d{2})" + _GUARD.lookahead
 
 
-class ISO8601DateGrammar(Grammar[DateNotation]):
+def _iso_notation(match: re.Match[str]) -> DateNotation:
+    """Map an ISO 8601 match to its year/month/day notation."""
+    return DateNotation(N1=match.group(1), N2=match.group(2), N3=match.group(3))
+
+
+class ISO8601DateGrammar(PipelineGrammar[DateNotation]):
     """ISO 8601 date recognition: YYYY-MM-DD.
 
     Digit lookarounds keep the pattern disjoint from surrounding digits, so a
@@ -27,15 +35,7 @@ class ISO8601DateGrammar(Grammar[DateNotation]):
     semantics = "iso8601_calendar_date"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[DateNotation]]:
-        """Extract ISO 8601 date patterns from text."""
-        return [
-            RecognitionMatch(
-                notation=DateNotation(N1=year, N2=month, N3=day),
-                start=match.start(),
-                end=match.end(),
-                raw_text=match.group(0),
-            )
-            for match in _ISO8601_PATTERN.finditer(text)
-            for year, month, day in [match.groups()]
-        ]
+    pre = StandardPre[DateNotation](empty_guard=True)
+    regex = RegexStage[DateNotation](
+        pattern=_ISO8601_PATTERN, notation_fn=_iso_notation
+    )

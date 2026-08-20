@@ -1,16 +1,28 @@
-"""Numeric (M49) country code recognition grammar."""
+"""Numeric (M49) country code recognition grammar (staged pipeline).
+
+Recognizes 1-3 digits as a numeric country code shape. The word boundary is
+supplied by BoundaryGuard.word_only() (ADR-0008 D5) so no hard-coded
+lookaround literal remains in this file. Syntax only: the grammar never
+resolves the code to a country.
+"""
 
 from __future__ import annotations
 
 import re
 
 from paxman.capabilities.Country.notation import CountryNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
-_NUMERIC_PATTERN = re.compile(r"\b\d{1,3}\b")
+_GUARD = BoundaryGuard.word_only()
+_NUMERIC_PATTERN = _GUARD.lookbehind + r"\d{1,3}" + _GUARD.lookahead
 
 
-class NumericGrammar(Grammar[CountryNotation]):
+def _numeric_notation(match: re.Match[str]) -> CountryNotation:
+    """Map a numeric match to its verbatim notation."""
+    return CountryNotation(shape="numeric", value=match.group(0))
+
+
+class NumericGrammar(PipelineGrammar[CountryNotation]):
     """Recognizes 1-3 digits as numeric country code shape.
 
     Examples: "840", "4", "004"
@@ -21,25 +33,7 @@ class NumericGrammar(Grammar[CountryNotation]):
     semantics = "numeric_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[CountryNotation]]:
-        """Extract numeric patterns from text.
-
-        Args:
-            text: Raw input text.
-
-        Returns:
-            List of span-bearing matches with shape="numeric" notations.
-        """
-        if not text.strip():
-            return []
-        matches: list[RecognitionMatch[CountryNotation]] = []
-        for match in _NUMERIC_PATTERN.finditer(text):
-            matches.append(
-                RecognitionMatch(
-                    notation=CountryNotation(shape="numeric", value=match.group(0)),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[CountryNotation](empty_guard=True)
+    regex = RegexStage[CountryNotation](
+        pattern=_NUMERIC_PATTERN, notation_fn=_numeric_notation
+    )
