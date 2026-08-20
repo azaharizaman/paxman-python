@@ -18,7 +18,7 @@ Dual truth is a compat hazard; the ABC has won in practice (all 10 shipped contr
 
 - `CapabilityContract` is the **only sanctioned public contract base**. Shipped and community contracts MUST inherit it.
 - `Contract` Protocol is demoted to **engine-internal** (`paxman/core/_engine_contract.py` or retained as private re-export, not exported from `paxman.core.__init__` or `paxman.__init__`). It exists only for internal structural typing of the engine boundary.
-- Engine removes all `getattr(contract, "extra_grammars", ())` probes; accesses `contract.extra_grammars` directly (fail-fast `AttributeError` → `ContractError` wrapping if violated).
+- Engine centralizes `extra_grammars` access in the `_extra_grammars_of` helper which uses `getattr` to detect a missing field and raises `ContractError` (never raw `AttributeError`), preserving fail-fast semantics.
 - `ContractFactory` docstring corrected to ten; `capability_name` contract field typed as concrete `str` post-`__post_init__`.
 - Breaking change is budgeted at 0.x per M12; provide a one-minor deprecation shim if needed (`Contract = CapabilityContract` alias with DeprecationWarning gated by env var, removed at 0.3.0).
 

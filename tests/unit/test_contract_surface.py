@@ -9,14 +9,20 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 
 def test_contract_not_exported_from_core_public_api() -> None:
-    """After unification, `Contract` must NOT be exported from `paxman.core`."""
+    """After unification, `Contract` must NOT be exported from public surfaces."""
+    import paxman
     import paxman.core as core
 
-    assert not hasattr(core, "Contract") or core.Contract.__module__.endswith(
-        "_engine_contract"
-    ), "Contract must not be publicly re-exported from paxman.core"
+    assert not hasattr(core, "Contract"), (
+        "Contract must not be re-exported from paxman.core"
+    )
+    assert not hasattr(paxman, "Contract"), (
+        "Contract must not be re-exported from paxman (ADR-0007)"
+    )
 
 
 def test_capability_contract_is_only_public_base() -> None:
@@ -54,9 +60,9 @@ def test_engine_no_getattr_fallback_in_recognize() -> None:
     """`_recognize` must access extra_grammars directly (no silent getattr fallback)."""
     import inspect
 
-    from paxman.engine.orchestrator import _recognize  # type: ignore[attr-defined]
+    import paxman.engine.orchestrator as orch
 
-    src = inspect.getsource(_recognize)
+    src = inspect.getsource(orch._recognize)
     assert 'getattr(contract, "extra_grammars"' not in src, (
         "getattr probe must be removed from _recognize"
     )
@@ -65,7 +71,9 @@ def test_engine_no_getattr_fallback_in_recognize() -> None:
 def test_engine_requires_extra_grammars_attribute() -> None:
     """A contract without extra_grammars fails fast with ContractError (ADR-0007)."""
     from dataclasses import dataclass
+    from typing import cast
 
+    from paxman.core.capability_contract import CapabilityContract
     from paxman.core.errors import ContractError
     from paxman.engine.orchestrator import _extra_grammars_of
 
@@ -75,7 +83,7 @@ def test_engine_requires_extra_grammars_attribute() -> None:
         # NOTE: no extra_grammars attribute at all
 
     with pytest.raises(ContractError):
-        _extra_grammars_of(_BadContract())  # type: ignore[arg-type]
+        _extra_grammars_of(cast(CapabilityContract, _BadContract()))
 
     # A proper CapabilityContract resolves to its default empty tuple.
     from paxman.capabilities.Email.contract import EmailContract
@@ -89,3 +97,4 @@ def test_contract_factory_docstring_mentions_ten() -> None:
 
     assert ContractFactory.__doc__ is not None
     assert "five" not in ContractFactory.__doc__.lower(), "stale 'five' must be fixed"
+    assert "ten" in ContractFactory.__doc__.lower(), "docstring must mention ten"

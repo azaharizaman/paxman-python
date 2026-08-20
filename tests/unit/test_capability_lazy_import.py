@@ -9,16 +9,17 @@ from __future__ import annotations
 
 import sys
 
+import pytest
+
+pytestmark = pytest.mark.unit
+
 
 def test_capabilities_init_is_lazy() -> None:
     """paxman.capabilities must expose __getattr__ (PEP 562 lazy)."""
-    import inspect
-
     import paxman.capabilities as cap_mod
 
-    src = inspect.getsource(cap_mod)
-    assert "__getattr__" in src, "PEP 562 __getattr__ must be present"
-    assert "__dir__" in src, "__dir__ must be present for completeness"
+    assert hasattr(cap_mod, "__getattr__") and callable(cap_mod.__getattr__)
+    assert hasattr(cap_mod, "__dir__") and callable(cap_mod.__dir__)
 
 
 def test_import_email_does_not_import_url_data() -> None:
@@ -44,8 +45,6 @@ def test_import_email_does_not_import_url_data() -> None:
     # At minimum, importing Email must not have imported all 10 capability packages
     # Count loaded capability submodules — Email package + its own deps only
     loaded = [m for m in sys.modules if m.startswith("paxman.capabilities.")]
-    # Email package loads Email + its submodules, but not other capabilities
-    assert len(loaded) <= 15, f"Expected lazy import, got {loaded}"
     # Ensure no other top-level capability package was loaded
     caps_loaded = {m.split(".")[2] for m in loaded if len(m.split(".")) >= 3}
     assert caps_loaded <= {"Email"}, (

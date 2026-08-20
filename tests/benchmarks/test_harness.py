@@ -3,6 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.benchmark
+
 
 def test_harness_runs_one_scenario() -> None:
     from benchmarks.harness import run_once

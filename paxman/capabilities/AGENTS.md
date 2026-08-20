@@ -10,7 +10,7 @@ The deepest directory in the repo (157 py files): 10 shipped capability packages
 paxman/capabilities/
 ├── __init__.py          # registration imports + __all__ (see NOTES)
 ├── <Name>/              # one self-contained package per capability
-│   ├── __init__.py      # exports Capability, Contract, <Name>Notation
+│   ├── __init__.py      # exports Capability, <Name>Contract, <Name>Notation
 │   ├── notation.py      # frozen slots dataclass — the intermediate token
 │   ├── contract.py      # frozen CapabilityContract subclass (NO slots)
 │   ├── capability.py    # Capability[NotationT] subclass — wiring + format_value()

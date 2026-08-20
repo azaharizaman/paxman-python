@@ -31,6 +31,9 @@ def run_once(
     from paxman import canonicalize
     from paxman.core.discovery import reset_registry
 
+    if iterations <= 0:
+        raise ValueError(f"iterations must be a positive integer, got {iterations!r}")
+
     # Import capability lazily to respect PEP 562 (Item 8)
     # — harness must not hide import cost
     # Scenarios carry a factory: lambda: (contract, text)

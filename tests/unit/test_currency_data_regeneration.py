@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import subprocess
-import sys
+
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_currency_data_not_drifted() -> None:
     proc = subprocess.run(
-        [sys.executable, "tools/regenerate_currency_data.py", "--check"],
+        ["uv", "run", "python", "tools/regenerate_currency_data.py", "--check"],
         capture_output=True,
         text=True,
     )
