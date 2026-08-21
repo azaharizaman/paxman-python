@@ -31,6 +31,7 @@ def strip_separators(value: str, *, plus: bool = False) -> str:
         return value.translate(_SEPARATORS_WITH_PLUS)
     return value.translate(_SEPARATORS)
 
+
 # ---------------------------------------------------------------------------
 # Phone / E.164 (verbatim)
 # ---------------------------------------------------------------------------

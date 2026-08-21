@@ -37,6 +37,7 @@ def strip_separators(value: str, *, plus: bool = False) -> str:
         return value.translate(str.maketrans("", "", "+ ().-"))
     return value.translate(_SEPARATORS)
 
+
 # Body: "tel:" + global number (optional separators) + optional ";ext=".
 # The leading lookbehind is supplied by BoundaryGuard.word_only() (ADR-0008
 # D5) so no hard-coded lookaround literal remains in this file.

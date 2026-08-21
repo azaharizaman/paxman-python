@@ -42,6 +42,7 @@ def strip_separators(value: str, *, plus: bool = False) -> str:
         return value.translate(str.maketrans("", "", "+ ().-"))
     return value.translate(_SEPARATORS)
 
+
 # Body: "00" then optional separators, a non-zero first digit, then digits
 # with optional separators, ending on a digit. The leading lookbehind is
 # supplied by BoundaryGuard.e164_00() (ADR-0008 D5) so no hard-coded

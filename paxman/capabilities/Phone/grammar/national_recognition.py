@@ -36,6 +36,7 @@ def strip_separators(value: str, *, plus: bool = False) -> str:
         return value.translate(str.maketrans("", "", "+ ().-"))
     return value.translate(_SEPARATORS)
 
+
 # Optional trunk 1, optional (NPA), NXX, XXXX. NPA first digit 2-9 is a
 # recognition heuristic — strict validation (including NXX first digit 2-9)
 # happens in the rules. NXX is deliberately loose here so the grammar
