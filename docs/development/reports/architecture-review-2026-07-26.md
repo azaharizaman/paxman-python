@@ -150,7 +150,7 @@ def active_grammars(self) -> list[str]:
     return [name for name, active in grammar_rules.items() if active]
 ```
 
-**Benefit:** Adding a grammar = one dict entry, no method edit needed.
+**Benefit:** Adding a grammar requires one dictionary entry in this property.
 
 ---
 
@@ -173,7 +173,7 @@ All four architectural deepening candidates have been implemented:
 
 ### Architecture Layers
 
-```
+```text
 paxman/core/          Domain objects, protocols, discovery
 paxman/capabilities/  Capability implementations (Email, Date, Country)
 paxman/engine/        Pipeline orchestrator
@@ -182,7 +182,7 @@ paxman/api/           Public API entry points
 
 ### Import Boundaries (ADR-0001)
 
-```
+```text
 paxman.core → (no imports from capabilities, engine, api)
 paxman.capabilities → (can import from core)
 paxman.engine → (can import from core, capabilities)
@@ -191,7 +191,7 @@ paxman.api → (can import from everything)
 
 ### Hot Spots (Recent Commits)
 
-```
+```text
 05732ae refactor(core): address code review findings for Email capability
 1a69f7e fix: quality gate fixes (ruff, pyright, import-linter, formatting)
 5de47b7 feat(capabilities): add Email capability exports
@@ -203,7 +203,7 @@ d0a6f2f test(integration): add ambiguity detection tests
 
 ### Test Structure
 
-```
+```text
 tests/unit/           Domain object immutability and protocol compliance
 tests/capabilities/   Grammar recognition and rule normalization
 tests/integration/    Full pipeline flow, ambiguity, temporal filtering

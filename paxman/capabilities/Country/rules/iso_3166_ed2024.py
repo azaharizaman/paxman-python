@@ -11,8 +11,7 @@ presentation in alpha-3, numeric, or name format is owned by
 
 from __future__ import annotations
 
-from paxman.capabilities.Country.name_normalization import normalize_name
-from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.notation import CountryNotation, normalize_name
 from paxman.capabilities.Country.rules.cldr_localized_ed2025 import (
     LOCALIZED_TO_ALPHA2_NORMALIZED,
 )

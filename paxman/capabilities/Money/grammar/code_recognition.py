@@ -1,30 +1,36 @@
-"""ISO 4217 alpha-3 currency code recognition grammar.
+"""ISO 4217 alpha-3 currency code recognition grammar (staged pipeline).
 
 Recognizes an ISO 4217 alpha-3 code shape adjacent to an amount, in
-either order, as one span-bearing token. Syntax only: unknown codes are
-still matched — deciding validity is the rules' job.
+either order, as one span-bearing token. The fused either-order regex is
+built by ``AmountComposer`` (S4): a 3-letter uppercase ASCII code
+adjacent to an amount, prefix ("USD500", "USD 500") or suffix ("500 USD",
+"100MYR"). Syntax only: unknown codes are still matched — deciding
+validity is the rules' job.
 """
 
 from __future__ import annotations
 
-import re
-from typing import cast
-
 from paxman.capabilities.Money.grammar import AMOUNT_PATTERN, classify_amount_shape
 from paxman.capabilities.Money.notation import MoneyNotation
-from paxman.core.domain import Grammar, RecognitionMatch
-
-# Sign characters ('-', U+2212, '+') are outside the amount grammar; the
-# boundary guards reject sign-adjacent tokens so the sign is never dropped.
-_CODE_PATTERN = re.compile(
-    rf"(?<![\w\-+\u2212])"
-    rf"(?:(?P<prefix_code>[A-Z]{{3}}) ?(?P<prefix_amount>{AMOUNT_PATTERN})"
-    rf"|(?P<suffix_amount>{AMOUNT_PATTERN}) ?(?P<suffix_code>[A-Z]{{3}}))"
-    rf"(?![\w\-+\u2212])"
+from paxman.core.grammar import (
+    AmountComposer,
+    BoundaryGuard,
+    PipelineGrammar,
+    StandardPre,
 )
 
 
-class CodeRecognition(Grammar[MoneyNotation]):
+def _code_notation(lex: str, amount: str, amount_shape: str) -> MoneyNotation:
+    """Map a matched code+amount token to its notation."""
+    return MoneyNotation(
+        currency_part=lex,
+        amount_part=amount,
+        currency_shape="code",
+        amount_shape=amount_shape,
+    )
+
+
+class CodeRecognition(PipelineGrammar[MoneyNotation]):
     """Recognizes ISO 4217 alpha-3 code + amount tokens.
 
     Matches a 3-letter uppercase ASCII code adjacent to an amount in
@@ -41,36 +47,12 @@ class CodeRecognition(Grammar[MoneyNotation]):
     semantics = "code_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[MoneyNotation]]:
-        """Extract code+amount tokens from text.
-
-        Args:
-            text: Raw input text.
-
-        Returns:
-            List of span-bearing matches with shape "code" notations.
-        """
-        if not text.strip():
-            return []
-        matches: list[RecognitionMatch[MoneyNotation]] = []
-        for match in _CODE_PATTERN.finditer(text):
-            currency = cast(
-                str, match.group("prefix_code") or match.group("suffix_code")
-            )
-            amount = cast(
-                str, match.group("prefix_amount") or match.group("suffix_amount")
-            )
-            matches.append(
-                RecognitionMatch(
-                    notation=MoneyNotation(
-                        currency_part=currency,
-                        amount_part=amount,
-                        currency_shape="code",
-                        amount_shape=classify_amount_shape(amount),
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[MoneyNotation](empty_guard=True)
+    composer = AmountComposer[MoneyNotation](
+        pattern=AMOUNT_PATTERN,
+        lexicon_tokens=None,
+        notation_fn=_code_notation,
+        classify=classify_amount_shape,
+        boundary=BoundaryGuard.word_sign(),
+        flags=0,
+    )

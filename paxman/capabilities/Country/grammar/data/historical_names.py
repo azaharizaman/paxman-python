@@ -11,7 +11,7 @@ Keys are normalized with normalize_name() at module construction.
 
 from __future__ import annotations
 
-from paxman.capabilities.Country.name_normalization import normalize_name
+from paxman.capabilities.Country.notation import normalize_name
 
 HISTORICAL_NAME_KEYS: frozenset[str] = frozenset(
     normalize_name(key)

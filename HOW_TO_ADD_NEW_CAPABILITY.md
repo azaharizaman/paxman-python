@@ -260,14 +260,14 @@ Recognize by syntactic *shape*: fixed widths, delimiters, or character classes. 
 Choose Regex when the representation has a distinctive, enumerable shape. All Date, Email, IP, ISBN, and Phone grammars, plus Country's `alpha2`/`alpha3`/`numeric` grammars, are Regex grammars. Three recurring sub-patterns:
 
 - **Compile once, iterate with `finditer()`** — never compile inside `recognize()` (it runs for every input).
-- **Sanitize the matched token** — the notation value is a *cleaned* raw token, never a canonical value. Phone strips separators (`strip_separators` in `Phone/grammar/common.py`), Country uppercases, ISBN strips separators and guards length. `raw_text` is always the original span, so `len(raw_text) == end - start` keeps holding.
+- **Sanitize the matched token** — the notation value is a *cleaned* raw token, never a canonical value. Phone strips separators (a local `strip_separators` in each Phone grammar), Country uppercases, ISBN strips separators and guards length. `raw_text` is always the original span, so `len(raw_text) == end - start` keeps holding.
 - **Guard boundaries against sibling grammars** — when two grammars could claim the same span, use lookbehind/lookahead so each claims only its own representation. See Phone's `national_recognition` (four stacked lookbehinds rejecting `+1…` and `tel:+…` prefixes) and `e164_recognition` (a `(?<![\w:.])` lookbehind rejecting email plus-tags and `tel:+…`).
 
 **Strategy 2 — Lexicon (key-set membership)**
 
 Recognize by membership in a known vocabulary, not by shape. Normalize the input (case-fold, Unicode decomposition, separator folding), test membership in a key-only table under `grammar/data/`, and emit the trimmed input token as the notation value (with a `shape` discriminator when rules route by format). Keys are syntax-normalized forms only — no token maps to a canonical value; rules own every token-to-meaning decision.
 
-Choose Lexicon when the representation is free-form text whose recognizability *is* the vocabulary — no regex shape separates "United States" from "XYZ". Country's `name_recognition` is the exemplar: it normalizes with `normalize_name()`, tests `_KNOWN_NAME_KEYS` (the union of per-locale key sets in `grammar/data/`), and returns the trimmed token with `shape="name"`. See its `grammar/data/` modules for the key-only table pattern.
+Choose Lexicon when the representation is free-form text whose recognizability *is* the vocabulary — no regex shape separates "United States" from "XYZ". Country's `name_recognition` is the exemplar: it normalizes with `normalize_name()` (in `Country/notation.py`) for lookup-key membership against `_KNOWN_NAME_KEYS` (the union of per-locale key sets in `grammar/data/`), but emits the original trimmed token (`raw_text` and `notation.value` preserve the input case, not the normalized key) with `shape="name"`. Phone's `strip_separators` (in `paxman/capabilities/Phone/grammar/_common.py`) and ISBN's digit extraction follow the same ownership model: syntax-only cleaning lives in the grammar layer, semantic mapping in rules. See its `grammar/data/` modules for the key-only table pattern.
 
 **Decision guidance:**
 

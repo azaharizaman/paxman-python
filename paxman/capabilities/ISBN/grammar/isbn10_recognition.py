@@ -1,41 +1,42 @@
-"""ISBN-10 recognition grammar."""
+"""ISBN-10 recognition grammar (staged pipeline).
+
+Recognizes 10-digit ISBNs with optional label and separators. The leading
+digit-glued guard is supplied by BoundaryGuard.isbn10_lead() (ADR-0008 D5) so
+no hard-coded lookaround literal remains in this file. The trailing boundary is
+handled by ``\\b`` (the previous ``isbn_trail`` lookbehind after the final digit
+was inert). The hyphen/space tolerance is regex-native (the lookahead extracts
+the digit run via a backreference).
+"""
 
 from __future__ import annotations
 
 import re
 
 from paxman.capabilities.ISBN.notation import ISBNNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
-_ISBN10_PATTERN = re.compile(
-    r"(?<!\d)(?<!\d[ -])(?:ISBN(?:-10)?[\s:-]+)?"
-    r"(?=((?:\d[ -]?){9}[0-9Xx])(?![\d]))\1(?<![\s:-])\b",
-    re.IGNORECASE,
+_LEAD = BoundaryGuard.isbn10_lead()
+_ISBN10_PATTERN = (
+    _LEAD.lookbehind
+    + r"(?:ISBN(?:-10)?[\s:-]+)?(?=((?:\d[ -]?){9}[0-9Xx])(?![\d]))\1"
+    + r"\b"
 )
 
 
-class ISBN10RecognitionGrammar(Grammar[ISBNNotation]):
+def _isbn10_notation(match: re.Match[str]) -> ISBNNotation:
+    """Map an ISBN-10 match to its digit-string notation (X uppercased)."""
+    digits = "".join(ch for ch in match.group(1) if ch in "0123456789Xx").upper()
+    return ISBNNotation(shape="isbn10", digits=digits)
+
+
+class ISBN10RecognitionGrammar(PipelineGrammar[ISBNNotation]):
     """ISBN-10 recognition: 10-digit ISBN with optional label and separators."""
 
     name = "isbn10_recognition"
     semantics = "isbn10_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[ISBNNotation]]:
-        matches: list[RecognitionMatch[ISBNNotation]] = []
-        for m in _ISBN10_PATTERN.finditer(text):
-            digits = "".join(ch for ch in m.group(1) if ch in "0123456789Xx").upper()
-            if len(digits) != 10:
-                continue
-            matches.append(
-                RecognitionMatch(
-                    notation=ISBNNotation(
-                        shape="isbn10",
-                        digits=digits,
-                    ),
-                    start=m.start(),
-                    end=m.end(),
-                    raw_text=m.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[ISBNNotation](empty_guard=True)
+    regex = RegexStage[ISBNNotation](
+        pattern=_ISBN10_PATTERN, notation_fn=_isbn10_notation, flags=re.IGNORECASE
+    )

@@ -1,9 +1,15 @@
-"""Name recognition grammar for SI Unit.
+"""Name recognition grammar for SI Unit (staged pipeline).
 
 Recognizes unit names case-insensitively: the grammar folds the input
 to lowercase and matches against the longest-first name token table
 (D4). "Kilogram", "KILOGRAM", "kilogram" all emit a RecognitionMatch
 over the span of the name text. Recognition only: no validation.
+
+The single bespoke regex from the legacy grammar is reproduced exactly
+as a ``RegexStage`` body (with ``re.IGNORECASE``) guarded by
+``BoundaryGuard.degree_word_sign()``. The split-prefix shape
+("kilo gram" -> ``split_word_prefix``) is computed inline in the
+notation factory, byte-identically to the legacy ``recognize()``.
 """
 
 from __future__ import annotations
@@ -13,7 +19,7 @@ import re
 from paxman.capabilities.SIUnit.grammar.data.prefix_tokens import PREFIX_WORD_TOKENS
 from paxman.capabilities.SIUnit.grammar.data.unit_name_tokens import NAME_TOKENS
 from paxman.capabilities.SIUnit.notation import SIUnitNotation
-from paxman.core.domain import Grammar, RecognitionMatch
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
 # Prefix words for O(1) split detection (see recognize).
 PREFIX_WORDS = frozenset(PREFIX_WORD_TOKENS)
@@ -23,8 +29,6 @@ PREFIX_WORDS = frozenset(PREFIX_WORD_TOKENS)
 # adjacent word/separator/sign. Digits and underscore are blocked too (via
 # \w), keeping quantity-adjacent names (e.g. "5kilogram") from being
 # recognized — consistent with the symbol grammar's digit boundary.
-_LOOKBEHIND = r"(?<![°\w\-+\u2212/·⋅])"
-_LOOKAHEAD = r"(?![\w\-+\u2212/·⋅])"
 _NAME_ALT = "|".join(re.escape(t) for t in NAME_TOKENS)
 _PREFIX_WORD_ALT = "|".join(re.escape(t) for t in PREFIX_WORD_TOKENS)
 # A word prefix split across whitespace from its unit ("kilo gram") is
@@ -40,36 +44,40 @@ _NAME_BODY = (
     r"|"
     r"(?:" + _NAME_ALT + r")"
 )
-_NAME_RE = re.compile(
-    _LOOKBEHIND + r"(?P<tok>" + _NAME_BODY + r")" + _LOOKAHEAD, re.IGNORECASE
-)
+# The degree_word_sign guard preserves the ° in the lookbehind exactly as the
+# legacy grammar's _LOOKBEHIND/_LOOKAHEAD literals did — no hard-coded
+# lookaround in this file (ADR-0008 D5). re.IGNORECASE reproduces the legacy
+# case-insensitive name match.
+_GUARD = BoundaryGuard.degree_word_sign()
+_NAME_PATTERN = _GUARD.lookbehind + r"(?P<tok>" + _NAME_BODY + r")" + _GUARD.lookahead
 
 
-class NameRecognition(Grammar[SIUnitNotation]):
+def _name_notation(match: re.Match[str]) -> SIUnitNotation:
+    """Map a matched name token to its split/attached notation.
+
+    Mirrors the legacy recognize(): the matched text is folded to lowercase;
+    a known prefix word followed by a space and a unit name (e.g. "kilo gram")
+    is a rejectable split, while a multi-word unit name like "degree celsius"
+    is a plain name (its first word is not a prefix).
+    """
+    token = match.group("tok").lower()
+    parts = token.split()
+    if len(parts) >= 2 and parts[0] in PREFIX_WORDS:
+        shape = "split_word_prefix"
+    else:
+        shape = "name"
+    return SIUnitNotation(text=token, shape=shape)
+
+
+class NameRecognition(PipelineGrammar[SIUnitNotation]):
     """Grammar: name_recognition — case-folded unit names."""
 
     name = "name_recognition"
     semantics = "name_recognition"  # SEAM (ADR-0003): identity id
 
-    def recognize(self, text: str) -> list[RecognitionMatch[SIUnitNotation]]:
-        """Emit one RecognitionMatch per unit name (or split prefix) found."""
-        matches: list[RecognitionMatch[SIUnitNotation]] = []
-        for m in _NAME_RE.finditer(text):
-            token = m.group("tok").lower()
-            parts = token.split()
-            # A split prefix is a known prefix word followed by a space and a
-            # unit name (e.g. "kilo gram"); a multi-word unit name like
-            # "degree celsius" is NOT a split (its first word is not a prefix).
-            if len(parts) >= 2 and parts[0] in PREFIX_WORDS:
-                shape = "split_word_prefix"
-            else:
-                shape = "name"
-            matches.append(
-                RecognitionMatch(
-                    raw_text=text[m.start() : m.end()],
-                    start=m.start(),
-                    end=m.end(),
-                    notation=SIUnitNotation(text=token, shape=shape),
-                )
-            )
-        return matches
+    pre = StandardPre[SIUnitNotation](empty_guard=True)
+    regex = RegexStage[SIUnitNotation](
+        pattern=_NAME_PATTERN,
+        notation_fn=_name_notation,
+        flags=re.IGNORECASE,
+    )

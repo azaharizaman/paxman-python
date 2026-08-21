@@ -1,17 +1,15 @@
-"""Shared helpers for Phone recognition grammars.
+"""Shared Phone grammar helpers — separator stripping.
 
-Space, dash, dot, and parentheses are the separators every Phone grammar
-tolerates inside a number. ``strip_separators`` normalizes a raw match to
-digit-only text. Grammar-level value dedup was removed in the recognition-
-homogeneity migration: the engine dedups contained matches by span and
-identical candidates by value.
+Capability-local helper for Phone grammars (ADR-0008 D5 self-containment).
+``paxman/core/grammar`` stays capability-agnostic (D2); Phone grammars share
+this helper internally to avoid quadruplicated ``strip_separators`` and
+translation-table construction.
 """
 
 from __future__ import annotations
 
-# Digits are preserved; space, dash, dot, and parentheses are removed.
+# Translation tables — built once, reused.
 _SEPARATORS = str.maketrans("", "", " ().-")
-# E.164 / tel-URI matches also carry a leading "+" to strip.
 _SEPARATORS_WITH_PLUS = str.maketrans("", "", "+ ().-")
 
 

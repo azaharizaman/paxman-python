@@ -15,8 +15,7 @@ support:
 
 from __future__ import annotations
 
-from paxman.capabilities.Country.name_normalization import normalize_name
-from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.notation import CountryNotation, normalize_name
 from paxman.capabilities.Country.rules.data.iso_3166_ed2020_part3 import (
     FORMER_ALPHA2_CODES,
     FORMER_NAME_TO_ALPHA2,

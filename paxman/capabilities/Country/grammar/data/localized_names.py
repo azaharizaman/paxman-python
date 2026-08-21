@@ -18,7 +18,7 @@ gated; validation of localized tokens is).
 
 from __future__ import annotations
 
-from paxman.capabilities.Country.name_normalization import normalize_name
+from paxman.capabilities.Country.notation import normalize_name
 
 LOCALIZED_NAME_KEYS: frozenset[str] = frozenset(
     normalize_name(key)

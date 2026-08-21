@@ -57,7 +57,6 @@ Every capability must conform to the same structural surface. `CapabilityContrac
 - **Quality gates before merge** — `ruff check`, `ruff format --check`, `pyright` (strict), `import-linter lint`, `pytest` (95% coverage).
 
 ## ANTI-PATTERNS & LEGACY EXCEPTIONS
-- Don't imitate the one-off modules: `Country/name_normalization.py` and `Phone/grammar/common.py` predate the sanctioned strategies — not patterns to copy.
 - Don't force a representation into a regex that fights it — consult HOW_TO's recognition-strategy section (scanner, format-candidate, parser combinators, Unicode-property, automaton) before choosing.
 - Don't invert the two-locus gating model (e.g., gating recognition on authority features or gating validation on input-shape features) — it produces the wrong `Resolution` statuses.
 - Don't add `slots=True` to contracts.

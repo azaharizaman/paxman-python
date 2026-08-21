@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from paxman.capabilities.Country.name_normalization import normalize_name
-from paxman.capabilities.Country.notation import CountryNotation
+from paxman.capabilities.Country.notation import CountryNotation, normalize_name
 from paxman.capabilities.Country.rules.data.cldr_ed2025 import LOCALIZED_TO_ALPHA2
 from paxman.core.contract import Contract
 from paxman.core.domain import Provenance, Rule, RuleStrategy

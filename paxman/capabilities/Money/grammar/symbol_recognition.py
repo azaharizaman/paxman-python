@@ -1,33 +1,23 @@
-"""CLDR currency symbol recognition grammar.
+"""CLDR currency symbol recognition grammar (staged pipeline).
 
 Recognizes a currency symbol token adjacent to an amount, in either
 order, as one span-bearing token. The symbol alternation is built from
 SYMBOL_TOKENS (qualified forms first, longest-first within each class,
-so "US$" alternates before "$"). Syntax only: resolving the symbol to a
-code is the rules' job.
+so "US$" alternates before "$") and fused with the amount by
+``AmountComposer`` (S4). Syntax only: resolving the symbol to a code is
+the rules' job.
 """
 
 from __future__ import annotations
 
-import re
-from typing import cast
-
 from paxman.capabilities.Money.grammar import AMOUNT_PATTERN, classify_amount_shape
 from paxman.capabilities.Money.grammar.data.currency_symbols import SYMBOL_TOKENS
 from paxman.capabilities.Money.notation import MoneyNotation
-from paxman.core.domain import Grammar, RecognitionMatch
-
-_SYMBOL_ALTERNATION = "|".join(re.escape(token) for token in SYMBOL_TOKENS)
-# Lookarounds, not \b: pure-symbol tokens ("$", "€") are non-word
-# characters that \b would reject at string start, and the lookarounds
-# still block matches inside a longer token. Sign characters ('-',
-# U+2212, '+') are also rejected at the boundary so a sign-adjacent
-# token never matches (the sign would otherwise be silently dropped).
-_SYMBOL_PATTERN = re.compile(
-    rf"(?<![\w\-+\u2212])(?:(?P<prefix_symbol>{_SYMBOL_ALTERNATION})"
-    rf" ?(?P<prefix_amount>{AMOUNT_PATTERN})"
-    rf"|(?P<suffix_amount>{AMOUNT_PATTERN}) ?(?P<suffix_symbol>{_SYMBOL_ALTERNATION}))"
-    rf"(?![\w\-+\u2212])"
+from paxman.core.grammar import (
+    AmountComposer,
+    BoundaryGuard,
+    PipelineGrammar,
+    StandardPre,
 )
 
 
@@ -36,7 +26,17 @@ def _is_qualified(token: str) -> bool:
     return any(ch.isascii() and ch.isalpha() for ch in token)
 
 
-class SymbolRecognition(Grammar[MoneyNotation]):
+def _symbol_notation(lex: str, amount: str, amount_shape: str) -> MoneyNotation:
+    """Map a matched symbol+amount token to its qualified/bare notation."""
+    return MoneyNotation(
+        currency_part=lex,
+        amount_part=amount,
+        currency_shape="qualified_symbol" if _is_qualified(lex) else "symbol",
+        amount_shape=amount_shape,
+    )
+
+
+class SymbolRecognition(PipelineGrammar[MoneyNotation]):
     """Recognizes currency symbol + amount tokens.
 
     Matches a CLDR symbol adjacent to an amount in either order:
@@ -56,39 +56,12 @@ class SymbolRecognition(Grammar[MoneyNotation]):
     semantics = "symbol_recognition"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[MoneyNotation]]:
-        """Extract symbol+amount tokens from text.
-
-        Args:
-            text: Raw input text.
-
-        Returns:
-            List of span-bearing matches with "symbol"/"qualified_symbol"
-            notations.
-        """
-        if not text.strip():
-            return []
-        matches: list[RecognitionMatch[MoneyNotation]] = []
-        for match in _SYMBOL_PATTERN.finditer(text):
-            symbol = cast(
-                str, match.group("prefix_symbol") or match.group("suffix_symbol")
-            )
-            amount = cast(
-                str, match.group("prefix_amount") or match.group("suffix_amount")
-            )
-            matches.append(
-                RecognitionMatch(
-                    notation=MoneyNotation(
-                        currency_part=symbol,
-                        amount_part=amount,
-                        currency_shape=(
-                            "qualified_symbol" if _is_qualified(symbol) else "symbol"
-                        ),
-                        amount_shape=classify_amount_shape(amount),
-                    ),
-                    start=match.start(),
-                    end=match.end(),
-                    raw_text=match.group(0),
-                )
-            )
-        return matches
+    pre = StandardPre[MoneyNotation](empty_guard=True)
+    composer = AmountComposer[MoneyNotation](
+        pattern=AMOUNT_PATTERN,
+        lexicon_tokens=SYMBOL_TOKENS,
+        notation_fn=_symbol_notation,
+        classify=classify_amount_shape,
+        boundary=BoundaryGuard.word_sign(),
+        flags=0,
+    )

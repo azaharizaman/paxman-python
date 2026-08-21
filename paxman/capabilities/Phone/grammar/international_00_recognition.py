@@ -1,35 +1,45 @@
-"""International 00-prefix recognition grammar.
+"""International 00-prefix recognition grammar (staged pipeline).
 
 The international prefix "00" is the ITU-T E.164 recommended prefix used
 when dialing from within most countries. The digits AFTER the prefix form
 the E.164 number, so this grammar produces shape="e164" with the prefix
 stripped.
+
+The leading lookbehind (via BoundaryGuard.e164_00()) excludes word
+characters, ":", ".", and "+" so "10044...", "x0044...", "0.0044...", and
+"+0044..." are not treated as prefixes. The trailing digit-ending lookbehind
+forces the match to end on a digit so trailing separators/whitespace/
+sentence punctuation are not swallowed (mirrors the E.164 grammar).
 """
 
 from __future__ import annotations
 
 import re
 
-from paxman.capabilities.Phone.grammar.common import strip_separators
+from paxman.capabilities.Phone.grammar._common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
-from paxman.core.domain import Grammar, RecognitionMatch
-
-# "00" followed by the international number digits (optional separators).
-# The leading digit of the number must be 1-9 (country codes never start
-# with 0), and a single "0" alone is not the international prefix.
-# Separators between "00" and the first digit are allowed ("00 44 ...").
-# The (?<![\w:.+]) lookbehind excludes word characters, ":", "." and "+"
-# so "10044..." / "x0044..." / "0.0044..." are not treated as prefixes
-# and "+0044..." (contradictory input) is left to the e164 grammar.
-# The trailing (?<=\d) lookbehind forces the match to end on a digit, so
-# the trailing character class cannot swallow separators, whitespace, or
-# sentence punctuation after the number (mirrors _E164_PATTERN).
-_INTERNATIONAL_00_PATTERN = re.compile(
-    r"(?<![\w:.+])00[\s.\-]*(?=[1-9])\d[\d\s().\-]*(?<=\d)"
+from paxman.core.grammar import (
+    BoundaryGuard,
+    PipelineGrammar,
+    RegexStage,
+    StandardPre,
 )
 
+# Body: "00" then optional separators, a non-zero first digit, then digits
+# with optional separators, ending on a digit. The leading lookbehind is
+# supplied by BoundaryGuard.e164_00() (ADR-0008 D5) so no hard-coded
+# lookaround literal remains in this file.
+_INTERNATIONAL_00_BODY = r"00[\s.\-]*(?=[1-9])\d[\d\s().\-]*(?<=\d)"
+_GUARD = BoundaryGuard.e164_00()
+_INTERNATIONAL_00_PATTERN = _GUARD.lookbehind + _INTERNATIONAL_00_BODY
 
-class International00Grammar(Grammar[PhoneNotation]):
+
+def _international_00_notation(match: re.Match[str]) -> PhoneNotation:
+    """Map a 00-prefixed match to its digit-only E.164 notation (prefix stripped)."""
+    return PhoneNotation(shape="e164", value=strip_separators(match.group(0)[2:]))
+
+
+class International00Grammar(PipelineGrammar[PhoneNotation]):
     """Recognizes international numbers written with the 00 prefix.
 
     Examples: "00 44 20 7946 0958", "00442079460958"
@@ -40,23 +50,7 @@ class International00Grammar(Grammar[PhoneNotation]):
     semantics = "e164_international"
     single_value = True
 
-    def recognize(self, text: str) -> list[RecognitionMatch[PhoneNotation]]:
-        """Extract 00-prefixed international patterns from text.
-
-        Returns:
-            List of RecognitionMatches; notation.value is the digit-only
-            number with the "00" prefix stripped (the E.164 number itself).
-        """
-        return [
-            RecognitionMatch(
-                notation=PhoneNotation(
-                    shape="e164",
-                    # Strip the leading "00" before removing separators.
-                    value=strip_separators(match.group(0)[2:]),
-                ),
-                start=match.start(),
-                end=match.end(),
-                raw_text=match.group(0),
-            )
-            for match in _INTERNATIONAL_00_PATTERN.finditer(text)
-        ]
+    pre = StandardPre[PhoneNotation](empty_guard=True)
+    regex = RegexStage[PhoneNotation](
+        pattern=_INTERNATIONAL_00_PATTERN, notation_fn=_international_00_notation
+    )
