@@ -316,9 +316,9 @@ Run: `uv run pytest tests/unit/test_package_install.py -q` → new test FAILS.
 - Add:
   ```toml
   [project.urls]
-  Homepage = "https://github.com/azaharizaman/paxman-python"
-  Repository = "https://github.com/azaharizaman/paxman-python"
-  Issues = "https://github.com/azaharizaman/paxman-python/issues"
+  Homepage = "https://github.com/nexusnv/paxman-python"
+  Repository = "https://github.com/nexusnv/paxman-python"
+  Issues = "https://github.com/nexusnv/paxman-python/issues"
   ```
 - Delete `[project.optional-dependencies]` entirely; set
   `[dependency-groups] dev` to the consolidated floors (D6): pytest>=8.0,

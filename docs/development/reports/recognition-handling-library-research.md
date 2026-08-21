@@ -39,11 +39,11 @@ as a replacement parser. Details and a concrete recommendation follow.
 ## 1. Current Paxman recognition state (grounding)
 
 `Grammar.recognize(self, text: str) -> list[NotationT]` returns bare notation
-values with no span information (`paxman/core/domain.py`, [domain.py](https://github.com/azaharizaman/paxman-python/blob/7c960797b7846c1052a7412b643a7d1976140e2d/paxman/core/domain.py#L180-L186)
+values with no span information (`paxman/core/domain.py`, [domain.py](https://github.com/nexusnv/paxman-python/blob/7c960797b7846c1052a7412b643a7d1976140e2d/paxman/core/domain.py#L180-L186)
 -- commit-specific link below). `RecognizedRep` stores `notation`, `contract`,
 and `grammar` but no source location, and its `__hash__` is deliberately
 defensive about unhashable notation types rather than about position
-([domain.py](https://github.com/azaharizaman/paxman-python/blob/7c960797b7846c1052a7412b643a7d1976140e2d/paxman/core/domain.py#L74-L94)).
+([domain.py](https://github.com/nexusnv/paxman-python/blob/7c960797b7846c1052a7412b643a7d1976140e2d/paxman/core/domain.py#L74-L94)).
 
 Consequences visible today:
 
@@ -535,4 +535,4 @@ the 782-test suite's replay-hash snapshot gate before any implementation.
 | python-stdnum | https://github.com/arthurdejong/python-stdnum | 7662137d | `stdnum/__init__.py`, `stdnum/util.py`, `stdnum/imei.py`, `stdnum/exceptions.py` |
 | phonenumbers | https://github.com/daviddrysdale/python-phonenumbers | 5fc93180 | `python/phonenumbers/phonenumbermatcher.py`, `python/phonenumbers/phonenumberutil.py` |
 | Lark | https://github.com/lark-parser/lark | 240d4bcd | `docs/grammar.md`, `docs/parsers.md`, `lark/lexer.py` |
-| Paxman (local) | https://github.com/azaharizaman/paxman-python | 7c960797 | `paxman/core/domain.py`, `paxman/engine/orchestrator.py`, `capability_homogeneity_audit.md` |
+| Paxman (local) | https://github.com/nexusnv/paxman-python | 7c960797 | `paxman/core/domain.py`, `paxman/engine/orchestrator.py`, `capability_homogeneity_audit.md` |

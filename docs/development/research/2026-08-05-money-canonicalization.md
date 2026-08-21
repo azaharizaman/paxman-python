@@ -809,8 +809,8 @@ generated).
 13. currency-symbols — https://pypi.org/project/currency-symbols/ ; https://github.com/arshadkazmi42/currency-symbols
 14. `$` disambiguation: Canadian Translation Bureau (US$/Can$) — https://www.noslangues-ourlanguages.gc.ca/writing-tips-plus/american-dollar-symbol and https://nos-langues.canada.ca/en/writing-tips-plus/canadian-dollar-symbol ; Investopedia — https://www.investopedia.com/terms/c/currency-symbol.asp ; Wikipedia CAD — https://en.wikipedia.org/wiki/CA$ ; UniRateAPI symbols — https://unirateapi.com/currency-symbols
 15. datahub.io consolidated ISO 4217 CSV — https://datahub.io/core/currency-codes
-16. Paxman: HOW_TO_ADD_NEW_CAPABILITY.md (repo root, 12-step add-a-capability guide) — https://github.com/azaharizaman/paxman-python/blob/7a4017c/HOW_TO_ADD_NEW_CAPABILITY.md
-17. Paxman regeneration-tool pattern — https://github.com/azaharizaman/paxman-python/blob/7a4017c/tools/regenerate_isbn_range_data.py
+16. Paxman: HOW_TO_ADD_NEW_CAPABILITY.md (repo root, 12-step add-a-capability guide) — https://github.com/nexusnv/paxman-python/blob/7a4017c/HOW_TO_ADD_NEW_CAPABILITY.md
+17. Paxman regeneration-tool pattern — https://github.com/nexusnv/paxman-python/blob/7a4017c/tools/regenerate_isbn_range_data.py
 
 **Note on counts:** the "154 active" figure some references cite excludes the
 four circulating X-prefixed currencies and funds; the live SIX List One fetch

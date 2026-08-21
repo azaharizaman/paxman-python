@@ -137,7 +137,7 @@ class TestPackageInstall:
 
         # Project URLs
         urls = project.get("urls", {})
-        repo_url = "https://github.com/azaharizaman/paxman-python"
+        repo_url = "https://github.com/nexusnv/paxman-python"
         assert urls.get("Repository") == repo_url
         assert urls.get("Homepage") == repo_url
         assert urls.get("Issues") == repo_url

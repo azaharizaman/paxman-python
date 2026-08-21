@@ -19,9 +19,9 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/azaharizaman/paxman-python"
-Repository = "https://github.com/azaharizaman/paxman-python"
-Issues = "https://github.com/azaharizaman/paxman-python"
+Homepage = "https://github.com/nexusnv/paxman-python"
+Repository = "https://github.com/nexusnv/paxman-python"
+Issues = "https://github.com/nexusnv/paxman-python"
 
 [tool.pytest.ini_options]
 markers = [
