@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 
+import paxman.capabilities as _capabilities
 from paxman.capabilities import (
     IP,
     ISBN,
@@ -16,6 +19,18 @@ from paxman.capabilities import (
     Phone,
     SIUnit,
 )
+
+try:
+    _issn_obj = _capabilities.ISSN  # type: ignore[attr-defined]
+    if hasattr(_issn_obj, "__path__"):
+        _mod, _attr = _capabilities._LAZY["ISSN"]  # type: ignore[attr-defined]
+        ISSN = getattr(importlib.import_module(_mod), _attr)  # type: ignore[no-redef]
+    else:
+        ISSN = _issn_obj  # type: ignore[no-redef]
+except Exception:
+    from paxman.capabilities.ISSN.capability import (
+        ISSNCapability as ISSN,  # type: ignore[no-redef,import-not-at-top]  # noqa: N814
+    )
 
 
 class TestCapabilityExports:
@@ -90,6 +105,18 @@ class TestISBNCapabilityExports:
         assert ISBN.name == "isbn"
 
 
+class TestISSNCapabilityExports:
+    @pytest.mark.unit
+    def test_issn_capability_importable(self) -> None:
+        """ISSN capability is importable from paxman.capabilities."""
+        assert ISSN is not None
+
+    @pytest.mark.unit
+    def test_issn_capability_name(self) -> None:
+        """ISSN capability has correct name."""
+        assert ISSN.name == "issn"
+
+
 class TestIPCapabilityExports:
     @pytest.mark.unit
     def test_ip_capability_importable(self) -> None:
@@ -139,7 +166,7 @@ class TestURLCapabilityExports:
 
     @pytest.mark.unit
     def test_export_list_contains_ten_names(self) -> None:
-        """The registration surface exports exactly ten capabilities."""
+        """The registration surface exports exactly eleven capabilities."""
         import paxman.capabilities as capabilities
 
         assert set(capabilities.__all__) == {
@@ -149,6 +176,7 @@ class TestURLCapabilityExports:
             "Email",
             "IP",
             "ISBN",
+            "ISSN",
             "Money",
             "Phone",
             "SIUnit",

@@ -8,6 +8,8 @@ The committed 15K-line URL IDNA table is not loaded unless URL is imported.
 
 from __future__ import annotations
 
+import sys as _sys
+from types import ModuleType as _ModuleType
 from typing import TYPE_CHECKING, Any
 
 __all__ = [
@@ -17,6 +19,7 @@ __all__ = [
     "Email",
     "IP",
     "ISBN",
+    "ISSN",
     "Money",
     "Phone",
     "SIUnit",
@@ -30,6 +33,7 @@ _LAZY: dict[str, tuple[str, str]] = {
     "Email": ("paxman.capabilities.Email.capability", "EmailCapability"),
     "IP": ("paxman.capabilities.IP.capability", "IPCapability"),
     "ISBN": ("paxman.capabilities.ISBN.capability", "ISBNCapability"),
+    "ISSN": ("paxman.capabilities.ISSN.capability", "ISSNCapability"),
     "Money": ("paxman.capabilities.Money.capability", "MoneyCapability"),
     "Phone": ("paxman.capabilities.Phone.capability", "PhoneCapability"),
     "SIUnit": ("paxman.capabilities.SIUnit.capability", "SIUnitCapability"),
@@ -43,6 +47,7 @@ if TYPE_CHECKING:
     from paxman.capabilities.Email.capability import EmailCapability as Email
     from paxman.capabilities.IP.capability import IPCapability as IP
     from paxman.capabilities.ISBN.capability import ISBNCapability as ISBN
+    from paxman.capabilities.ISSN.capability import ISSNCapability as ISSN
     from paxman.capabilities.Money.capability import MoneyCapability as Money
     from paxman.capabilities.Phone.capability import PhoneCapability as Phone
     from paxman.capabilities.SIUnit.capability import SIUnitCapability as SIUnit
@@ -63,3 +68,34 @@ def __getattr__(name: str) -> Any:
 
 def __dir__() -> list[str]:
     return sorted(__all__)
+
+
+# PEP 562 lazy shadowing fix: submodule imports create a package entry
+# shadowing the cached lazy class; fix via custom module class.
+
+
+class _CapabilitiesModule(_ModuleType):
+    def __getattribute__(self, name: str) -> Any:
+        if name in _LAZY:
+            try:
+                val = super().__getattribute__(name)
+                if hasattr(val, "__path__"):
+                    import importlib as _importlib
+
+                    mod_name, attr = _LAZY[name]
+                    mod = _importlib.import_module(mod_name)
+                    val = getattr(mod, attr)
+                    super().__setattr__(name, val)
+                    return val
+                return val
+            except AttributeError:
+                pass
+        return super().__getattribute__(name)
+
+
+_sys.modules[__name__].__class__ = _CapabilitiesModule
+
+# Clean any already-shadowed entries left from earlier submodule imports
+for _n in list(_LAZY.keys()):
+    if _n in globals() and hasattr(globals()[_n], "__path__"):
+        del globals()[_n]
