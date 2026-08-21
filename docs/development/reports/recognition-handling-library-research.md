@@ -456,7 +456,7 @@ return all trees, (3) visit the SPPF yourself
 | Paxman invariant | stdnum | phonenumbers | Lark |
 |------------------|--------|--------------|------|
 | Deterministic / replay-safe | Yes (pure functions) | Yes (pure functions) | Yes, but `dynamic_complete` cost is input-dependent |
-| No guessing | Yes (`validate` is all-or-nothing) | **No** -- matcher picks first verified candidate per span | Default is best-derivation (**no**); `ambiguity='explicit'` is **yes** |
+| No guessing | Yes (`validate` is all-or-nothing) | **No** -- matcher picks first candidate accepted by the configured leniency per span (POSSIBLE may accept possible-but-invalid numbers; VALID is default) | Default is best-derivation (**no**); `ambiguity='explicit'` is **yes** |
 | AMBIGUOUS preserved | N/A (no ambiguity model) | **No** -- collapses to one match | **Yes** -- retains all derivations (but syntactic) |
 | Provenance-first | No provenance concept | Implicit metadata only | No provenance concept |
 | No-raise rule policy | **No** -- raises typed exceptions | Returns bools | N/A |
@@ -499,17 +499,17 @@ seam**, regularized by an engine-enforced precedence order. Concretely:
    construction.
 4. **Standardize the recognition level at "raw tokens + shared syntax seam".**
    Grammars emit raw recognized tokens; a capability-level syntax-normalization
-   helper (the stdnum `clean()`/`compact()` idea, already realized as
-   `paxman/capabilities/Country/notation.py:normalize_name` for Country
-   lookup-key normalization — distinct from the emitted notation which preserves
-   the original trimmed case — and as separator stripping in
-   `paxman/capabilities/Phone/grammar/_common.py:strip_separators` and
-   `paxman/capabilities/ISBN/grammar/*_recognition.py` digit extraction) does
-   case folding, Unicode cleanup, and separator stripping; semantic mapping
-   stays in rules (Tier 2 #1; reinforces the F3 resolution). Country's
-   `normalize_name` is a lookup-key transform, not an emitted-notation
-   transform, and Phone/ISBN follow the same ownership model: syntax
-   normalization lives in the grammar layer, semantic mapping in rules.
+   helper (the stdnum `clean()`/`compact()` idea) does case folding, Unicode
+   cleanup, and separator stripping — preserved in the notation layer as
+   `paxman/capabilities/Country/notation.py:normalize_name` (lookup-key
+   transform, distinct from the emitted notation which preserves the original
+   trimmed case), and in grammar layers as separator stripping in
+   `paxman/capabilities/Phone/grammar/_common.py:strip_separators` and digit
+   extraction in `paxman/capabilities/ISBN/grammar/*_recognition.py`; semantic
+   mapping stays in rules (Tier 2 #1; reinforces the F3 resolution). Country's
+   `normalize_name` remains in the notation layer (not moved into grammar
+   code); Phone/ISBN follow the same principle with syntax normalization in
+   grammar layers and semantic mapping in rules.
    Optionally expose a phonenumbers-style lenient/authoritative
    two-tier validation as a *diagnostic* (reason codes), not a behavior change.
 5. **Keep the existing `format_value` seam and the no-raise rule policy.**
