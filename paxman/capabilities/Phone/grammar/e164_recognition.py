@@ -13,8 +13,10 @@ the span.
 
 from __future__ import annotations
 
+import functools
 import re
 
+from paxman.capabilities.Phone.grammar._common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.domain import RecognitionMatch
 from paxman.core.grammar import (
@@ -25,25 +27,6 @@ from paxman.core.grammar import (
     StandardPre,
 )
 
-# Digits are preserved; space, dash, dot, and parentheses are removed.
-_SEPARATORS_WITH_PLUS = str.maketrans("", "", "+ ().-")
-
-
-def strip_separators(value: str, *, plus: bool = False) -> str:
-    """Remove phone separators from a raw match.
-
-    Args:
-        value: Raw match text (digits, separators, optional leading "+").
-        plus: Also strip a leading "+" (E.164 and tel-URI matches).
-
-    Returns:
-        The digit-only number.
-    """
-    if plus:
-        return value.translate(_SEPARATORS_WITH_PLUS)
-    return value.translate(str.maketrans("", "", " ().-"))
-
-
 # Maximum E.164 number length in digits (spec limit; the grammar trims
 # runaway matches at this boundary). Duplicated from the rule module on
 # purpose: the semantic-purity gate forbids grammar -> rules imports, so
@@ -52,6 +35,7 @@ def strip_separators(value: str, *, plus: bool = False) -> str:
 _MAX_E164_DIGITS = 15
 
 
+@functools.lru_cache(maxsize=256)
 def _trim_to_e164_boundary(raw: str) -> str:
     """Trim a runaway raw match at the last digit-run group within the limit.
 
@@ -63,6 +47,10 @@ def _trim_to_e164_boundary(raw: str) -> str:
     swallowed into the match. If the first run alone exceeds the limit, the
     raw match is kept whole: validation then rejects the oversized value
     instead of silently recognizing a truncated 15-digit prefix.
+
+    Cached so the paired ``_e164_notation`` / ``_e164_trim`` calls for the
+    same match reuse a single trimmed result instead of scanning digit runs
+    twice.
     """
     runs = list(re.finditer(r"\d+", raw))
     total = 0

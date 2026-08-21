@@ -5,6 +5,15 @@ compressed legacy patterns are merged into one alternation wrapped by a
 single outer capture group; the boundary lookarounds are supplied by
 BoundaryGuard.ipv6_token() (ADR-0008 D5) so no hard-coded lookaround literal
 remains in this file. Syntax only: the grammar never validates the address.
+
+Note: The legacy bespoke ``recognize()`` ran two separate ``finditer`` loops
+(full before compressed), so grouped matches by address family rather than
+document order (e.g. ``"2001:db8:85a3::8a2e:370:7334 ::1"`` yielded
+``[full, ::1]`` regardless of positions). The staged
+``(_IPV6_FULL_INNER|_IPV6_COMPRESSED_INNER)`` alternation uses a single
+``finditer`` in document order. The engine sorts by ``start`` before dedup,
+so end-to-end ``canonicalize()`` is identical; direct ``recognize()`` order
+is now document-order.
 """
 
 from __future__ import annotations

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 
+from paxman.capabilities.Phone.grammar._common import strip_separators
 from paxman.capabilities.Phone.notation import PhoneNotation
 from paxman.core.grammar import (
     BoundaryGuard,
@@ -23,25 +24,6 @@ from paxman.core.grammar import (
     RegexStage,
     StandardPre,
 )
-
-# Digits are preserved; space, dash, dot, and parentheses are removed.
-_SEPARATORS = str.maketrans("", "", " ().-")
-
-
-def strip_separators(value: str, *, plus: bool = False) -> str:
-    """Remove phone separators from a raw match.
-
-    Args:
-        value: Raw match text (digits, separators, optional leading "+").
-        plus: Also strip a leading "+" (E.164 and tel-URI matches).
-
-    Returns:
-        The digit-only number.
-    """
-    if plus:
-        return value.translate(str.maketrans("", "", "+ ().-"))
-    return value.translate(_SEPARATORS)
-
 
 # Body: "00" then optional separators, a non-zero first digit, then digits
 # with optional separators, ending on a digit. The leading lookbehind is

@@ -20,9 +20,10 @@ def test_longest_first_ordering() -> None:
 
 
 def test_qualified_first_within_same_length() -> None:
-    alt = LexiconAlternation(tokens=["€", "US$"], longest_first=True)
-    # Longest dominates, so US$ (3) still first over € (1)
-    assert alt.ordered_tokens[0] == "US$"
+    alt = LexiconAlternation(tokens=["A$", "$$"], longest_first=True)
+    # Same length (2), so qualified-first tie-break determines order: "A$" before "$$"
+    assert alt.ordered_tokens[0] == "A$"
+    assert alt.ordered_tokens[1] == "$$"
 
 
 def test_alternation_is_escaped() -> None:

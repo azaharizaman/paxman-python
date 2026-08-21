@@ -1,10 +1,11 @@
 """ISBN-10 recognition grammar (staged pipeline).
 
 Recognizes 10-digit ISBNs with optional label and separators. The leading
-digit-glued guard and the trailing separator guard are supplied by
-BoundaryGuard.isbn10_lead() / BoundaryGuard.isbn_trail() (ADR-0008 D5) so no
-hard-coded lookaround literal remains in this file. The hyphen/space tolerance
-is regex-native (the lookahead extracts the digit run via a backreference).
+digit-glued guard is supplied by BoundaryGuard.isbn10_lead() (ADR-0008 D5) so
+no hard-coded lookaround literal remains in this file. The trailing boundary is
+handled by ``\\b`` (the previous ``isbn_trail`` lookbehind after the final digit
+was inert). The hyphen/space tolerance is regex-native (the lookahead extracts
+the digit run via a backreference).
 """
 
 from __future__ import annotations
@@ -15,11 +16,9 @@ from paxman.capabilities.ISBN.notation import ISBNNotation
 from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
 _LEAD = BoundaryGuard.isbn10_lead()
-_TRAIL = BoundaryGuard.isbn_trail()
 _ISBN10_PATTERN = (
     _LEAD.lookbehind
     + r"(?:ISBN(?:-10)?[\s:-]+)?(?=((?:\d[ -]?){9}[0-9Xx])(?![\d]))\1"
-    + _TRAIL.lookbehind
     + r"\b"
 )
 

@@ -9,13 +9,21 @@ from typing import Generic, Protocol, TypeVar
 
 from paxman.core.domain import RecognitionMatch
 from paxman.core.grammar.boundary import BoundaryGuard
+from paxman.core.grammar.lexicon import LexiconAlternation
 
 NotationT = TypeVar("NotationT")
 
 
 @dataclass(frozen=True, slots=True)
 class PipelineState(Generic[NotationT]):
-    """Mutable-through-replacement state threaded through stages."""
+    """Mutable-through-replacement state threaded through stages.
+
+    ``text`` is the original ``recognize()`` input and **must remain unchanged**
+    through all stages — stages must place normalized or transformed views in
+    ``scratch`` instead, preserving ``RecognitionMatch`` offsets relative to the
+    original input. ``matches`` accumulates span-bearing recognitions;
+    ``scratch`` is stage-local auxiliary storage.
+    """
 
     text: str
     matches: list[RecognitionMatch[NotationT]] = field(
@@ -25,7 +33,14 @@ class PipelineState(Generic[NotationT]):
 
 
 class Stage(Protocol[NotationT]):
-    """Inter-stage contract — each stage consumes and returns a PipelineState."""
+    """Inter-stage contract — each stage consumes and returns a PipelineState.
+
+    Every stage **must return a PipelineState with ``state.text`` unchanged**
+    from its input. Normalized or transformed text views belong in
+    ``state.scratch``, not by mutating ``text``, so ``RecognitionMatch`` spans
+    remain relative to the original ``recognize()`` input. Stages may append
+    to ``state.matches`` and update ``scratch``.
+    """
 
     def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]: ...
 
@@ -85,15 +100,19 @@ class LexiconStage(Generic[NotationT]):
     notation_fn: Callable[[str], NotationT] | None = None
     flags: int = 0
 
+    _compiled: re.Pattern[str] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        alt = LexiconAlternation(
+            tokens=self.tokens, longest_first=self.longest_first
+        ).alternation
+        object.__setattr__(self, "_compiled", self.boundary.wrap(alt, self.flags))
+
     def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
         if self.notation_fn is None:
             return state
-        from paxman.core.grammar.lexicon import LexiconAlternation
-
-        alt = LexiconAlternation(tokens=self.tokens, longest_first=self.longest_first)
-        pat = self.boundary.wrap(alt.alternation, self.flags)
         new_matches: list[RecognitionMatch[NotationT]] = list(state.matches)
-        for m in pat.finditer(state.text):
+        for m in self._compiled.finditer(state.text):
             token = m.group(0)
             new_matches.append(
                 RecognitionMatch(

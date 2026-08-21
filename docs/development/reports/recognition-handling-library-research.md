@@ -170,12 +170,15 @@ from `ValidationError` (itself a `ValueError`): `InvalidFormat`, `InvalidChecksu
   normalization happens (separator stripping, Unicode folding, case folding).
   This is exactly the "grammars emit raw tokens; one shared syntax seam" shape
   Paxman's F3 resolution already gestured at with
-  `paxman/capabilities/Country/name_normalization.py`.
+  `paxman/capabilities/Country/notation.py:normalize_name` (lookup-key
+  normalization, distinct from the emitted notation which preserves the original
+  trimmed case).
 - **Validation/formatting separation (F4).** `validate()` returns the canonical
-  minimal representation; `format()` is purely presentation and is per-module
-  parameterized (`separator`, `add_check_digit`). This matches the
-  already-shipped `Capability.format_value()` seam: rules emit a default
-  canonical form, formatting is a separate seam.
+  minimal representation; `format()` is purely presentation only for separator
+  changes (`separator` parameter), while `add_check_digit=True` appends a Luhn
+  check digit to a 14-digit IMEI and therefore is not purely presentation.
+  This matches the already-shipped `Capability.format_value()` seam: rules emit
+  a default canonical form, formatting is a separate seam.
 
 ### What it does not solve
 
@@ -453,7 +456,7 @@ return all trees, (3) visit the SPPF yourself
 | Paxman invariant | stdnum | phonenumbers | Lark |
 |------------------|--------|--------------|------|
 | Deterministic / replay-safe | Yes (pure functions) | Yes (pure functions) | Yes, but `dynamic_complete` cost is input-dependent |
-| No guessing | Yes (`validate` is all-or-nothing) | **No** -- matcher picks best match per span | Default is best-derivation (**no**); `ambiguity='explicit'` is **yes** |
+| No guessing | Yes (`validate` is all-or-nothing) | **No** -- matcher picks first verified candidate per span | Default is best-derivation (**no**); `ambiguity='explicit'` is **yes** |
 | AMBIGUOUS preserved | N/A (no ambiguity model) | **No** -- collapses to one match | **Yes** -- retains all derivations (but syntactic) |
 | Provenance-first | No provenance concept | Implicit metadata only | No provenance concept |
 | No-raise rule policy | **No** -- raises typed exceptions | Returns bools | N/A |
@@ -473,11 +476,14 @@ candidates for `01/02/2026`.
 Adopt a **span-first recognition contract** and a **shared syntax-normalization
 seam**, regularized by an engine-enforced precedence order. Concretely:
 
-1. **Carry source spans in `RecognizedRep`** (add `start: int`, `end: int`,
-   `raw_text: str`, mirroring `PhoneNumberMatch`). Keep `Grammar.recognize()`
-   returning `list[NotationT]` but make the span available at the seam the
-   engine already owns (`RecognizedRep` construction). Addresses Tier 2 #2 and
-   #3; without spans neither uniform dedup nor uniform ordering is possible.
+1. **Carry source spans via `RecognitionMatch`** — `Grammar.recognize()`
+   produces span-bearing `RecognitionMatch` values (`start`, `end`, `raw_text`
+   alongside `notation`, mirroring `PhoneNumberMatch`), and `RecognizedRep`
+   preserves `start`, `end`, and `raw_text` alongside the notation. Do not let
+   recognition reduce results to bare `NotationT` values before this metadata
+   reaches the engine, so uniform deduplication and document ordering remain
+   possible. Addresses Tier 2 #2 and #3; without spans neither uniform dedup nor
+   uniform ordering is possible.
 2. **Unify dedup as per-grammar span-overlap, engine-enforced.** Replace the
    three divergent mechanisms (part-keyed, address-keyed, span-overlap) with one
    rule: within a single grammar's output, drop a recognition whose span is
@@ -493,10 +499,18 @@ seam**, regularized by an engine-enforced precedence order. Concretely:
    construction.
 4. **Standardize the recognition level at "raw tokens + shared syntax seam".**
    Grammars emit raw recognized tokens; a capability-level syntax-normalization
-   helper (the stdnum `clean()`/`compact()` idea, already partially realized as
-   `Country/name_normalization.py`) does case folding, Unicode cleanup, and
-   separator stripping; semantic mapping stays in rules (Tier 2 #1; reinforces
-   the F3 resolution). Optionally expose a phonenumbers-style lenient/authoritative
+   helper (the stdnum `clean()`/`compact()` idea, already realized as
+   `paxman/capabilities/Country/notation.py:normalize_name` for Country
+   lookup-key normalization — distinct from the emitted notation which preserves
+   the original trimmed case — and as separator stripping in
+   `paxman/capabilities/Phone/grammar/_common.py:strip_separators` and
+   `paxman/capabilities/ISBN/grammar/*_recognition.py` digit extraction) does
+   case folding, Unicode cleanup, and separator stripping; semantic mapping
+   stays in rules (Tier 2 #1; reinforces the F3 resolution). Country's
+   `normalize_name` is a lookup-key transform, not an emitted-notation
+   transform, and Phone/ISBN follow the same ownership model: syntax
+   normalization lives in the grammar layer, semantic mapping in rules.
+   Optionally expose a phonenumbers-style lenient/authoritative
    two-tier validation as a *diagnostic* (reason codes), not a behavior change.
 5. **Keep the existing `format_value` seam and the no-raise rule policy.**
    Validation/formatting separation is already shipped (F4, 2026-08-04) and

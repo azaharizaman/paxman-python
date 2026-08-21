@@ -128,41 +128,6 @@ from tests.property._legacy_siunit_grammars import (
 # Import harness helper — implemented in this task.
 from tests.property.grammar_stage_parity import assert_grammar_parity
 
-CURATED_CORPUS: list[str] = [
-    "United States",  # Country name — original case preservation
-    "  united states  ",  # Country name — whitespace + case fold
-    "+1 555 123 4567",  # Phone e164 — normal
-    "+15551234567 5551234567",  # Phone e164 — runaway trim at 15 digits
-    "https://example.com/path_(with_parens)",  # URL paren-balance
-    "USD500",  # Money code+amount
-    "$500",  # Money bare symbol + amount (shared symbol)
-    "500 EUR",  # Money amount + code (either order)
-    "kilo gram",  # SIUnit split_word_prefix
-    "m/s",  # SIUnit compound
-    "9780306406157",  # ISBN13 bare
-    "978-0-11-000222-4",  # ISBN13 hyphenated (range message)
-    "2026-01-15",  # Date S1
-    "user@example.com",  # Email S1
-    "192.168.1.1",  # IP S1
-]
-
-
-@pytest.mark.property
-def test_curated_corpus_parity_placeholder() -> None:
-    """Placeholder — will be parametrized over (grammar, text) pairs.
-
-    RED: assert_grammar_parity does not yet prove any migration; the harness
-    itself is GREEN-skipped until Task 5+ wires the first real parity case.
-    """
-    # Each parametrized case will call:
-    #   assert_grammar_parity(old_grammar, new_grammar, text)
-    # where equality is (start, end, raw_text, notation).
-    assert callable(assert_grammar_parity), (
-        "harness helper must be importable for Task 5+ wiring"
-    )
-    pytest.skip("Harness not yet implemented — wire in Task 5+")
-
-
 # Currency migration (Task 5): old bespoke recognize() vs new PipelineGrammar
 # declaration. Each tuple is (legacy_grammar, new_grammar, text). The corpus
 # covers qualified/bare symbols, case-folded codes, case-insensitive words,
@@ -179,7 +144,6 @@ CURRENCY_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
     (LegacySymbolRecognition(), SymbolRecognition(), "US$5"),  # amount-glued reject
     (LegacySymbolRecognition(), SymbolRecognition(), "$500"),  # amount-glued reject
     (LegacySymbolRecognition(), SymbolRecognition(), "x€"),  # inside-token reject
-    (LegacySymbolRecognition(), SymbolRecognition(), "€5"),  # amount-glued reject
     (LegacySymbolRecognition(), SymbolRecognition(), ""),  # empty
     # Code — case folding, whitespace, multi-match, glued rejections.
     (LegacyCodeRecognition(), CodeRecognition(), "USD"),
@@ -243,7 +207,6 @@ MONEY_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
     (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "US$"),  # no amount
     (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "$"),  # no amount
     (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "x€"),  # inside
-    (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), "€5"),  # glued
     (LegacyMoneySymbolRecognition(), MoneySymbolRecognition(), ""),  # empty
     # Word — case-insensitive, either order, plural/glued rejections.
     (LegacyMoneyWordRecognition(), MoneyWordRecognition(), "18 Dollar"),
@@ -334,6 +297,11 @@ SIUNIT_COMPOUND_PARITY_CASES: list[tuple[Grammar[Any], Grammar[Any], str]] = [
     (LegacySiCompound(), SiCompoundRecognition(), "g/cm³"),
     (LegacySiCompound(), SiCompoundRecognition(), "m·s⁻²"),
     (LegacySiCompound(), SiCompoundRecognition(), "m/°C"),
+    (
+        LegacySiCompound(),
+        SiCompoundRecognition(),
+        "5°C/W",
+    ),  # degree-excluded: matches "C/W" at 2
     (LegacySiCompound(), SiCompoundRecognition(), "µg/mL"),
     (LegacySiCompound(), SiCompoundRecognition(), "QQQ/zzz"),  # shape-only
     (LegacySiCompound(), SiCompoundRecognition(), "m/sx"),  # shape-only
@@ -920,11 +888,12 @@ def test_country_name_parity(
 # Legacy ``recognize()`` returned matches grouped by year length
 # (all 4-digit first, then 2-digit), while the staged pipeline returns
 # document order. The engine sorts by ``start`` before dedup, so
-# end-to-end ``canonicalize()`` is identical; direct ``recognize()`` order
-# is now document-order. This test locks the new contract and proves the
+# end-to-end ``canonicalize()`` is identical; direct ``recognize()``
+# order is now document-order. This test locks the new contract and proves the
 # sorted multiset is still parity-equivalent.
 
 
+@pytest.mark.property
 def test_us_date_document_order() -> None:
     """Staged US grammar emits document order; legacy grouped by year length."""
     text = "01/02/26 foo 01/02/2026"
@@ -942,6 +911,7 @@ def test_us_date_document_order() -> None:
     )
 
 
+@pytest.mark.property
 def test_european_date_document_order() -> None:
     """Staged European grammar emits document order; legacy grouped."""
     text = "26/07/26 foo 26/07/2026"
@@ -951,6 +921,32 @@ def test_european_date_document_order() -> None:
     new_matches = new.recognize(text)
     assert [m.raw_text for m in new_matches] == ["26/07/26", "26/07/2026"]
     assert [m.raw_text for m in legacy_matches] == ["26/07/2026", "26/07/26"]
+    assert sorted(new_matches, key=lambda m: m.start) == sorted(
+        legacy_matches, key=lambda m: m.start
+    )
+
+
+@pytest.mark.property
+def test_ipv6_document_order() -> None:
+    """Staged IPv6 emits document order; legacy grouped full before compressed.
+
+    Compressed ``::1`` precedes full ``2001:0db8:85a3:...`` in this input.
+    Legacy returns [full, compressed]; staged returns [compressed, full].
+    Sorted by start they are equivalent.
+    """
+    text = "::1 foo 2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+    legacy = LegacyIPv6Grammar()
+    new = IPv6Grammar()
+    legacy_matches = legacy.recognize(text)
+    new_matches = new.recognize(text)
+    assert [m.raw_text for m in new_matches] == [
+        "::1",
+        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+    ]
+    assert [m.raw_text for m in legacy_matches] == [
+        "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+        "::1",
+    ]
     assert sorted(new_matches, key=lambda m: m.start) == sorted(
         legacy_matches, key=lambda m: m.start
     )

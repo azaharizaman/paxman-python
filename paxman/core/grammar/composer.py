@@ -40,7 +40,11 @@ class AmountComposer(Generic[NotationT]):
 
     Attributes:
         pattern: The amount sub-pattern (e.g. ``AMOUNT_PATTERN``), supplied
-            by the caller.
+            by the caller. Interpolated **twice** (prefix and suffix
+            branches), so it **must not contain named capturing groups** or
+            rely on numbered-group indices — violations can fail during regex
+            compilation (duplicate group names) or silently shift indices.
+            Keep it group-free or use non-capturing ``(?:...)`` only.
         boundary: Boundary guard supplying the lookbehind/lookahead pair.
             Required — a missing guard would silently emit zero matches.
         lexicon_tokens: The currency lexicon (SYMBOL_TOKENS, WORD_TOKENS) or

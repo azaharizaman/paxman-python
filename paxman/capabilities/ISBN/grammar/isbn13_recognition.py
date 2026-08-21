@@ -1,9 +1,10 @@
 """ISBN-13 recognition grammar (staged pipeline).
 
-Recognizes 13-digit ISBNs with optional label and separators. The trailing
-separator guard is supplied by BoundaryGuard.isbn_trail() (ADR-0008 D5) so no
-hard-coded lookaround literal remains in this file. The hyphen/space tolerance
-is regex-native (the lookahead extracts the digit run via a backreference).
+Recognizes 13-digit ISBNs with optional label and separators. The hyphen/space
+tolerance is regex-native (the lookahead extracts the digit run via a
+backreference). The trailing word boundary ``\\b`` handles the right edge; no
+additional trailing guard is needed (the previous ``isbn_trail`` lookbehind was
+inert after the final digit).
 """
 
 from __future__ import annotations
@@ -11,11 +12,10 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.ISBN.notation import ISBNNotation
-from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
+from paxman.core.grammar import PipelineGrammar, RegexStage, StandardPre
 
 _ISBN13_BODY = r"\b(?:ISBN(?:-13)?[\s:-]+)?(?=((?:\d[ -]?){12}\d)(?![\d]))\1"
-_GUARD = BoundaryGuard.isbn_trail()
-_ISBN13_PATTERN = _ISBN13_BODY + _GUARD.lookbehind + r"\b"
+_ISBN13_PATTERN = _ISBN13_BODY + r"\b"
 
 
 def _isbn13_notation(match: re.Match[str]) -> ISBNNotation:
