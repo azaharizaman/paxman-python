@@ -35,7 +35,7 @@ class Section4CheckDigit(Rule[ISSNNotation]):
     def matches(self, notation: ISSNNotation, contract: Contract) -> bool:
         if len(notation.digits) != 8:
             return False
-        if not notation.digits[:7].isdigit():
+        if not notation.digits[:7].isascii() or not notation.digits[:7].isdigit():
             return False
         last = notation.digits[7].upper()
         if last not in "0123456789X":

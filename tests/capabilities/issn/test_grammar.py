@@ -95,21 +95,16 @@ class TestISSNRecognitionGrammar:
 
     def test_digit_glued_rejects(self) -> None:
         grammar = ISSNRecognitionGrammar()
-        # 9-digit run must not yield an inner 8-char ISSN — blocked by isbn10_lead
+        # 9-digit run must not yield an inner 8-char ISSN
         assert grammar.recognize("912345679") == []
-        # trailing \b blocks digit run glued to following letter
+        # trailing letter glued without word boundary
         assert grammar.recognize("1234-5679a") == []
-        # letter-preceded without word boundary still yields inner match at 1
-        results = grammar.recognize("a0317-8471")
-        assert len(results) == 1
-        assert results[0].raw_text == "0317-8471"
-        assert results[0].start == 1
+        # letter-preceded must be rejected via word boundary
+        assert grammar.recognize("a0317-8471") == []
 
     def test_multiple_spans(self) -> None:
         grammar = ISSNRecognitionGrammar()
-        # Single space between two ISSNs is blocked by isbn10_lead (?<!\d[ -])
-        # so second is not found; use double space to get two distinct spans.
-        text = "0317-8471  0378-5955"
+        text = "0317-8471 0378-5955"
         results = grammar.recognize(text)
         assert len(results) == 2
         assert results[0].start < results[1].start

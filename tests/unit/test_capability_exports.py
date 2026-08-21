@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
-
 import pytest
 
 import paxman.capabilities as _capabilities
@@ -20,17 +18,7 @@ from paxman.capabilities import (
     SIUnit,
 )
 
-try:
-    _issn_obj = _capabilities.ISSN  # type: ignore[attr-defined]
-    if hasattr(_issn_obj, "__path__"):
-        _mod, _attr = _capabilities._LAZY["ISSN"]  # type: ignore[attr-defined]
-        ISSN = getattr(importlib.import_module(_mod), _attr)  # type: ignore[no-redef]
-    else:
-        ISSN = _issn_obj  # type: ignore[no-redef]
-except Exception:
-    from paxman.capabilities.ISSN.capability import (
-        ISSNCapability as ISSN,  # type: ignore[no-redef,import-not-at-top]  # noqa: N814
-    )
+ISSN = _capabilities.ISSN  # type: ignore[attr-defined]
 
 
 class TestCapabilityExports:

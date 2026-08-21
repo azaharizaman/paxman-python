@@ -33,8 +33,8 @@ class TestSection4CheckDigit:
         # 1050-124X is valid; grammar folds x->X but rule must accept X
         notation = ISSNNotation(digits="1050124X")
         assert self.rule.matches(notation, self.contract) is True
-        # Direct lowercase in notation (defensive): upper-casing in
-        # matches should handle but normalized storage is upper.
+        lowercase_notation = ISSNNotation(digits="1050124x")
+        assert self.rule.matches(lowercase_notation, self.contract) is True
 
     def test_check_digit_invalid(self) -> None:
         """Invalid check digit or charset fails."""

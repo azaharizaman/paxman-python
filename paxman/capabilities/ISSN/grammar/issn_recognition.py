@@ -9,7 +9,7 @@ from paxman.core.grammar.stages import RegexStage, StandardPre
 
 _ISSN_BODY = r"(?:ISSN(?:-L|-H)?[\s:-]*)?(?P<body>\d{4}-?\d{3}[0-9Xx])"
 _ISSN_PATTERN: str = (
-    BoundaryGuard.digit().lookbehind
+    BoundaryGuard.word_only().lookbehind
     + _ISSN_BODY
     + BoundaryGuard.digit().lookahead
     + r"\b"
