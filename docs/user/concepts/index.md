@@ -1,6 +1,6 @@
 # Concepts — Overview
 
-If you understand the six ideas below, you understand Paxman. This page is the hub — start here, then dive into whichever concept you need.
+If you understand the seven ideas below, you understand Paxman. This page is the hub — start here, then dive into whichever concept you need.
 
 ---
 
@@ -35,7 +35,7 @@ You provide **text + a contract** that selects a **capability**. Paxman runs its
 
 ---
 
-## The six concepts
+## The seven concepts
 
 | Concept | One-line summary | When you need it |
 |---------|-----------------|------------------|
@@ -45,9 +45,7 @@ You provide **text + a contract** that selects a **capability**. Paxman runs its
 | [Execution Result](execution-result.md) | The object you get back: `status`, `canonicalized_value`, `candidates`, `span`, `version_stamp`. | Reading answers in code or a notebook |
 | [Provenance](provenance.md) | The authority citation attached to every validated value — which spec, which version, which section. | Auditing, citing sources, comparing Paxman against another system |
 | [Candidates & Ambiguity](candidates-and-ambiguity.md) | Why one input can produce multiple valid answers and how Paxman surfaces that without guessing. | Handling `AMBIGUOUS` in your application |
-| [Errors](errors.md) | What raises an exception (misuse) vs what returns a status (domain answer). | Debugging setup and contract mistakes |
-
-A seventh page, [Errors](errors.md), covers the exception side — keep it bookmarked, but you will rarely need it once registration and contracts are correct.
+| [Errors](errors.md) | What raises an exception (setup, caller misuse, or pipeline failure) vs what returns a status (domain answer). | Debugging setup and contract mistakes |
 
 ---
 

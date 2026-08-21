@@ -1,6 +1,6 @@
 # Errors
 
-Paxman uses two different signals for "something went wrong": **statuses** for domain answers and **exceptions** for misuse. Knowing which is which keeps your code and notebooks simple.
+Paxman uses two different signals for "something went wrong": **statuses** for domain answers and **exceptions** for setup, caller misuse, and pipeline failures. Knowing which is which keeps your code and notebooks simple.
 
 ---
 
@@ -9,16 +9,25 @@ Paxman uses two different signals for "something went wrong": **statuses** for d
 ```mermaid
 flowchart TB
     A[You call canonicalize] --> Q{Is the setup<br>valid?}
-    Q -->|contract malformed<br>or registry frozen<br>or grammar failed| E[Exception raised]
+    Q -->|contract malformed<br>or register after freeze| E1[Setup error<br>ContractError / CapabilityError]
     Q -->|setup OK| P[Pipeline runs]
-    P --> S[ExecutionResult<br>status is MISSING<br>INVALID / SUCCESS<br>or AMBIGUOUS]
+    P --> R{Did pipeline<br>fail internally?}
+    R -->|grammar/rule raised| E2[Pipeline failure<br>RecognitionError / ValidationError]
+    R -->|ok| S[ExecutionResult<br>status is MISSING<br>INVALID / SUCCESS<br>or AMBIGUOUS]
+    S --> M{Multiple mentions<br>with different values?}
+    M -->|yes| E3[Caller misuse<br>MultipleMentionsError]
+    M -->|no| OK[Return ExecutionResult]
 
-    style E fill:#fff5f5,stroke:#cc3333
+    style E1 fill:#fff5f5,stroke:#cc3333
+    style E2 fill:#fff8e1,stroke:#d4a017
+    style E3 fill:#fff5f5,stroke:#cc3333
     style S fill:#f0fff0,stroke:#2d8a4e
 ```
 
 - A **status** (`MISSING`, `INVALID`, `AMBIGUOUS`, `SUCCESS`) is a normal domain answer. It means the pipeline ran, considered the input, and has a well-defined conclusion — even when that conclusion is "there is no valid answer." Handle it by branching on `result.status`.
-- An **exception** means the call was not valid in the first place — a contract was malformed, the registry was frozen, or an internal grammar/rule failed unexpectedly. These are not values to canonicalize; they are programming or setup errors to fix.
+- A **setup or caller-misuse exception** (`ContractError`, `CapabilityError` on late registration, `MultipleMentionsError` for unsegmented input) means the call was not valid in the first place. A frozen registry is **valid** for ordinary `canonicalize()` calls — it only raises `CapabilityError` if you try to register after freezing.
+- A **pipeline-failure exception** (`RecognitionError`, `ValidationError`) means a grammar or rule failed unexpectedly. These are distinct from statuses and signal a bug to report, not a domain answer.
+- `MultipleMentionsError` is raised **after** the pipeline inspected the input and found two non-overlapping mentions with different values — it is a deliberate fail-fast for unsegmented input, not a case where Paxman could not inspect the input.
 
 Rule of thumb: **check `status` in normal code; catch exceptions only around setup and at the outer boundary of a batch.**
 
@@ -106,7 +115,7 @@ except (RecognitionError, ValidationError) as e:
 
 ## In plain language
 
-Statuses are the library saying *I looked, and here is what the specs say* — even when the answer is "nothing there" or "two specs disagree." Exceptions are the library saying *I could not even look — the request was not valid* (wrong setup, wrong contract, or two different things crammed into one slot). Handle statuses in your normal flow; handle exceptions as setup/bug signals.
+Statuses are the library saying *I looked, and here is what the specs say* — even when the answer is "nothing there" or "two specs disagree." Exceptions are the library saying *the request was not valid* (wrong setup or contract), *a pipeline step failed* (grammar/rule bug), or *you gave me two different things in one slot* (unsegmented input inspected before failing). Handle statuses in your normal flow; handle exceptions as setup/misuse/bug signals.
 
 ---
 

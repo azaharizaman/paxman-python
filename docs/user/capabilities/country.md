@@ -99,6 +99,7 @@ flowchart TB
 import paxman
 from paxman.capabilities import Country
 from paxman.core.domain import Resolution
+from paxman.core.errors import CapabilityError, ContractError, MultipleMentionsError
 
 paxman.register_all_shipped()
 contract = Country.create_contract(include_localized=True)
@@ -110,8 +111,8 @@ for text in rows:
     for label, c in [("default+localized", contract), ("+historical", contract_hist)]:
         try:
             r = paxman.canonicalize(text, c)
-        except Exception as e:
-            print(f"{text!r:20} [{label}] → exception {type(e).__name__}")
+        except (MultipleMentionsError, CapabilityError, ContractError) as e:
+            print(f"{text!r:20} [{label}] → exception {type(e).__name__}: {e}")
             continue
         val = r.canonicalized_value if r.status == Resolution.SUCCESS else "—"
         prov = r.candidates[0].provenance[0].specification_name if r.candidates else "—"

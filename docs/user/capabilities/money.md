@@ -35,7 +35,7 @@ from paxman.capabilities import Money
 import paxman
 
 paxman.register_all_shipped()
-Money.create_contract().canonicalized_value                # not a thing — use result.canonicalized_value
+# Money.create_contract() is a contract — use paxman.canonicalize() to get a result
 paxman.canonicalize("USD500", Money.create_contract()).canonicalized_value                           # "USD 500.00"
 paxman.canonicalize("USD500", Money.create_contract(output_format="compact")).canonicalized_value    # "USD500.00"
 paxman.canonicalize("1.000,50 EUR", Money.create_contract()).canonicalized_value                    # "EUR 1000.50"
@@ -60,7 +60,9 @@ contract = Money.create_contract(
 
 ```python
 paxman.canonicalize("$500", Money.create_contract()).status.value                               # "invalid"
-paxman.canonicalize("$500", Money.create_contract(dollar_sign_currency="MYR")).canonicalized_value  # "MYR 500.00"
+paxman.canonicalize("$500", Money.create_contract(dollar_sign_currency="USD")).canonicalized_value  # "USD 500.00"
+# MYR is not a "$" candidate (its CLDR symbol is "RM"), so it stays INVALID even when requested
+paxman.canonicalize("$500", Money.create_contract(dollar_sign_currency="MYR")).status.value   # "invalid"
 paxman.canonicalize("USD 1.999", Money.create_contract(precision="strict")).status.value       # "invalid" — too many decimals for USD
 paxman.canonicalize("USD 1.999", Money.create_contract(precision="round")).canonicalized_value # "USD 2.00"
 ```
@@ -103,6 +105,7 @@ flowchart TB
 import paxman
 from paxman.capabilities import Money
 from paxman.core.domain import Resolution
+from paxman.core.errors import CapabilityError, ContractError, MultipleMentionsError
 
 paxman.register_all_shipped()
 c_strict = Money.create_contract()
@@ -113,7 +116,11 @@ rows = ["USD500", "€500", "$500", "1.000,50 EUR", "USD 1.999", "hello"]
 
 for text in rows:
     for label, c in [("strict", c_strict), ("USD bare-$", c_usd), ("round", c_round)]:
-        r = paxman.canonicalize(text, c)
+        try:
+            r = paxman.canonicalize(text, c)
+        except (MultipleMentionsError, CapabilityError, ContractError) as e:
+            print(f"{text!r:15} [{label:10}] → exception {type(e).__name__}: {e}")
+            continue
         val = r.canonicalized_value if r.status == Resolution.SUCCESS else "—"
         print(f"{text!r:15} [{label:10}] → {r.status.value:10} {val!r}")
 ```

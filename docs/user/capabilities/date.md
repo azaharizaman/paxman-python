@@ -75,7 +75,7 @@ flowchart TB
     A --> G2[US grammar]
     A --> G3[European grammar]
     A --> G4[Slash-ISO grammar]
-    G1 & G2 & G3 & G4 --> R[Rules:<br>ISO 8601 / US federal / EN 50160]
+    G1 & G2 & G3 & G4 --> R[Rules:<br>Section 4.3.1-calendar-date<br>Section 1-date-format<br>Section 4-date-format]
     R -->|one value| OK[SUCCESS]
     R -->|US vs EU| AMB[AMBIGUOUS]
     R -->|none| INV[INVALID]
@@ -114,7 +114,7 @@ for text in rows:
 
 ## Provenance
 
-Validated values cite the calendar spec whose rule accepted the notation — e.g. ISO 8601, US federal rules, or EN 50160, with section citation on `candidate.validation_rule` and `publication_year` on `candidate.provenance[0]`.
+Validated values cite the calendar spec whose rule accepted the notation — e.g. ISO 8601 (`Section 4.3.1-calendar-date`), US federal rules (`Section 1-date-format`), or CENELEC EN 50160 (`Section 4-date-format`), with section citation on `candidate.validation_rule` and `publication_year` on `candidate.provenance[0]`.
 
 ```python
 for c in result.candidates:

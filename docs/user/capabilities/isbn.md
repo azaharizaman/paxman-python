@@ -10,7 +10,7 @@ Canonicalizes **one ISBN identifier** per call with check-digit validation, conv
 
 | Recognizes | Does not recognize |
 |------------|--------------------|
-| ISBN-13 bare digits (`9780306406157`, with or without `978`/`979` prefix) | ISBNs with wrong check digits — recognized but `INVALID` |
+| ISBN-13 bare digits with `978` or `979` prefix (`9780306406157`) | ISBNs with wrong check digits — recognized but `INVALID` |
 | ISBN-10 (`0306406152`) — only when `include_isbn10=True` (the default) | ISBN-10 when `include_isbn10=False` → `MISSING` |
 | Hyphenated input is normalized regardless of input hyphens — output hyphens are via `output_format` | Informal variants or partial numbers — `MISSING` |
 
@@ -51,7 +51,7 @@ contract = ISBN.create_contract(
 ```
 
 - With `include_isbn10=False`, only the `isbn13_recognition` grammar runs — ISBN-10 input is `MISSING` (never seen), not `INVALID`.
-- With `include_range_validation=True`, an additional rule from the ISBN Range Message validates the registrant range and adds provenance. It does not change the canonical digits, only whether registrant-range provenance appears.
+- `output_format="hyphenated"` controls hyphenation (uses the Range Message longest-match table) and works regardless of `include_range_validation`. `include_range_validation=True` separately enables the Range Message registrant-range rule that adds provenance — it does not change the canonical digits, and hyphenation does not by itself add that provenance.
 
 ---
 
@@ -70,9 +70,11 @@ contract = ISBN.create_contract(
 flowchart TB
     A[Text] --> G1[isbn13_recognition<br>always]
     A --> G2[isbn10_recognition<br>only if include_isbn10]
-    G1 & G2 --> R{Rules: ISO 2108 /<br>ISBN Users' Manual /<br>Range Message + check digits}
-    R -->|one value| OK[SUCCESS<br>bare or hyphenated]
+    G1 & G2 --> R{Rules: ISO 2108 +<br>ISBN Users' Manual<br>unconditional}
+    R --> R2{Range Message<br>only if include_range_validation}
+    R2 -->|one value| OK[SUCCESS<br>bare or hyphenated]
     R -->|bad check| INV[INVALID]
+    R2 -->|bad check| INV
     G1 & G2 -->|nothing matched| MISS[MISSING]
 
     style OK fill:#e6ffed,stroke:#2d8a4e

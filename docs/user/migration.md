@@ -19,9 +19,11 @@ flowchart LR
 
 | Version bump | Meaning for your code | Example |
 |--------------|----------------------|---------|
-| **PATCH** (`0.0.X`) | No action. Bug fixes, spec-data corrections, docs. Canonical output does not change for valid inputs. | `0.1.0` → `0.1.1` |
-| **MINOR** (`0.X.0`) | Adopt at your pace. New capabilities and new contract flags appear; existing calls keep returning the same values for the same inputs (frozen probes guard this). | `0.1.x` → `0.2.0` adds new capabilities |
-| **MAJOR** (`X.0.0`) | Read the release notes. Contract names, flag semantics, or canonical forms may change. | `0.x` → `1.0.0` |
+| **PATCH** (`0.0.X`) | Contract compatibility preserved. Docs and internal fixes; authority data corrections may change recognition, status, or `canonicalized_value` when specs evolve — re-run golden samples even on PATCH. | `0.1.0` → `0.1.1` may update CLDR/IDNA tables |
+| **MINOR** (`0.X.0`) | Contract compatibility preserved (existing contracts still validate). Data-driven results may change when authority tables grow — pin `paxman` version and use `contract.year` (filters `publication_year <= year`) where point-in-time reproducibility matters, store `version_stamp`, and re-run golden samples. | `0.1.x` → `0.2.0` adds capabilities and data |
+| **MAJOR** (`X.0.0`) | Breaking contract or flag semantics. Read the release notes — names, defaults, or canonical forms may change. | `0.x` → `1.0.0` |
+
+Contract compatibility (which contracts are accepted) is stable across PATCH and MINOR; result stability (which `status`/`canonicalized_value` you get) depends on data and is not promised when spec tables change. `year` filters rules by `publication_year <= year`; only `pinned_rules` and `excluded_rules` identify rules. Provenance and spec-version changes alone do not imply a MAJOR bump.
 
 Determinism is per-installed-build: the `version_stamp.paxman_version` on every `ExecutionResult` records exactly which build produced the answer, so you can audit what changed across an upgrade.
 
@@ -77,7 +79,7 @@ flowchart TB
 ```
 
 1. **Read the release notes** — skim new capabilities, new contract flags, and any new `output_format` values. Decide whether a new capability belongs in your registration.
-2. **Review contracts** — new optional flags default to shipped-preserving values, but verify that your `pinned_rules` / `excluded_rules` / `year` still name existing rules (a stale pinned name raises `ContractError`).
+2. **Review contracts** — new optional flags default to shipped-preserving values. Verify that rule names in `pinned_rules` and `excluded_rules` still exist (a stale name raises `ContractError`), and separately confirm that `year` (filters `publication_year <= year`) still expresses the temporal window you intend — `year` is not a rule name.
 3. **Pin output if it matters** — if your downstream expects a specific rendering (e.g. `Phone` `rfc3966`), construct the contract with `output_format="rfc3966"` rather than relying on the current default.
 4. **Re-run your golden samples** — keep a small file of `(text, contract) → canonicalized_value` samples for the capabilities you use, assert them in CI, and compare after the upgrade. Determinism means a change is intentional, not noise.
 5. **Log or store `version_stamp`** — for audit trails, persist `result.version_stamp.paxman_version` alongside `canonicalized_value` so you can explain which build produced which answer.

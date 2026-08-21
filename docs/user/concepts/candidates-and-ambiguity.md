@@ -22,8 +22,8 @@ Candidates are deduplicated by `(value, recognition_rule, validation_rule)`. If 
 flowchart TB
     M[One mention<br>'01/02/2026'] --> G1[ISO/US grammar]
     M --> G2[European grammar]
-    G1 --> R1[Rule: US federal calendar]
-    G2 --> R2[Rule: EN 50160 calendar]
+    G1 --> R1[Rule: Section 1-date-format<br>US federal]
+    G2 --> R2[Rule: Section 4-date-format<br>CENELEC EN 50160]
     R1 --> C1[Candidate<br>2026-01-02<br>provenance: US spec]
     R2 --> C2[Candidate<br>2026-02-01<br>provenance: EN 50160]
 
@@ -109,7 +109,7 @@ if result.status == Resolution.AMBIGUOUS:
 
 Output:
 
-```
+```text
   '2026-01-02' via Section X ... (Authority A: Spec A) span=(0, 10)
   '2026-02-01' via Section Y ... (Authority B: Spec B) span=(0, 10)
 ```

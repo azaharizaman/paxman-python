@@ -92,7 +92,7 @@ print(result.span)                 # (8, 24)
 print("Contact user@Example.com for info"[8:24])  # "user@Example.com"
 ```
 
-- On `SUCCESS`, `result.span` is the span of the single resolved value, and each `candidate.span` matches it.
+- On `SUCCESS`, `result.span` is the resolved span selected for the single canonical value — inspect each `candidate.span` when you need all evidence locations.
 - On `MISSING`, `INVALID`, and `AMBIGUOUS`, `result.span` is `None` — there is no single resolved mention to point to. For `AMBIGUOUS`, locate each competing mention via `candidate.span` on the individual candidates.
 
 This makes highlighting in UIs, logging, and downstream span-aware processing straightforward.

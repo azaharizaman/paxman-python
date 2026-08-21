@@ -133,8 +133,15 @@ Place all `register_*` calls in your application startup or notebook setup cell,
 A community grammar runs **only** when named in `contract.extra_grammars`. A community rule runs **only** when the contract's `extra_grammars` resolve to one of its `target_semantics`. This keeps shipped behavior deterministic per contract — an unaware contract never sees community logic, and an aware contract sees exactly what it opted into.
 
 ```python
-Date.create_contract().canonicalized_value                          # community dormant — shipped behavior
-Date.create_contract(extra_grammars=("dot_date_recognition",))      # opted in — dot dates participate
+import paxman
+
+# Dormant contract — dot dates not opted in, shipped behavior only
+paxman.canonicalize("2024-01-01", Date.create_contract()).canonicalized_value
+# "2024-01-01"
+
+# Opted-in contract — dot dates participate
+paxman.canonicalize("2024.01.01", Date.create_contract(extra_grammars=("dot_date_recognition",))).canonicalized_value
+# "2024-01-01"
 ```
 
 ### Unknown names are silent for grammars, fail-fast for rules

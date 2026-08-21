@@ -16,8 +16,8 @@ result = paxman.canonicalize("user@example.com", contract)
 
 for c in result.candidates:
     for p in c.provenance:
-        print(p.authority, p.specification_name, p.version, p.citation if hasattr(c, 'citation') else '')
-        # IETF  RFC 5322  2008
+        print(p.authority, p.specification_name, p.version, c.validation_rule)
+        # IETF  RFC 5322  2008  Section 3.4.1-addr-spec
 ```
 
 A `Provenance` object has six fields:
