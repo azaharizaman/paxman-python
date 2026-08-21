@@ -12,12 +12,16 @@ from __future__ import annotations
 import re
 
 from paxman.capabilities.Currency.notation import CurrencyNotation
-from paxman.core.grammar import PipelineGrammar, RegexStage, StandardPre
+from paxman.core.grammar import BoundaryGuard, PipelineGrammar, RegexStage, StandardPre
 
 
 def _code_notation(match: re.Match[str]) -> CurrencyNotation:
     """Fold the matched 3-letter code to uppercase at recognition."""
     return CurrencyNotation(text=match.group(0).upper(), shape="code")
+
+
+_GUARD = BoundaryGuard.word_sign()
+_CODE_PATTERN = _GUARD.lookbehind + r"[A-Za-z]{3}" + _GUARD.lookahead
 
 
 class CodeRecognition(PipelineGrammar[CurrencyNotation]):
@@ -41,6 +45,6 @@ class CodeRecognition(PipelineGrammar[CurrencyNotation]):
 
     pre = StandardPre[CurrencyNotation](empty_guard=True)
     regex = RegexStage(
-        pattern=r"(?<![\w\-+\u2212])(?P<code>[A-Za-z]{3})(?![\w\-+\u2212])",
+        pattern=_CODE_PATTERN,
         notation_fn=_code_notation,
     )

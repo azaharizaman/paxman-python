@@ -28,8 +28,13 @@ class PipelineGrammar(Grammar[NotationT]):
         state: PipelineState[NotationT] = PipelineState(
             text=text, matches=[], scratch={}
         )
+        # Pre short-circuit: if StandardPre emptied matches on whitespace-only
+        # input, skip remaining stages — they would find nothing anyway.
+        if self.pre is not None:
+            state = self.pre.run(state)
+            if not state.text.strip() and not state.matches:
+                return list(state.matches)
         for stage in (
-            self.pre,
             self.regex,
             self.lexicon,
             self.composer,
@@ -37,12 +42,4 @@ class PipelineGrammar(Grammar[NotationT]):
         ):
             if stage is not None:
                 state = stage.run(state)
-                # Pre short-circuit: if StandardPre emptied matches on whitespace-only
-                # input, skip remaining stages — they would find nothing anyway.
-                if (
-                    self.pre is not None
-                    and not state.text.strip()
-                    and not state.matches
-                ):
-                    break
         return list(state.matches)

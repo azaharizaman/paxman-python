@@ -913,3 +913,44 @@ def test_country_name_parity(
 ) -> None:
     """Byte-identical RecognitionMatch parity for migrated Country name grammar."""
     assert_grammar_parity(legacy, new, text)
+
+
+# NOTE: US/European date grammars merged two separate ``finditer`` loops
+# (4-digit then 2-digit year) into a single ``(\\d{4}|\\d{2})`` alternation.
+# Legacy ``recognize()`` returned matches grouped by year length
+# (all 4-digit first, then 2-digit), while the staged pipeline returns
+# document order. The engine sorts by ``start`` before dedup, so
+# end-to-end ``canonicalize()`` is identical; direct ``recognize()`` order
+# is now document-order. This test locks the new contract and proves the
+# sorted multiset is still parity-equivalent.
+
+
+def test_us_date_document_order() -> None:
+    """Staged US grammar emits document order; legacy grouped by year length."""
+    text = "01/02/26 foo 01/02/2026"
+    legacy = LegacyUSDateGrammar()
+    new = USDateGrammar()
+    legacy_matches = legacy.recognize(text)
+    new_matches = new.recognize(text)
+    # Staged is document order
+    assert [m.raw_text for m in new_matches] == ["01/02/26", "01/02/2026"]
+    # Legacy is grouped (4-digit first)
+    assert [m.raw_text for m in legacy_matches] == ["01/02/2026", "01/02/26"]
+    # Sorted by start they are equivalent
+    assert sorted(new_matches, key=lambda m: m.start) == sorted(
+        legacy_matches, key=lambda m: m.start
+    )
+
+
+def test_european_date_document_order() -> None:
+    """Staged European grammar emits document order; legacy grouped."""
+    text = "26/07/26 foo 26/07/2026"
+    legacy = LegacyEuropeanDateGrammar()
+    new = EuropeanDateGrammar()
+    legacy_matches = legacy.recognize(text)
+    new_matches = new.recognize(text)
+    assert [m.raw_text for m in new_matches] == ["26/07/26", "26/07/2026"]
+    assert [m.raw_text for m in legacy_matches] == ["26/07/2026", "26/07/26"]
+    assert sorted(new_matches, key=lambda m: m.start) == sorted(
+        legacy_matches, key=lambda m: m.start
+    )

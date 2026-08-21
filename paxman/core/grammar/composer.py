@@ -28,12 +28,6 @@ from paxman.core.grammar.stages import PipelineState
 
 NotationT = TypeVar("NotationT")
 
-# Default word_sign-style lookarounds, used only when no BoundaryGuard is
-# supplied (the composer then short-circuits in run(), so these are never
-# exercised — they exist solely to keep _compiled well-formed).
-_DEFAULT_LOOKBEHIND = r"(?<![\w\-+\u2212])"
-_DEFAULT_LOOKAHEAD = r"(?![\w\-+\u2212])"
-
 
 @dataclass(frozen=True, slots=True)
 class AmountComposer(Generic[NotationT]):
@@ -47,23 +41,24 @@ class AmountComposer(Generic[NotationT]):
     Attributes:
         pattern: The amount sub-pattern (e.g. ``AMOUNT_PATTERN``), supplied
             by the caller.
+        boundary: Boundary guard supplying the lookbehind/lookahead pair.
+            Required — a missing guard would silently emit zero matches.
         lexicon_tokens: The currency lexicon (SYMBOL_TOKENS, WORD_TOKENS) or
             ``None`` for the code case, where the alternation is the fixed
             ``[A-Z]{3}``.
         notation_fn: ``(lex, amount, amount_shape) -> Notation`` builder.
         classify: Amount-shape classifier (e.g. ``classify_amount_shape``).
-        boundary: Boundary guard supplying the lookbehind/lookahead pair.
         flags: ``re`` flags passed to ``re.compile`` (e.g. ``re.IGNORECASE``
             for the word case).
     """
 
     pattern: str
+    boundary: BoundaryGuard
     lexicon_tokens: list[str] | set[str] | frozenset[str] | tuple[str, ...] | None = (
         None
     )
     notation_fn: Callable[[str, str, str], NotationT] | None = None
     classify: Callable[[str], str] | None = None
-    boundary: BoundaryGuard | None = None
     flags: int = 0
 
     _compiled: re.Pattern[str] = field(init=False, repr=False)
@@ -75,14 +70,8 @@ class AmountComposer(Generic[NotationT]):
             alt = LexiconAlternation(
                 tokens=self.lexicon_tokens, longest_first=True
             ).alternation
-        lookbehind = (
-            self.boundary.lookbehind
-            if self.boundary is not None
-            else _DEFAULT_LOOKBEHIND
-        )
-        lookahead = (
-            self.boundary.lookahead if self.boundary is not None else _DEFAULT_LOOKAHEAD
-        )
+        lookbehind = self.boundary.lookbehind
+        lookahead = self.boundary.lookahead
         fused = (
             rf"{lookbehind}"
             rf"(?:(?P<prefix_lex>{alt}) ?(?P<prefix_amt>{self.pattern})"
@@ -92,7 +81,7 @@ class AmountComposer(Generic[NotationT]):
         object.__setattr__(self, "_compiled", re.compile(fused, self.flags))
 
     def run(self, state: PipelineState[NotationT]) -> PipelineState[NotationT]:
-        if self.notation_fn is None or self.classify is None or self.boundary is None:
+        if self.notation_fn is None or self.classify is None:
             return state
         new_matches: list[RecognitionMatch[NotationT]] = list(state.matches)
         for m in self._compiled.finditer(state.text):

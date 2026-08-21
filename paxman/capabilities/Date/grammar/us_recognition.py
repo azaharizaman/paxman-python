@@ -4,6 +4,16 @@ Recognizes MM/DD/YYYY and MM/DD/YY formats. The 4-digit and 2-digit year
 variants are merged into one year-length alternation; the digit lookarounds
 (via BoundaryGuard.digit()) keep the pattern disjoint from surrounding
 digits. Notation mapping: N1=month, N2=day, N3=year.
+
+Note: The legacy bespoke ``recognize()`` ran two separate ``finditer`` loops
+(4-digit year first, then 2-digit), so grouped matches by year length rather
+than document order (e.g. ``"01/02/26 foo 01/02/2026"`` yielded
+``[01/02/2026, 01/02/26]``). The staged ``(\\d{4}|\\d{2})`` alternation uses a
+single ``finditer`` in document order (``[01/02/26, 01/02/2026]``). The engine
+(``paxman/engine/orchestrator.py``) sorts by ``start`` before dedup, so
+end-to-end ``canonicalize()`` results are identical; direct ``recognize()``
+order is now document-order. See ADR-0008 D1 and harness note in
+``tests/property/test_grammar_stage_parity.py``.
 """
 
 from __future__ import annotations

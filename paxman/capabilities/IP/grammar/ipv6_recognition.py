@@ -28,9 +28,10 @@ _IPV6_COMPRESSED_INNER = (
     r"|"
     r"::"
 )
-# One outer capture group so the address is always group(1), mirroring the
+# One outer capture group so the address is always group("addr"), mirroring the
 # legacy recognize() (FULL used group(1), COMPRESSED used group(0) == address).
-_IPV6_BODY = r"(" + _IPV6_FULL_INNER + r"|" + _IPV6_COMPRESSED_INNER + r")"
+# Using a named group prevents future inner captures from shifting the index.
+_IPV6_BODY = r"(?P<addr>" + _IPV6_FULL_INNER + r"|" + _IPV6_COMPRESSED_INNER + r")"
 
 _GUARD = BoundaryGuard.ipv6_token()
 _IPV6_PATTERN = _GUARD.lookbehind + _IPV6_BODY + _GUARD.lookahead
@@ -38,7 +39,7 @@ _IPV6_PATTERN = _GUARD.lookbehind + _IPV6_BODY + _GUARD.lookahead
 
 def _ipv6_notation(match: re.Match[str]) -> IPNotation:
     """Map an IPv6 match to its address notation (the outer capture group)."""
-    return IPNotation(address=match.group(1))
+    return IPNotation(address=match.group("addr"))
 
 
 class IPv6Grammar(PipelineGrammar[IPNotation]):

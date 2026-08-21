@@ -84,6 +84,12 @@ class BoundaryGuard:
     @classmethod
     def ipv6_token(cls) -> BoundaryGuard:
         # Token boundary for IPv6: start/end of string or a delimiter class.
+        # NOTE: Unlike the other guards, this is a *consuming* anchor pair
+        # (``(?:^|(?<=...))`` / ``(?:$|(?=...))``) rather than a zero-width
+        # lookaround. It cannot be used interchangeably with
+        # LexiconStage.wrap's lookaround mental model; it is a token
+        # delimiter for RegexStage only. Parity-proven against the legacy
+        # ``(?:^|(?<=[\\s,;([ ]))`` / ``(?:$|(?=[\\s,;().\\]]))`` idiom.
         return cls(
             lookbehind=r"(?:^|(?<=[\s,;([ ]))",
             lookahead=r"(?:$|(?=[\s,;().\]]))",
