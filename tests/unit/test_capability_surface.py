@@ -41,6 +41,9 @@ from paxman.capabilities.IP.notation import IPNotation
 from paxman.capabilities.ISBN.capability import ISBNCapability
 from paxman.capabilities.ISBN.contract import ISBNContract
 from paxman.capabilities.ISBN.notation import ISBNNotation
+from paxman.capabilities.ISSN.capability import ISSNCapability
+from paxman.capabilities.ISSN.contract import ISSNContract
+from paxman.capabilities.ISSN.notation import ISSNNotation
 from paxman.capabilities.Money.capability import MoneyCapability
 from paxman.capabilities.Money.contract import MoneyContract
 from paxman.capabilities.Money.notation import MoneyNotation
@@ -106,6 +109,12 @@ _CAPABILITY_SURFACES = [
         MoneyContract,
         "code_amount",
         id="money",
+    ),
+    pytest.param(
+        ISSNCapability,
+        ISSNContract,
+        "hyphenated",
+        id="issn",
     ),
     pytest.param(
         PhoneCapability,
@@ -271,12 +280,20 @@ class TestContractHomogeneity:
         registered capability from silently narrowing the homogeneity
         mandate (ISBN slipped through PR #12 this way).
         """
+        import importlib
+
         import paxman.capabilities as capabilities
 
         surface_names = {param.values[0].name for param in _CAPABILITY_SURFACES}
-        exported_names = {
-            getattr(capabilities, name).name for name in capabilities.__all__
-        }
+        exported_names = set()
+        for name in capabilities.__all__:
+            obj = getattr(capabilities, name)
+            # If the package was already imported as a submodule, getattr
+            # returns the package, not the lazy class. Resolve via _LAZY.
+            if hasattr(obj, "__path__"):
+                mod_name, attr = capabilities._LAZY[name]
+                obj = getattr(importlib.import_module(mod_name), attr)
+            exported_names.add(obj.name)  # type: ignore[attr-defined]
         assert surface_names == exported_names
 
 
@@ -329,6 +346,13 @@ _FORMAT_SURFACES = [
         "9780306406157",
         ISBNNotation(shape="isbn13", digits="9780306406157"),
         id="isbn",
+    ),
+    pytest.param(
+        ISSNCapability,
+        ISSNContract,
+        "0317-8471",
+        ISSNNotation(digits="03178471"),
+        id="issn",
     ),
     pytest.param(
         MoneyCapability,
@@ -391,6 +415,14 @@ _FORMATTED_EXPECTATIONS = [
         ISBNNotation(shape="isbn13", digits="9780306406157"),
         {"hyphenated": "978-0-306-40615-7"},
         id="isbn",
+    ),
+    pytest.param(
+        ISSNCapability,
+        ISSNContract,
+        "0317-8471",
+        ISSNNotation(digits="03178471"),
+        {"compact": "03178471", "urn": "urn:issn:0317-8471"},
+        id="issn",
     ),
     pytest.param(
         MoneyCapability,

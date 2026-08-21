@@ -1,0 +1,1 @@
+"""ISSN validation rules."""

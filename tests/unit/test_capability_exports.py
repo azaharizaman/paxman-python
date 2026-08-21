@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+import paxman.capabilities as _capabilities
 from paxman.capabilities import (
     IP,
     ISBN,
@@ -16,6 +17,8 @@ from paxman.capabilities import (
     Phone,
     SIUnit,
 )
+
+ISSN = _capabilities.ISSN  # type: ignore[attr-defined]
 
 
 class TestCapabilityExports:
@@ -90,6 +93,18 @@ class TestISBNCapabilityExports:
         assert ISBN.name == "isbn"
 
 
+class TestISSNCapabilityExports:
+    @pytest.mark.unit
+    def test_issn_capability_importable(self) -> None:
+        """ISSN capability is importable from paxman.capabilities."""
+        assert ISSN is not None
+
+    @pytest.mark.unit
+    def test_issn_capability_name(self) -> None:
+        """ISSN capability has correct name."""
+        assert ISSN.name == "issn"
+
+
 class TestIPCapabilityExports:
     @pytest.mark.unit
     def test_ip_capability_importable(self) -> None:
@@ -139,7 +154,7 @@ class TestURLCapabilityExports:
 
     @pytest.mark.unit
     def test_export_list_contains_ten_names(self) -> None:
-        """The registration surface exports exactly ten capabilities."""
+        """The registration surface exports exactly eleven capabilities."""
         import paxman.capabilities as capabilities
 
         assert set(capabilities.__all__) == {
@@ -149,6 +164,7 @@ class TestURLCapabilityExports:
             "Email",
             "IP",
             "ISBN",
+            "ISSN",
             "Money",
             "Phone",
             "SIUnit",

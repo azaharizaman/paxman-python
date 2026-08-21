@@ -1,0 +1,1 @@
+"""issn capability tests (scaffold)."""
