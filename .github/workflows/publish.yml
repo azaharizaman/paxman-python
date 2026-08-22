@@ -61,7 +61,7 @@ jobs:
           "
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@b9a412d6fe97c7e3b0db3ab2a18a097a374f3d5a # v4
+        uses: actions/upload-artifact@v4
         with:
           name: dist
           path: dist/
@@ -76,7 +76,7 @@ jobs:
       id-token: write
     steps:
       - name: Download distributions
-        uses: actions/download-artifact@8dd04b72b99d524359e2185adfa67c3a # v4
+        uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
