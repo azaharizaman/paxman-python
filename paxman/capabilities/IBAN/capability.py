@@ -5,11 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from paxman.capabilities.IBAN.contract import IBANContract
-from paxman.capabilities.IBAN.grammar.iban_recognition import (
-    IBANRecognition,
-)
+from paxman.capabilities.IBAN.grammar.iban_recognition import IBANRecognitionGrammar
 from paxman.capabilities.IBAN.notation import IBANNotation
-from paxman.capabilities.IBAN.rules.iso_ed2020 import IBANRule
+from paxman.capabilities.IBAN.rules.iso_13616_1_ed2020 import Section4IBANStructureMOD97
 from paxman.core.capability import Capability
 from paxman.core.domain import Grammar, Rule
 
@@ -25,11 +23,11 @@ class IBANCapability(Capability[IBANNotation]):
 
     def get_grammars(self) -> list[Grammar[IBANNotation]]:
         """Return the default grammar instances."""
-        return [IBANRecognition()]
+        return [IBANRecognitionGrammar()]
 
     def get_rules(self) -> list[Rule[IBANNotation]]:
         """Return the default validation rule instances."""
-        return [IBANRule()]
+        return [Section4IBANStructureMOD97()]
 
     @staticmethod
     def create_contract(
