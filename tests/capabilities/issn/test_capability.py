@@ -1,4 +1,4 @@
-"""ISSN capability wiring — ISSNCapability + format_value (Task 5)."""
+"""ISSN capability wiring — ISSNCapability + format_value."""
 
 import pytest
 

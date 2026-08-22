@@ -5,6 +5,8 @@
 **Evidence basis:** ISO catalogue pages (iso.org), ISSN International Centre (issn.org / portal.issn.org), IANA URN registration, ISSN Manual (May 2025), RFC 3044, and shipped Paxman capabilities (ISBN, Country, Phone, Date) as architectural precedents. Repo state: `feature/CURRENCY-capability` @ `7a4017c` — engine owns per-grammar containment dedup, total recognition ordering, and `Capability.format_value()` presentational seam.
 **Conventions grounding this report:** [HOW_TO_ADD_NEW_CAPABILITY.md](../../HOW_TO_ADD_NEW_CAPABILITY.md), [HOW_TO_ADD_NEW_GRAMMAR.md](../../HOW_TO_ADD_NEW_GRAMMAR.md), [ARCHITECTURE.md](../../ARCHITECTURE.md), and the ISBN research precedent [`docs/development/research/2026-08-05-isbn-canonicalization.md`](../research/2026-08-05-isbn-canonicalization.md).
 
+**Revision — 2026-08-22 (Oracle review `docs/development/research/2026-08-22-iban-canonicalization.md`):** Verification pass against shipped `paxman/capabilities/ISSN/grammar/issn_recognition.py:11-16`. **§4.2** corrected from `BoundaryGuard.isbn10_lead().lookbehind` to shipped `BoundaryGuard.word_only().lookbehind + BoundaryGuard.digit().lookahead + r"\b"` (see §4.2 and §4.4); this strengthens the report's earlier `word_only` recommendation per Oracle P2. **Appendix** confirmed no `IBAN`-label copy-paste typo (ISSN report unaffected; IBAN report Appendix line 822 typo `ISSN strips "IBAN" label` → `ISSN strips "ISSN" label` applies to the IBAN report only). Other IBAN-review P1s (registry Release 99 vs 100 URL mismatch, SC vector, 31-vs-32 max length, NO structure, Wikipedia misattribution, date/RA precisions) were audited and have **no analogue** in this ISSN report — ISSN provenance URLs/versions remain self-consistent and ISSN has fixed 8-char length.
+
 ---
 
 ## Executive Summary
@@ -149,9 +151,17 @@ from paxman.core.grammar.stages import RegexStage, StandardPre
 # Module-scope string pattern — compiled by RegexStage (never inside recognize())
 # Per paxman/capabilities/ISBN/grammar/isbn13_recognition.py:17 — ship as str, not re.compile().pattern
 _ISSN_BODY = r"(?:ISSN(?:-L|-H)?[\s:-]*)?(?P<body>\d{4}-?\d{3}[0-9Xx])"
-_ISSN_PATTERN = BoundaryGuard.isbn10_lead().lookbehind + _ISSN_BODY + BoundaryGuard.digit().lookahead
-# isbn10_lead = r"(?<!\d)(?<!\d[ -])" — blocks digit-glued and "1 12345679" glue;
-# trailing (?!\d) via BoundaryGuard.digit().lookahead blocks prefix of 9-digit runs.
+_ISSN_PATTERN: str = (
+    BoundaryGuard.word_only().lookbehind
+    + _ISSN_BODY
+    + BoundaryGuard.digit().lookahead
+    + r"\b"
+)
+# word_only = r"(?<!\w)" — blocks letter/digit/underscore-glued `a1234-5679` (stronger than
+# isbn10_lead `(?<!\d)(?<!\d[ -])` which only blocks digit-glued and "1 12345679" glue);
+# trailing (?!\d) via BoundaryGuard.digit().lookahead plus \b blocks prefix of 9-digit runs
+# (shipped `paxman/capabilities/ISSN/grammar/issn_recognition.py:11-16` — Oracle 2026-08-22
+# notes this strengthens the report's earlier word_only recommendation; cite shipped).
 # Note: hyphen tolerance is intentionally narrow here (`-?` at canonical position 4);
 # tolerant "1234 - 5679" / "1234 5679" are documented in §2.1 row 7 but normalized at a higher
 # layer or rejected as MISSING — see edge #4/§13#5 for the contradiction resolution.
@@ -176,7 +186,7 @@ class ISSNRecognitionGrammar(PipelineGrammar[ISSNNotation]):
 *Notes on fidelity vs ISBN:*
 - Ship as module-scope **string** pattern; `RegexStage` compiles in `paxman/core/grammar/stages.py:72` (mirrors ISBN's `_ISBN13_PATTERN = r"..."`). Do not double-compile via `re.compile(...).pattern`.
 - Strip in `notation_fn` via `join(... in "0123456789Xx")` + `.upper()` (ISBN-10 precedent `x→X`).
-- Leading `BoundaryGuard.isbn10_lead()` (`(?<!\d)(?<!\d[ -])`) blocks letter-glued `a1234-5679` and space-glued `1 12345679`; trailing `BoundaryGuard.digit().lookahead` (`(?!\d)`) keeps from claiming a prefix of `123456790` (9 digits). Solitary `(?<!\d)` alone would leak `a1234-5679`.
+- Leading `BoundaryGuard.word_only()` (`(?<!\w)`) blocks letter/digit/underscore-glued `a1234-5679` — strictly stronger than `isbn10_lead` (`(?<!\d)(?<!\d[ -])` which only blocks digit-glued and `"1 12345679"` glue) and matches shipped `issn_recognition.py:12`; trailing `BoundaryGuard.digit().lookahead` (`(?!\d)`) plus `\b` keeps from claiming a prefix of `123456790` (9 digits). Solitary `(?<!\d)` alone would leak `a1234-5679`.
 - **Hyphen scope:** `-?` at the canonical hyphen position only (narrow). Tolerant variants `1234 - 5679` / `1234 5679` (§2.1 row 7) are either pre-normalized via a `Pre` stage or treated as `MISSING` — the tolerant `[\s-]?` per digit (ISBN-style) is deliberately not used because ISSN's hyphen is fixed at position 4. Update edge #4 / §13#5 to match the chosen strictness.
 - Uses `PipelineGrammar` + `StandardPre` + `RegexStage` because that is the staged pipeline ISBN actually ships (HOW_TO_ADD_NEW_GRAMMAR.md's bare-`Grammar` recipe is the minimal teaching form; shipped grammars use `PipelineGrammar`).
 
@@ -196,7 +206,7 @@ The ISBN precedent fuses the optional `ISBN` label via `(?:ISBN...)?` into a sin
 
 ### 4.4 Guard boundaries against sibling grammars / ISBN
 
-ISSN vs ISBN length discrimination is the main sibling guard: ISSN `8` chars vs ISBN-10 `10` vs ISBN-13 `13` — no natural span equality. A trailing `(?![\d])` + `\b` keeps an ISSN from matching as a prefix of an ISBN-13 run (`1234567901234`). Prefix-aware ISBN detection (`ISBN` label) does not clash with `ISSN` label; case-insensitive `ISSN` vs `ISBN` substrings are distinct. For a 13-digit EAN run `9771234567000` (ISSN-as-EAN) an ISSN grammar must not claim an inner 8-char window — the `(?<!\d)` front guard blocks `97712345...` from yielding `7123-4567`.
+ISSN vs ISBN length discrimination is the main sibling guard: ISSN `8` chars vs ISBN-10 `10` vs ISBN-13 `13` — no natural span equality. A trailing `(?!\d)` + `\b` (via `BoundaryGuard.digit().lookahead` + `\b` as shipped) keeps an ISSN from matching as a prefix of an ISBN-13 run (`1234567901234`). Prefix-aware ISBN detection (`ISBN` label) does not clash with `ISSN` label; case-insensitive `ISSN` vs `ISBN` substrings are distinct. For a 13-digit EAN run `9771234567000` (ISSN-as-EAN) an ISSN grammar must not claim an inner 8-char window — the `(?<!\w)` front guard (`BoundaryGuard.word_only().lookbehind` as shipped) blocks `97712345...` from yielding `7123-4567`.
 
 Concrete engine check (`orchestrator:_dedup_spans`):
 ```python
@@ -611,6 +621,7 @@ This report's ISSN-specific authoritative evidence has been fetched and cited (2
 - [x] ISSN Register / portal provenance: `authority="ISSN International Centre"` `kind="registry"` `reference_url="https://portal.issn.org/"`; network 89 National Centres + CIEPS Paris.
 - [x] Wild input shapes validated (§2.1) against ISSN Manual / RFC 3044 / ISSN.org resolver / MARC 022/023 / validators (validatte, zotero, symfony, postgres) and adjusted grammar label pattern to `ISSN(?:-L|-H)?` + `urn:issn:` alternative.
 - [x] `urn:ISSN` scope decision (§4.2 / §8 edge 7 / §13 decision 2): `urn:issn` namespace case-insensitive, hyphen optional in NSS but SHOULD-be-included; prefix arguably belongs to URL's `absolute-uri` — fused regex or community `extra_grammars`; coalesced semantics viable.
+- [x] **2026-08-22 Oracle alignment:** Shipped `paxman/capabilities/ISSN/grammar/issn_recognition.py:11-16` verified to use `BoundaryGuard.word_only().lookbehind + BoundaryGuard.digit().lookahead + r"\b"` (not `isbn10_lead`). Report §4.2/§4.4 updated to match; `word_only` strengthens the earlier recommendation per Oracle P2. ISBN-vs-ISSN sibling-guard discussion updated to `(?<!\w)`. Appendix typo audit: ISSN report has no `IBAN`-label copy-paste error (that typo was in the IBAN report Appendix line 822 only). IBAN-review P1/P2 items (release 99-vs-100 URL/version mismatch, SC/NO/LC/NI vectors, Wikipedia misattribution, RA/year precisions) audited — no analogue in ISSN (fixed 8-char, ISO catalogue URLs version-pinned, provenance rows self-consistent).
 
 File Layout / Rule provenance in §5.2 / §11 / §12 frozen for implementation (pending scaffolder invocation per HOW_TO_ADD_NEW_CAPABILITY.md Step 0).
 

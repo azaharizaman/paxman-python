@@ -1,4 +1,4 @@
-"""Tests for ISSNContract — TDD Task 2."""
+"""Tests for ISSNContract."""
 
 import dataclasses
 

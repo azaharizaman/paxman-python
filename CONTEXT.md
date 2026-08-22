@@ -41,6 +41,7 @@ Capability-defined intermediate representation that Grammars must produce:
 - **Currency:** `CurrencyNotation(text, shape)` — `shape` is `"code"` / `"qualified_symbol"` / `"symbol"` / `"word"`; codes are grammar-folded to uppercase, words to lowercase, symbols keep exact casing
 - **Money:** `MoneyNotation(currency_part, amount_part, currency_shape, amount_shape)` — verbatim currency + amount tokens with grammar-assigned shape discriminators
 - **ISBN:** `ISBNNotation(shape, digits)` — `shape` is `"isbn10"` / `"isbn13"`, `digits` is the digit string (`X` only as final char of an isbn10 shape)
+- **ISSN:** `ISSNNotation(digits)` — `digits` is the 8-character hyphen/space-stripped, uppercased string (grammar folds `x`→`X`); single lexical shape, no discriminator
     - **SIUnit:** `SIUnitNotation(text, shape)` — `shape` is `"symbol"` / `"name"` / `"compound"` / `"split_word_prefix"` / `"split_symbol_prefix"`; `text` is the unit expression as written (symbols keep exact casing, names are grammar-folded to lowercase, compounds keep the written form)
 - **IP / Phone / URL:** capability-defined shapes for address / number / URI components
 
@@ -60,7 +61,7 @@ class EmailNotation:
 
 ## The Capabilities
 
-Paxman ships ten built-in capabilities, each wired to an authoritative specification:
+Paxman ships eleven built-in capabilities, each wired to an authoritative specification:
 
 | Capability | Domain | Authorities |
 |------------|--------|-------------|
@@ -70,6 +71,7 @@ Paxman ships ten built-in capabilities, each wired to an authoritative specifica
 | **Currency** | Currency identifiers | ISO 4217, CLDR |
 | **IP** | IP addresses | RFC 791, RFC 5952 |
 | **ISBN** | ISBNs | ISO 2108, ISBN Users' Manual, ISBN Range Message |
+| **ISSN** | Serial identifiers | ISO 3297:2022 |
 | **Money** | Money amounts | ISO 4217, CLDR |
 | **Phone** | Phone numbers | ITU-T E.164, RFC 3966, NANP |
 | **SI Unit** | SI unit expressions | BIPM SI Brochure, ISO 80000-1 |

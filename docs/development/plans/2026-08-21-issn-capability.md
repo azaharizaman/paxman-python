@@ -2,9 +2,11 @@
 
 > **For agentic workers: REQUIRED SUB-SKILL: `superpowers:writing-plans` workflow.** This is an implementation plan, not a design doc. Execute it task-by-task with `superpowers:executing-plans` or `superpowers:subagent-driven-development`, TDD-first (Red-Green-Refactor), with a commit after every task. Assume the engineer executing this plan has zero codebase context; every file change below is self-contained.
 
-**Design authority:** `docs/development/reports/2026-08-21-issn-canonicalization.md` — read it first if any section here seems ambiguous. It contains the full primary-source survey (ISO 3297:2022, RFC 3044, ISSN Manual 2025, IANA `urn:issn`, ecosystem validators, ISSN-L/H) that grounds every decision below.
+**Design authority:** `docs/development/research/2026-08-21-issn-canonicalization.md` (rev. 2026-08-22 Oracle alignment) — read it first if any section here seems ambiguous. It contains the full primary-source survey (ISO 3297:2022, RFC 3044, ISSN Manual 2025, IANA `urn:issn`, ecosystem validators, ISSN-L/H) that grounds every decision below. **2026-08-22 revision:** §4.2/§4.4 corrected from `isbn10_lead` to shipped `word_only().lookbehind + digit().lookahead + r"\b"` per Oracle P2 (`paxman/capabilities/ISSN/grammar/issn_recognition.py:11-16`).
 
-**Repo state:** branch `feature/CURRENCY-capability` @ `7a4017c` — engine owns per-grammar containment dedup and total order `(start, end, active_grammars index, grammar name)`, `Capability.format_value()` is the sole presentation seam, `CapabilityContract` resolves `output_format` via `resolve_output_format`. Ten shipped capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, SI Unit, URL). ISSN is greenfield.
+**2026-08-22 revision (plan-vs-memo Oracle audit fixes):** Behavioral Contract aligned with shipped behavior — mid-`X` inputs (`X234-5679`/`12X4-5679`) resolve `MISSING` end-to-end (the grammar's `\d{4}` guard filters them; rule-level `matches()` rejection is unreachable), the glued label `ISSN03178471` **matches** (`[\s:-]*` permits zero separators — documented, not rejected), exotic Unicode dashes are `MISSING` (hyphen-minus only, memo §13#7). Task 4 GREEN code now matches shipped `rules/iso_3297_ed2022.py:38` (`.isascii()` guard). README/CONTEXT tables updated with the ISSN row; checkboxes reflect the executed state.
+
+**Repo state:** branch `feature/CURRENCY-capability` @ `7a4017c` → `2026-08-22` shipped ISSN verified — engine owns per-grammar containment dedup and total order `(start, end, active_grammars index, grammar name)`, `Capability.format_value()` is the sole presentation seam, `CapabilityContract` resolves `output_format` via `resolve_output_format`. Ten shipped capabilities (Country, Currency, Date, Email, IP, ISBN, Money, Phone, SI Unit, URL) plus ISSN (greenfield → now shipped; this plan is the implementation record).
 
 ## Goal
 
@@ -27,7 +29,7 @@ ISSNNotation(digits: str)          # 8-char, hyphen-stripped, x→X
          │ grammar
 issn_recognition (PipelineGrammar)  # RegexStage, strict -? at position 4
                                     # optional ISSN(?:-L|-H)? label, re.IGNORECASE
-                                    # BoundaryGuard.isbn10_lead() + BoundaryGuard.digit()
+                                    # BoundaryGuard.word_only().lookbehind + BoundaryGuard.digit().lookahead + r"\b" (shipped)
          └──────────────┬────────────┘
                         ▼
          span-bearing RecognitionMatch[ISSNNotation]
@@ -56,10 +58,10 @@ issn_recognition (PipelineGrammar)  # RegexStage, strict -? at position 4
 | Ordering, dedup, status, `VersionStamp` | Engine (untouched) |
 | ISSN-L/H linking, Register issued-ness | Deferred — future `LOOKUP_TABLE` + `requires_features` |
 
-**Design decisions from memo §7 / Oracle audit applied:**
+**Design decisions from memo §7 / Oracle audit applied (2026-08-22):**
 
 - Grammar ships as **module-scope string** `_ISSN_PATTERN: str` (not `re.compile().pattern`); `RegexStage` compiles in `paxman/core/grammar/stages.py:72` — matches `paxman/capabilities/ISBN/grammar/isbn13_recognition.py:17`.
-- Leading guard `BoundaryGuard.isbn10_lead()` (`(?<!\d)(?<!\d[ -])`) + trailing `BoundaryGuard.digit().lookahead` (`(?!\d)`) — blocks `a1234-5679` and `912345679` glue leaks; solitary `(?<!\d)` is insufficient (Oracle fix).
+- Leading guard `BoundaryGuard.word_only().lookbehind` (`(?<!\w)`) + trailing `BoundaryGuard.digit().lookahead` (`(?!\d)`) + `r"\b"` — blocks `a1234-5679` and `912345679` glue leaks; strictly stronger than `isbn10_lead` (`(?<!\d)(?<!\d[ -])`) per shipped `paxman/capabilities/ISSN/grammar/issn_recognition.py:11-16` (Oracle P2 fix; report revised 2026-08-22).
 - Hyphen strict at canonical position (`-?`) — tolerant `1234 - 5679` / `1234 5679` are `MISSING` unless a `Pre` normalizer added (Oracle fix 3 alignment). `normalize()`/`format_value()` enforces `XXXX-XXXX`.
 - `S = Σ(digit_i × (8-i))` for `i=0..6` (Oracle fix 1 — was `9-i` typo).
 - `DEFAULT_OUTPUT_FORMAT="hyphenated"` (ISSN Manual §4 machine exchange hyphen), `OFFERED={"compact","urn"}`.
@@ -78,14 +80,15 @@ issn_recognition (PipelineGrammar)  # RegexStage, strict -? at position 4
 | `0317-8471` | default (`hyphenated`) | `SUCCESS` → `0317-8471` |
 | `03178471` | default | `SUCCESS` → `0317-8471` (bare → hyphenated) |
 | `ISSN 0317-8471` / `ISSN: 0317-8471` / `ISSN-L 0317-8471` | default | `SUCCESS` → `0317-8471`, span includes label |
-| `0317-847x` | default | `SUCCESS` → `0317-8471`? No — valid `0317-847X` folds `x`→`X` then `INVALID` if check fails; valid `1050-124x` → `1050-124X` `SUCCESS` |
+| `0317-847x` | default | `INVALID` (`x`→`X` folded; check for `0317-847X` fails); `1050-124x` → `SUCCESS` → `1050-124X` |
 | `1050-124X` / `1050-124x` | default | `SUCCESS` → `1050-124X` (`X`=10) |
 | `0000-0019` | default | `SUCCESS` → `0000-0019` (leading zeros preserved) |
 | `0378-5955` (Hearing Research) | default | `SUCCESS` → `0378-5955` |
 | `0378-5954` (bad mod-11) | default | `INVALID` (recognized, check fails) |
 | `1234-567` (7 chars) / `123456789` (9) | default | `MISSING` (grammar length guard) |
-| `X234-5679` / `12X4-5679` | default | `INVALID` (X not final) |
+| `X234-5679` / `12X4-5679` | default | `MISSING` (grammar `\d{4}` guard filters mid-X; rule-level `matches()` also rejects, but is unreachable end-to-end) |
 | `12-345679` / `1234 - 5679` | default | `MISSING` (strict hyphen — Oracle fix 3) |
+| `1234–5679` / `1234—5679` (en/em dash) | default | `MISSING` (hyphen-minus only; exotic dashes documented-unsupported per memo §13#7) |
 | `call me at noon` | default | `MISSING` |
 | `0264-2875 / 1750-0095` (two distinct) | default | `AMBIGUOUS` / `MultipleMentionsError` (`single_value=True`) |
 | `0317-8471` | `output_format="compact"` | `SUCCESS` → `03178471` |
@@ -95,6 +98,7 @@ issn_recognition (PipelineGrammar)  # RegexStage, strict -? at position 4
 Key rules:
 
 - Hyphen has **no lexical significance for identity** but is **strict at canonical position** in grammar; differently-hyphenated same ISSN that passes grammar still canonicalizes identically (presentation-only).
+- Unicode dashes (U+2013 en, U+2014 em, U+2212 minus) are **not recognized** — hyphen-minus (U+002D) only in the `-?` slot; exotic dashes yield `MISSING` and are documented-unsupported (memo §13#7). No `Pre` normalizer in v1.
 - `normalize()` returns hyphenated `XXXX-XXXX`; `format_value("compact")` strips hyphen, `"urn"` wraps `urn:issn:` — never affects candidate identity or provenance.
 - Contract params: **no** `include_*` flags for v1 (single always-active grammar); `output_format` always optional via `CapabilityContract.__post_init__` (`None`/`"default"`/default string → default, `ContractError` otherwise).
 - `single_value=True` — free-text multi-ISSN mining uses caller-owned segmentation (`docs/recipes/segmentation.md`), not a second grammar.
@@ -169,7 +173,7 @@ tools/regenerate_issn_data.py
 - Create: `tests/capabilities/issn/__init__.py`
 - Create: `tests/capabilities/issn/test_notation.py`
 
-- [ ] **Step 1: Generate skeleton via scaffolder (HOW_TO_ADD_NEW_CAPABILITY.md Step 0)**
+- [x] **Step 1: Generate skeleton via scaffolder (HOW_TO_ADD_NEW_CAPABILITY.md Step 0)**
 
 ```bash
 uv run python tools/new_capability.py ISSN --name issn \
@@ -180,7 +184,7 @@ uv run python tools/new_capability.py ISSN --name issn \
 
 This creates 13 files + edits `paxman/capabilities/__init__.py`. Verify `paxman/capabilities/ISSN/notation.py` placeholder and `tests/capabilities/issn/test_notation.py` exist, then **replace** the placeholder notation.
 
-- [ ] **Step 2: Create minimal package inits if scaffolder left TODOs** (one-line docstring each, Country precedent)
+- [x] **Step 2: Create minimal package inits if scaffolder left TODOs** (one-line docstring each, Country precedent)
 
 ```python
 # paxman/capabilities/ISSN/__init__.py — scaffolder already creates re-exports; ensure:
@@ -202,7 +206,7 @@ This creates 13 files + edits `paxman/capabilities/__init__.py`. Verify `paxman/
 """ISSN capability tests."""
 ```
 
-- [ ] **Step 3: RED — write the notation tests** (`tests/capabilities/issn/test_notation.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.notation import ISSNNotation`)
+- [x] **Step 3: RED — write the notation tests** (`tests/capabilities/issn/test_notation.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.notation import ISSNNotation`)
 
 - `test_notation_frozen_and_slots` — `dataclasses.is_dataclass(ISSNNotation)`; `"__slots__" in ISSNNotation.__dict__`.
 - `test_notation_fields` — `dataclasses.fields(ISSNNotation)` names == `["digits"]`.
@@ -210,7 +214,7 @@ This creates 13 files + edits `paxman/capabilities/__init__.py`. Verify `paxman/
 - `test_notation_immutable` — assigning `notation.digits = "x"` raises `dataclasses.FrozenInstanceError`.
 - `test_notation_digits_length` — `ISSNNotation(digits="03178471")` stores 8, uppercased `x`→`X` handled by grammar (notation holds whatever grammar gave it).
 
-- [ ] **Step 4: GREEN — implement the notation** (replace scaffolder placeholder `value` field with single `digits`)
+- [x] **Step 4: GREEN — implement the notation** (replace scaffolder placeholder `value` field with single `digits`)
 
 ```python
 # paxman/capabilities/ISSN/notation.py
@@ -231,7 +235,7 @@ class ISSNNotation:
     digits: str
 ```
 
-- [ ] **Step 5: Verify + commit**
+- [x] **Step 5: Verify + commit**
 
 ```bash
 uv run pytest tests/capabilities/issn/test_notation.py -q
@@ -247,7 +251,7 @@ Commit: `feat(issn): add ISSNNotation and package skeleton`.
 - Modify: `paxman/capabilities/ISSN/contract.py` (replace scaffolder placeholder)
 - Create: `tests/capabilities/issn/test_contract.py`
 
-- [ ] **Step 1: RED — write the contract tests** (`tests/capabilities/issn/test_contract.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.contract import ISSNContract`)
+- [x] **Step 1: RED — write the contract tests** (`tests/capabilities/issn/test_contract.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.contract import ISSNContract`)
 
 - `test_default_output_format` — `ISSNContract().output_format == "hyphenated"`.
 - `test_offered_output_formats` — `ISSNContract.OFFERED_OUTPUT_FORMATS == frozenset({"compact", "urn"})`.
@@ -259,7 +263,7 @@ Commit: `feat(issn): add ISSNNotation and package skeleton`.
 
 No `active_grammars` override — base returns `None` (run every `get_grammars()` grammar). Assert `ISSNContract().active_grammars is None` or that the property is absent.
 
-- [ ] **Step 2: GREEN — implement the contract** (replace scaffolder placeholder)
+- [x] **Step 2: GREEN — implement the contract** (replace scaffolder placeholder)
 
 Read `paxman/capabilities/Country/contract.py` first — `ISSNContract` must extend `CapabilityContract` exactly the same way (frozen dataclass, `capability_name` via `field(default=..., init=False)`):
 
@@ -285,7 +289,7 @@ class ISSNContract(CapabilityContract):
 
 No `_extra_dict_fields()` needed for v1 (no `include_*` flags). Inherited `output_format` resolution is via `CapabilityContract.__post_init__` (do not redeclare `output_format`). Import via `from paxman.core.contract import CapabilityContract` (not `paxman.core.capability_contract`) for homogeneity with `paxman/capabilities/ISBN/contract.py:8`.
 
-- [ ] **Step 3: Verify + commit**
+- [x] **Step 3: Verify + commit**
 
 ```bash
 uv run pytest tests/capabilities/issn/test_contract.py -q
@@ -303,7 +307,7 @@ Commit: `feat(issn): add ISSNContract`.
 
 **Purity gate:** grammars do syntax only — extraction + separator/case normalization. No grammar imports from `rules`; no rule imports from `grammar`. CI `tests/unit/test_rule_output_format_purity.py` will fail if any `rules/*.py` contains `output_format`.
 
-- [ ] **Step 1: RED — write the grammar tests** (`tests/capabilities/issn/test_grammar.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.grammar.issn_recognition import ISSNRecognitionGrammar`)
+- [x] **Step 1: RED — write the grammar tests** (`tests/capabilities/issn/test_grammar.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.grammar.issn_recognition import ISSNRecognitionGrammar`)
 
 - `test_bare_hyphenated` — `"0317-8471"` → 1 match; `notation.digits == "03178471"`, `start == 0`, `end == 9`, `raw_text == "0317-8471"`.
 - `test_bare_compact` — `"03178471"` → `digits == "03178471"`.
@@ -312,16 +316,17 @@ Commit: `feat(issn): add ISSNContract`.
 - `test_lowercase_label_and_x_fold` — `"issn 1050-124x"` → `digits == "1050124X"` (lowercase `x`→`X` folded in `notation_fn`); ensure `re.IGNORECASE` makes `issn` label match.
 - `test_leading_zeros_preserved` — `"0000-0019"` → `digits == "00000019"`.
 - `test_embedded_in_prose` — `"see ISSN 0317-8471 (print)"` → 1 match with correct `start`/`end`/`raw_text` span.
-- `test_glued_label_rejects` — `"ISSN03178471"` (no separator after label) → `[]` or document that `[\s:-]+` requires a separator — glued label must not match.
+- `test_glued_label_matches` — `"ISSN03178471"` (no separator after label) → 1 match, `raw_text == "ISSN03178471"`, `digits == "03178471"`. The `[\s:-]*` label group permits zero separators, so the glued label matches and the span includes it — documented shipped behavior; switch to `[\s:-]+` only if strictness is ever wanted.
 - `test_wrong_hyphen_placement` — `"12-345679"` → `[]` (strict `-?` at canonical position only — Oracle fix 3).
 - `test_tolerant_space_hyphen_rejects` — `"1234 - 5679"` and `"1234 5679"` → `[]` (strict; tolerant variants are `MISSING` unless a `Pre` normalizer added).
-- `test_digit_glued_rejects` — `"a0317-8471"` → `[]`; `"912345679"` (embedded 8 in 9-digit run) → `[]` or single inner must be blocked by `BoundaryGuard.isbn10_lead()` (`(?<!\d)(?<!\d[ -])`).
+- `test_unicode_dash_missing` — `"1234–5679"` (en-dash U+2013) and `"1234—5679"` (em-dash) → `[]` (hyphen-minus only; exotic dashes documented-unsupported).
+- `test_digit_glued_rejects` — `"a0317-8471"` → `[]`; `"912345679"` (embedded 8 in 9-digit run) → `[]` or single inner must be blocked by `BoundaryGuard.word_only().lookbehind` (`(?<!\w)`) — shipped; strictly stronger than `isbn10_lead` (`(?<!\d)(?<!\d[ -])`).
 - `test_multiple_spans` — `"0317-8471 0378-5955"` → 2 matches ascending `start`; each span `len(raw_text) == end - start`.
 - `test_span_invariants` — for every match, `0 <= start <= end <= len(text)` and `raw_text == text[start:end]`.
 - `test_empty` — `""` → `[]`.
 - `test_name_and_semantics` — `grammar.name == "issn_recognition"`; `grammar.semantics == "issn_recognition"`; non-empty semantics.
 
-- [ ] **Step 2: GREEN — implement the grammar** (strict hyphen, module-scope string pattern)
+- [x] **Step 2: GREEN — implement the grammar** (strict hyphen, module-scope string pattern)
 
 ```python
 # paxman/capabilities/ISSN/grammar/issn_recognition.py
@@ -337,8 +342,11 @@ from paxman.core.grammar.stages import RegexStage, StandardPre
 # Module-scope STRING pattern — RegexStage compiles (never re.compile().pattern)
 # Strict hyphen at canonical position (pos 4) — tolerant "1234 - 5679" is MISSING.
 # Optional ISSN / ISSN-L / ISSN-H label with required separator; case-insensitive.
+# word_only (shipped) strengthens isbn10_lead per Oracle P2 — see research rev. 2026-08-22.
 _ISSN_BODY = r"(?:ISSN(?:-L|-H)?[\s:-]*)?(?P<body>\d{4}-?\d{3}[0-9Xx])"
-_ISSN_PATTERN: str = BoundaryGuard.isbn10_lead().lookbehind + _ISSN_BODY + BoundaryGuard.digit().lookahead + r"\b"
+_ISSN_PATTERN: str = (
+    BoundaryGuard.word_only().lookbehind + _ISSN_BODY + BoundaryGuard.digit().lookahead + r"\b"
+)
 
 
 def _issn_notation(match: re.Match[str]) -> ISSNNotation:
@@ -359,9 +367,9 @@ class ISSNRecognitionGrammar(PipelineGrammar[ISSNNotation]):
     )
 ```
 
-Notes for reviewer: `BoundaryGuard.isbn10_lead().lookbehind == r"(?<!\d)(?<!\d[ -])"`; `BoundaryGuard.digit().lookahead == r"(?!\d)"`. The `(?P<body>...)` group isolates the ISSN core for `notation_fn` (label stripped). Trailing `\b` blocks `1234-5679a`. Do **not** double-compile; ship as `str`.
+Notes for reviewer: `BoundaryGuard.word_only().lookbehind == r"(?<!\w)"` (shipped); `BoundaryGuard.digit().lookahead == r"(?!\d)"` plus `r"\b"`. The `(?P<body>...)` group isolates the ISSN core for `notation_fn` (label stripped). Trailing `\b` blocks `1234-5679a`. Do **not** double-compile; ship as `str`. For context, `isbn10_lead` is `r"(?<!\d)(?<!\d[ -])"` — word_only is strictly stronger.
 
-- [ ] **Step 3: Verify + commit**
+- [x] **Step 3: Verify + commit**
 
 ```bash
 uv run pytest tests/capabilities/issn/test_grammar.py -q
@@ -377,7 +385,7 @@ Commit: `feat(issn): add ISSN recognition grammar`.
 - Create: `paxman/capabilities/ISSN/rules/iso_3297_ed2022.py`
 - Create: `tests/capabilities/issn/test_rules.py`
 
-- [ ] **Step 1: RED — write the rule tests** (`tests/capabilities/issn/test_rules.py`, mark `@pytest.mark.capability`)
+- [x] **Step 1: RED — write the rule tests** (`tests/capabilities/issn/test_rules.py`, mark `@pytest.mark.capability`)
 
 Per-rule coverage: `matches()` valid / variant / invalid, `normalize()` canonical output, provenance, name/strategy/citation:
 
@@ -392,7 +400,7 @@ Per-rule coverage: `matches()` valid / variant / invalid, `normalize()` canonica
 
 For invalid, use both bad-check and malformed (`len != 8`, non-digit prefix). `normalize()` is only called after `matches()` True, but must still handle defensively: return `f"{digits[:4]}-{digits[4:]}"` or `digits` unchanged for unreachable.
 
-- [ ] **Step 2: GREEN — implement the rule file**
+- [x] **Step 2: GREEN — implement the rule file**
 
 Read `paxman/capabilities/ISBN/rules/iso_2108_ed2017.py` first for the `PUBLICATION` + `Rule[Notation]` pattern (six enforced attrs via `Rule.__init_subclass__` in `paxman/core/domain.py`):
 
@@ -435,7 +443,7 @@ class Section4CheckDigit(Rule[ISSNNotation]):
     def matches(self, notation: ISSNNotation, contract: Contract) -> bool:
         if len(notation.digits) != 8:
             return False
-        if not notation.digits[:7].isdigit():
+        if not notation.digits[:7].isascii() or not notation.digits[:7].isdigit():
             return False
         last = notation.digits[7].upper()
         if last not in "0123456789X":
@@ -450,7 +458,7 @@ class Section4CheckDigit(Rule[ISSNNotation]):
 
 Never read `contract.output_format` here — CI purity gate fails otherwise. `normalize()` always returns hyphenated (the `DEFAULT_OUTPUT_FORMAT`); `format_value()` handles `compact`/`urn`.
 
-- [ ] **Step 3: Verify + commit**
+- [x] **Step 3: Verify + commit**
 
 ```bash
 uv run pytest tests/capabilities/issn/test_rules.py -q
@@ -468,7 +476,7 @@ Commit: `feat(issn): add ISO 3297:2022 check-digit rule`.
 
 The wiring mirrors `paxman/capabilities/Country/capability.py` and `paxman/capabilities/ISBN/capability.py`: module `__all__`, staticmethod `create_contract` factory, `get_grammars()`/`get_rules()` returning fresh instances, and `format_value()` seam (presentation only, never touches candidate identity or provenance).
 
-- [ ] **Step 1: RED — write the capability tests** (`tests/capabilities/issn/test_capability.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.capability import ISSNCapability`)
+- [x] **Step 1: RED — write the capability tests** (`tests/capabilities/issn/test_capability.py`, mark `@pytest.mark.capability`, import `from paxman.capabilities.ISSN.capability import ISSNCapability`)
 
 - `test_capability_name_version` — `ISSNCapability.name == "issn"`, `.version == "1.0.0"`.
 - `test_get_grammars` — `len(cap.get_grammars()) == 1`; names `{"issn_recognition"}`.
@@ -482,7 +490,7 @@ The wiring mirrors `paxman/capabilities/Country/capability.py` and `paxman/capab
 
 Use helper `notation = ISSNNotation(digits="03178471")` for the format tests (value is hyphenated string, notation is the object).
 
-- [ ] **Step 2: GREEN — implement `paxman/capabilities/ISSN/capability.py`**
+- [x] **Step 2: GREEN — implement `paxman/capabilities/ISSN/capability.py`**
 
 ```python
 """ISSN capability — wires grammars and rules together."""
@@ -554,7 +562,7 @@ class ISSNCapability(Capability[ISSNNotation]):
         return value
 ```
 
-- [ ] **Step 3: Verify + commit**
+- [x] **Step 3: Verify + commit**
 
 ```bash
 uv run pytest tests/capabilities/issn/test_capability.py -q
@@ -571,7 +579,7 @@ Commit: `feat(issn): wire ISSNCapability with create_contract and format_value`.
 - Modify: `pyproject.toml`
 - Modify: `tests/unit/test_capability_exports.py`
 
-- [ ] **Step 1: RED — extend the exports test** (`tests/unit/test_capability_exports.py`)
+- [x] **Step 1: RED — extend the exports test** (`tests/unit/test_capability_exports.py`)
 
 Change the import to `from paxman.capabilities import Country, Currency, Date, Email, IP, ISBN, ISSN, Money, Phone, SIUnit, URL` (add `ISSN`) and add a class mirroring existing ones:
 
@@ -588,7 +596,7 @@ class TestISSNCapabilityExports:
         assert ISSN.name == "issn"
 ```
 
-- [ ] **Step 2: GREEN — wire the registry (PEP 562 lazy)**
+- [x] **Step 2: GREEN — wire the registry (PEP 562 lazy)**
 
 `paxman/capabilities/__init__.py` — add the ISSN entry to `_LAZY` (alphabetical after `ISBN`), append `"ISSN"` to `__all__` alphabetically, and add the `TYPE_CHECKING` import. Keep every existing line, keep `__getattr__`/`__dir__` untouched:
 
@@ -641,7 +649,7 @@ if TYPE_CHECKING:
     "issn: issn capability tests",
 ```
 
-- [ ] **Step 3: Verify + commit**
+- [x] **Step 3: Verify + commit**
 
 ```bash
 uv run pytest tests/unit/test_capability_exports.py tests/capabilities/issn -q
@@ -660,7 +668,7 @@ Commit: `feat(issn): register ISSN capability and pytest marker`.
 
 Add autouse `_clean_registry` fixture? Only if integration style uses it — follow `tests/integration/test_pipeline.py` pattern. Otherwise use `paxman.register_capability(ISSN())` per test or `register_all_shipped()`.
 
-- [ ] **Step 1: RED — write integration tests** (`tests/integration/test_issn_capability.py`, mark every test `@pytest.mark.integration`)
+- [x] **Step 1: RED — write integration tests** (`tests/integration/test_issn_capability.py`, mark every test `@pytest.mark.integration`)
 
 Resolution map (from §9 of the memo — every row is a locked semantic):
 
@@ -674,7 +682,7 @@ Resolution map (from §9 of the memo — every row is a locked semantic):
 | `test_compact_output` | `"0317-8471"` | `output_format="compact"` | `SUCCESS`, `"03178471"` |
 | `test_urn_output` | `"0317-8471"` | `output_format="urn"` | `SUCCESS`, `"urn:issn:0317-8471"` |
 | `test_invalid_check` | `"0378-5954"` | default | `INVALID` (bad mod-11) |
-| `test_mid_x_invalid` | `"12X4-5679"` | default | `INVALID` or `MISSING` (rule rejects) |
+| `test_mid_x_missing` | `"12X4-5679"` | default | `MISSING` (grammar filters mid-X; rule-level `matches()` rejects but is unreachable end-to-end) |
 | `test_wrong_hyphen_missing` | `"12-345679"` | default | `MISSING` (strict grammar) |
 | `test_no_digits_missing` | `"call me at noon"` | default | `MISSING` |
 | `test_two_distinct_ambiguous` | `"0317-8471 / 0378-5955"` | default | `AMBIGUOUS` or `MultipleMentionsError` (`single_value=True`) |
@@ -684,7 +692,7 @@ Resolution map (from §9 of the memo — every row is a locked semantic):
 
 Also assert `result.span` / `candidate.span` / `recognition_rule` / `validation_rule` / `provenance` where relevant (`candidate.provenance[0].specification_name == "ISO 3297:2022"`).
 
-- [ ] **Step 2: GREEN — make them pass (no code change expected if tasks 3-5 are correct)**
+- [x] **Step 2: GREEN — make them pass (no code change expected if tasks 3-5 are correct)**
 
 ```bash
 uv run pytest tests/integration/test_issn_capability.py -q
@@ -697,7 +705,7 @@ Commit: `feat(issn): add ISSN integration suite`.
 **Files:**
 - Create: `tests/property/test_issn_properties.py` (or `tests/property/test_issn.py` per existing naming)
 
-- [ ] **Step 1: RED — write hypothesis tests**
+- [x] **Step 1: RED — write hypothesis tests**
 
 - `test_generate_valid_issn_round_trip` — generate valid ISSNs from mod-11 algorithm: random 7 digits → compute check → build `digits` → `SUCCESS` round-trip, hyphenated canonical stable.
 - `test_random_8char_is_invalid_high_prob` — random 8-char strings (excluding valid ISSNs) → `INVALID` with high probability (grammar may recognize but check fails).
@@ -707,7 +715,7 @@ Commit: `feat(issn): add ISSN integration suite`.
 
 Use `hypothesis` `given` with `strategies.text` constrained, or direct `digits` generation.
 
-- [ ] **Step 2: GREEN — run**
+- [x] **Step 2: GREEN — run**
 
 ```bash
 uv run pytest tests/property/test_issn_properties.py -q
@@ -719,7 +727,7 @@ Commit: `feat(issn): add ISSN property suite`.
 
 **Files:** all files changed by Tasks 1-8; `README.md`, `CONTEXT.md` if capability table exists.
 
-- [ ] **Step 1: Run the pre-PR gate**
+- [x] **Step 1: Run the pre-PR gate**
 
 ```bash
 uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run import-linter lint && uv run pytest -q
@@ -727,7 +735,7 @@ uv run ruff check . && uv run ruff format --check . && uv run pyright && uv run 
 
 Expected: all green; coverage ≥95% per package (new ISSN fully covered by unit + integration + property tests). Note: `paxman/capabilities/__init__.py` export completeness is enforced by `tests/unit/test_capability_exports.py`.
 
-- [ ] **Step 2: Verify purity and contracts**
+- [x] **Step 2: Verify purity and contracts**
 
 ```bash
 uv run pytest tests/unit/test_rule_output_format_purity.py -q
@@ -735,13 +743,13 @@ uv run pytest tests/unit/test_capability_exports.py -q
 uv run pytest -m "issn or integration" -q
 ```
 
-- [ ] **Step 3: Docs sweep**
+- [x] **Step 3: Docs sweep**
 
 - Update `README.md` capabilities table (if present) — Grammars: 1, Rules: 1, add ISSN row.
 - Ensure `CONTEXT.md` notation table (if present) reflects `ISSNNotation(digits)`.
-- No references to `docs/development/` in shipped code (`paxman/` or `README.md` prose) — `docs/development/AGENTS.md` forbids it.
+- No references to `docs/development/` in shipped code (`paxman/`, `tests/`, or `README.md` prose) — `docs/development/AGENTS.md` forbids it; ISSN test files must not cite plan task numbers or quote plan content (docstrings/comments swept in this revision).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Atomic commits per task already done; final `git status` clean except plan/report which are `docs/development/` (excluded from sdist). Push branch and open PR.
 

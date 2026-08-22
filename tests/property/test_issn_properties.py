@@ -48,11 +48,10 @@ def _fresh_registry() -> None:
 
 
 def _issn_check_char(digits7: list[int]) -> str:
-    # Pattern required by Task 8 spec (exact strings for verification):
-    # st.lists(st.integers(0,9), min_size=7, max_size=7)
-    # total=sum(int(d)*(8-i) for i,d in enumerate(digits[:7]))
-    # check=(11-total%11)%11
-    # "X" if check==10 else str(check)
+    # Check digit derived independently of the capability's rule implementation:
+    # total = sum(int(d) * (8 - i) for i, d in enumerate(digits[:7]))
+    # check = (11 - total % 11) % 11
+    # "X" if check == 10 else str(check)
     total = sum(int(d) * (8 - i) for i, d in enumerate(digits7))
     check = (11 - total % 11) % 11
     return "X" if check == 10 else str(check)

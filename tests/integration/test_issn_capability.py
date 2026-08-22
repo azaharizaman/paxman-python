@@ -1,4 +1,4 @@
-"""Integration tests for ISSN capability — resolution map + pipeline (Task 7)."""
+"""Integration tests for ISSN capability — resolution map + pipeline."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def _clean_registry():
 
 
 class TestISSNResolutionMap:
-    """Resolution map for ISSN per Task 7 table."""
+    """Resolution map for ISSN."""
 
     @pytest.mark.integration
     def test_bare_hyphenated_success(self) -> None:
@@ -120,14 +120,14 @@ class TestISSNResolutionMap:
         assert result.span is None
 
     @pytest.mark.integration
-    def test_mid_x_invalid(self) -> None:
+    def test_mid_x_missing(self) -> None:
         register_capability(ISSNCapability())
         contract = ISSNCapability.create_contract()
         result = paxman.canonicalize("12X4-5679", contract)
 
-        # Grammar rejects mid X (strict pattern), so MISSING; INVALID also
-        # acceptable per plan — assert not SUCCESS.
-        assert result.status in (Resolution.INVALID, Resolution.MISSING)
+        # Grammar filters mid X (\d{4} cannot start at X), so MISSING
+        # end-to-end; rule-level matches() would also reject.
+        assert result.status == Resolution.MISSING
         assert result.canonicalized_value is None
 
     @pytest.mark.integration
@@ -158,7 +158,7 @@ class TestISSNResolutionMap:
         try:
             result = paxman.canonicalize("0317-8471 / 0378-5955", contract)
         except MultipleMentionsError:
-            # single_value=True grammar raises fast — acceptable per plan.
+            # single_value=True grammar raises fast — acceptable.
             return
         # If engine returns AMBIGUOUS instead of raising.
         assert result.status == Resolution.AMBIGUOUS

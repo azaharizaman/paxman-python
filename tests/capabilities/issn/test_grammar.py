@@ -1,4 +1,4 @@
-"""Tests for ISSN recognition grammar — TDD Task 3."""
+"""Tests for ISSN recognition grammar."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class TestISSNRecognitionGrammar:
         assert results[0].start == text.index("ISSN 0317-8471")
         assert results[0].end == results[0].start + len("ISSN 0317-8471")
 
-    def test_glued_label_rejects(self) -> None:
+    def test_glued_label_matches(self) -> None:
         # Current pattern uses [\s:-]* so glued label IS matched as ISSN03178471.
         # The strict variant with [\s:-]+ would reject it; we document the
         # actual behavior and assert the match is present with full span.
@@ -92,6 +92,12 @@ class TestISSNRecognitionGrammar:
         grammar = ISSNRecognitionGrammar()
         assert grammar.recognize("1234 - 5679") == []
         assert grammar.recognize("1234 5679") == []
+
+    def test_unicode_dash_missing(self) -> None:
+        grammar = ISSNRecognitionGrammar()
+        # Hyphen-minus only: en/em dashes break digit contiguity -> MISSING.
+        assert grammar.recognize("1234\u20135679") == []
+        assert grammar.recognize("1234\u20145679") == []
 
     def test_digit_glued_rejects(self) -> None:
         grammar = ISSNRecognitionGrammar()

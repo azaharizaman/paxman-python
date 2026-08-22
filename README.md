@@ -52,7 +52,7 @@ If multiple specifications disagree on the canonical value, the status is `AMBIG
 
 ## Capabilities
 
-Paxman ships with ten built-in capabilities:
+Paxman ships with eleven built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
@@ -62,6 +62,7 @@ Paxman ships with ten built-in capabilities:
 | **Currency** | Currency identifiers | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **IP** | IP addresses | 2 (IPv4, IPv6) | 2 | RFC 791, RFC 5952 |
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
+| **ISSN** | Serial identifiers | 1 (issn_recognition) | 1 | ISO 3297:2022 |
 | **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
 | **SI Unit** | SI unit expressions | 5 (symbol, name, compound, split_word_prefix, split_symbol_prefix) | 7 | BIPM SI Brochure, ISO 80000-1 |
