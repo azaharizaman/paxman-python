@@ -283,6 +283,10 @@ def _filter_rules(
         active_rules = [r for r in all_rules if r.name in pinned_set]
     else:
         excluded = set(contract.excluded_rules)
+        known_names = {r.name for r in all_rules}
+        unknown = excluded - known_names
+        if unknown:
+            raise ContractError(f"Unknown excluded rule(s): {sorted(unknown)}")
         active_rules = [r for r in all_rules if r.name not in excluded]
 
     if contract.year is not None:
@@ -442,7 +446,8 @@ def _enforce_single_value_invariant(
             f"Input contained {len(clusters)} distinct mentions resolving to "
             f"{len(distinct_values)} distinct canonical values "
             f"({sorted(distinct_values)}). Paxman resolves one entity per call; "
-            "split the input into separate canonicalize() calls."
+            "split the input into separate canonicalize() calls. "
+            "See docs/recipes/segmentation.md for the split-then-canonicalize pattern."
         )
 
 

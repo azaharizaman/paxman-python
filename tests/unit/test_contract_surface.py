@@ -121,9 +121,9 @@ def test_engine_requires_extra_grammars_attribute() -> None:
 
 
 def test_contract_factory_docstring_mentions_ten() -> None:
-    """ContractFactory docstring must say ten, not five."""
+    """ContractFactory docstring must say twelve, not five."""
     from paxman.core.capability import ContractFactory
 
     assert ContractFactory.__doc__ is not None
     assert "five" not in ContractFactory.__doc__.lower(), "stale 'five' must be fixed"
-    assert "ten" in ContractFactory.__doc__.lower(), "docstring must mention ten"
+    assert "twelve" in ContractFactory.__doc__.lower(), "docstring must mention twelve"

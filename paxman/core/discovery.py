@@ -65,6 +65,16 @@ def is_registry_frozen() -> bool:
     return _frozen
 
 
+def list_registered_capabilities() -> tuple[str, ...]:
+    """List registered capability names in sorted order.
+
+    Returns:
+        Sorted tuple of capability names currently in the registry.
+        Empty if nothing has been registered yet.
+    """
+    return tuple(sorted(_registry.keys()))
+
+
 def reset_registry() -> None:
     """Reset the registry (for testing only)."""
     global _frozen

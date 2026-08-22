@@ -42,6 +42,8 @@ class MultipleMentionsError(PaxmanError):
     This is a usage/contract signal, distinct from ``ContractError`` (malformed
     contract configuration) and from the ``AMBIGUOUS`` ``Resolution`` status
     (a legitimate single-mention spec conflict).
+
+    See ``docs/recipes/segmentation.md`` for the split-then-canonicalize pattern.
     """
 
 

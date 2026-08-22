@@ -23,6 +23,9 @@ def canonicalize(
         ExecutionResult with status, canonicalized_value, candidates, etc.
 
     Raises:
+        TypeError: If text is not a str.
         CapabilityError: If no capability matches the contract's capability_name.
     """
+    if not isinstance(text, str):
+        raise TypeError(f"canonicalize() expects str, got {type(text).__name__}")
     return run_capability(text, contract)

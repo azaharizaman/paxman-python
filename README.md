@@ -48,11 +48,13 @@ When you call `paxman.canonicalize()`, the system:
 
 If multiple specifications disagree on the canonical value, the status is `AMBIGUOUS`. If nothing is recognized, the status is `MISSING`. If something is recognized but no specification validates it, the status is `INVALID`.
 
+> **MISSING vs INVALID:** `MISSING` means no grammar found the pattern; `INVALID` means a grammar found it but no rule accepted it.
+
 ---
 
 ## Capabilities
 
-Paxman ships with eleven built-in capabilities:
+Paxman ships with twelve built-in capabilities:
 
 | Capability | Domain | Grammars | Rules | Description |
 |------------|--------|----------|-------|-------------|
@@ -60,13 +62,16 @@ Paxman ships with eleven built-in capabilities:
 | **Date** | Dates | 4 (ISO, US, European, slash-ISO) | 3 | ISO 8601, US federal, EN 50160 |
 | **Country** | Country codes/names | 4 (alpha-2, alpha-3, numeric, name) | 6 | ISO 3166, CLDR |
 | **Currency** | Currency identifiers | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
+| **IBAN** | Bank account numbers | 1 (iban_recognition) | 1 | ISO 13616, SWIFT Registry, MOD 97-10 |
 | **IP** | IP addresses | 2 (IPv4, IPv6) | 2 | RFC 791, RFC 5952 |
 | **ISBN** | ISBNs | 2 (isbn13, isbn10) | 4 | ISO 2108, ISBN Users' Manual, ISBN Range Message |
 | **ISSN** | Serial identifiers | 1 (issn_recognition) | 1 | ISO 3297:2022 |
 | **Money** | Money amounts | 3 (code, symbol, word) | 3 | ISO 4217, CLDR |
 | **Phone** | Phone numbers | 4 (E.164, tel-URI, 00-prefix, national) | 5 | ITU-T E.164, RFC 3966, NANP |
-| **SI Unit** | SI unit expressions | 5 (symbol, name, compound, split_word_prefix, split_symbol_prefix) | 7 | BIPM SI Brochure, ISO 80000-1 |
+| **SI Unit** | SI unit expressions | 3 (symbol, name, compound) | 7 | BIPM SI Brochure, ISO 80000-1 |
 | **URL** | URLs | 1 (absolute-uri) | 1 | WHATWG URL Standard |
+
+> **Note:** Table generated from `paxman/api/bootstrap.py:_SHIPPED` (alphabetical by registry name). To regenerate, run `uv run python tools/generate_readme_table.py`.
 
 ### Email Capability
 
@@ -157,6 +162,8 @@ Localized names are validated by the CLDR rule, so an enabled resolution like `A
 
 Recognizes ISO 4217 alpha-3 codes, CLDR currency symbols, and CLDR currency display-name words as standalone identifiers, canonicalizing to the uppercase alpha-3 code. Identifier-only: amounts are the Money capability's domain (`USD 500` resolves via its `USD` span; amount-glued tokens like `US$5` are not recognized at all).
 
+> **Note:** Bare symbols like `$` are `INVALID` by default. `$` is shared by 29 currencies whose CLDR symbol is `$` — without disambiguation Paxman cannot pick one. Opt in with `default_currency` to resolve the bare symbol only when it is one of that symbol's own candidates.
+
 ```python
 from paxman.capabilities import Currency
 
@@ -187,6 +194,36 @@ result = paxman.canonicalize("$", contract)
 # A valid code that is NOT a candidate of "$" (MYR's symbol is RM) is INVALID
 contract = Currency.create_contract(default_currency="MYR")
 result = paxman.canonicalize("$", contract)
+# → Status: INVALID
+```
+
+### IBAN Capability
+
+Recognizes International Bank Account Numbers with check-digit and country validation, canonicalizing to electronic compact form.
+
+```python
+from paxman.capabilities import IBAN
+
+register_capability(IBAN())
+
+# Bare IBAN (compact)
+contract = IBAN.create_contract()
+result = paxman.canonicalize("GB82WEST12345698765432", contract)
+# → "GB82WEST12345698765432"
+
+# Paper IBAN with spaces and mixed case
+contract = IBAN.create_contract()
+result = paxman.canonicalize("GB82 WEST 1234 5698 7654 32", contract)
+# → "GB82WEST12345698765432"
+
+# Paper presentation (spaced groups of four)
+contract = IBAN.create_contract(output_format="paper")
+result = paxman.canonicalize("GB82WEST12345698765432", contract)
+# → "GB82 WEST 1234 5698 7654 32"
+
+# Invalid country or bad MOD 97 check
+contract = IBAN.create_contract()
+result = paxman.canonicalize("ZZ82WEST12345698765432", contract)
 # → Status: INVALID
 ```
 
@@ -253,6 +290,8 @@ result = paxman.canonicalize("0306406152", contract)
 ### Money Capability
 
 Recognizes ISO 4217 codes, CLDR currency symbols, and CLDR currency names adjacent to amounts, canonicalizing to `CODE + amount` padded to ISO 4217 minor units.
+
+> **Note:** Bare symbols like `$500` are `INVALID` by default. The dollar sign is shared by many currencies — without disambiguation Paxman cannot pick one. Opt in with `dollar_sign_currency`.
 
 ```python
 from paxman.capabilities import Money
@@ -445,7 +484,7 @@ result = paxman.canonicalize("2026-01-15", contract)
 
 ## Community Extensions
 
-Paxman ships with ten built-in capabilities, but a capability is closed for modification yet open for extension: you can add recognition and validation without touching the library. Register a `Grammar` subclass and the `Rule` subclass that validates it, then opt a contract into them by naming the grammar in `extra_grammars`:
+Paxman ships with twelve built-in capabilities, but a capability is closed for modification yet open for extension: you can add recognition and validation without touching the library. Register a `Grammar` subclass and the `Rule` subclass that validates it, then opt a contract into them by naming the grammar in `extra_grammars`:
 
 ```python
 import re
@@ -545,6 +584,39 @@ Rules of the seam:
 | `SUCCESS` | Single canonical value resolved |
 | `AMBIGUOUS` | Multiple specifications disagree on the canonical value |
 
+> **MISSING vs INVALID:** If the grammar cannot find the pattern, the result is `MISSING`. If a grammar finds it but no rule accepts it, the result is `INVALID`. Example: `bad@.com` is `MISSING` (no grammar matches), while `999.999.999.999` as IP is `INVALID` (IPv4 grammar matched, RFC 791 rejected).
+
+---
+
+## Real-World Example
+
+Paxman extracts and canonicalizes entities embedded in messy human text, preserving provenance and span for each mention:
+
+```python
+import paxman
+from paxman.capabilities import Country, Email, Money, URL
+from paxman.core.domain import Resolution
+
+paxman.register_all_shipped()
+
+text = "Invoice of 1.000,50 EUR due 01/02/2026 — contact billing@example.com. See https://Example.COM:443/path/../other"
+
+for Cap in (Money, Email, URL, Country):
+    contract = Cap.create_contract()
+    result = paxman.canonicalize(text, contract)
+    if result.status == Resolution.SUCCESS:
+        print(f"{Cap.name}: {result.canonicalized_value!r} at {result.span}")
+        for prov in result.candidates[0].provenance:
+            print(
+                f"  via {prov.authority}: {prov.specification_name} ({prov.citation})"
+            )
+# Money: 'EUR 1000.50' at (11, 23) via ISO: ISO 4217
+# Email: 'billing@example.com' at (44, 63) via IETF: RFC 5322
+# URL:   'https://example.com/other' at (69, 106) via WHATWG: URL Standard
+```
+
+For inputs with multiple mentions of the same capability, split the text first — see [docs/recipes/segmentation.md](docs/recipes/segmentation.md). The CLI offers the same extraction without code: `python -m paxman email "Contact billing@example.com"`.
+
 ---
 
 ## Provenance
@@ -577,9 +649,9 @@ from paxman.capabilities import Email
 contract = Email.create_contract()
 result = paxman.canonicalize("user@example.com", contract)
 
-print(result.span)                     # (0, 16)
+print(result.span)  # (0, 16)
 for candidate in result.candidates:
-    print(candidate.span)              # (0, 16)
+    print(candidate.span)  # (0, 16)
     print(candidate.recognition_rule)  # "standard_recognition"
 ```
 
