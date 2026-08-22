@@ -1,9 +1,9 @@
 # PAXMAN CORE KNOWLEDGE BASE
 
-**Scope:** `paxman/core/` — the foundation layer and import-linter leaf. 7 files, no subpackages. Imports from nothing inside `paxman.*`; every other package imports from here.
+**Scope:** `paxman/core/` — the foundation layer and import-linter leaf. 8 modules plus the `grammar/` subpackage (capability-agnostic recognition-layer machinery: `BoundaryGuard`, `AmountComposer`, `LexiconAlternation`, `PipelineGrammar`, stage types). Imports from nothing inside `paxman.*`; every other package imports from here.
 
 ## OVERVIEW
-Core owns the domain vocabulary (pipeline value objects + `Rule`/`Grammar` ABCs), the contract surface (`Contract` protocol, `CapabilityContract` base, `output_format` policy), the capability registry, and the error hierarchy. Everything `paxman.api` and `paxman.engine` shuffle through the pipeline is defined here.
+Core owns the domain vocabulary (pipeline value objects + `Rule`/`Grammar` ABCs), the contract surface (`Contract` protocol, `CapabilityContract` base, `output_format` policy), the capability registry, the community extension registries (`extensions.py`), shared recognition machinery (`grammar/`), and the error hierarchy. Everything `paxman.api` and `paxman.engine` shuffle through the pipeline is defined here.
 
 ## WHERE TO LOOK
 
@@ -15,7 +15,9 @@ Core owns the domain vocabulary (pipeline value objects + `Rule`/`Grammar` ABCs)
 | Add a capability contract | `paxman/core/capability_contract.py` → subclass `CapabilityContract` |
 | Extend `output_format` policy / protocol surface | `paxman/core/contract.py` |
 | Add a capability class | `paxman/core/capability.py` → subclass `Capability` |
-| Registry / freezing behavior | `paxman/core/discovery.py` |
+| Registry / freezing behavior | `paxman/core/discovery.py` (+ `list_registered_capabilities()`, `is_registry_frozen()`) |
+| Community grammar/rule extensions | `paxman/core/extensions.py` → `register_grammar()` / `register_rule()`; contracts opt in via `extra_grammars`; registries freeze with the capability registry |
+| Shared recognition machinery (stages, boundary guard, lexicon alternation, pipeline grammar) | `paxman/core/grammar/` |
 | New exception type | `paxman/core/errors.py` → subclass `PaxmanError` |
 | Top-level re-exports | `paxman/core/__init__.py` |
 
@@ -27,7 +29,8 @@ Core owns the domain vocabulary (pipeline value objects + `Rule`/`Grammar` ABCs)
 - **Contracts:** subclass `CapabilityContract`, never `Contract` directly. Set `DEFAULT_OUTPUT_FORMAT`/`OFFERED_OUTPUT_FORMATS`, set `capability_name` via `field(default=..., init=False)`. `active_grammars` is optional: it returns `None` by default (the engine then runs every shipped `get_grammars()` entry); only feature-gated capabilities (Email, IP, ISBN) override it.
 - **`output_format`** is always optional: `None`/`"default"`/`DEFAULT_OUTPUT_FORMAT` resolve to the default, offered formats resolve to themselves, anything else raises `ContractError`. Resolved once in `CapabilityContract.__post_init__`; subclasses with their own `__post_init__` call `super().__post_init__()` first. Note: `resolve_output_format` is imported lazily there to break the `capability_contract` ↔ `contract` import cycle.
 - **`pinned_rules` wins over `excluded_rules`** (non-`None` pins; empty tuple pins to nothing); `year` filtering still applies after pinning.
-- **Registry** (`discovery.py`): module-level `_registry` dict + `_frozen` flag. `register_capability()` takes `Any` and isinstance-checks `Capability`; rejects dupes and post-freeze adds with `CapabilityError`. `freeze_registry()` is called by the engine at pipeline start; `reset_registry()` is TESTING ONLY (autouse fixtures).
+- **Registry** (`discovery.py`): module-level `_registry` dict + `_frozen` flag. `register_capability()` takes `Any` and isinstance-checks `Capability`; rejects dupes and post-freeze adds with `CapabilityError`. Introspection via `list_registered_capabilities()` / `is_registry_frozen()`. `freeze_registry()` also freezes the extension registries (`extensions.py`) and is called by the engine at pipeline start; `reset_registry()` is TESTING ONLY (autouse fixtures) and resets extensions with it.
+- **Extension registries** (`extensions.py`): community grammars/rules registered explicitly before first `canonicalize()`; a contract opts a grammar in by naming it in `extra_grammars`; unknown names are silently skipped (deterministic no-op), and rules activate only when an opted-in id matches their `target_semantics`.
 - **Exceptions:** new types subclass `PaxmanError`. `RecognitionError`/`ValidationError` carry `rule` (+ `original_error`, `None` for structural failures) and render as `"[rule] message"`.
 - **Imports:** prefer `from paxman.core import ...` — `__init__.py` re-exports the domain vocabulary and registry functions.
 

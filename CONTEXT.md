@@ -194,7 +194,7 @@ class SectionCode(Rule[CurrencyNotation]):
         return self.TABLE[notation.text]
 ```
 
-Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. Seven data modules across three generators are produced via tools: the ISBN range message (`tools/regenerate_isbn_range_data.py`), the URL IDNA UTS #46 mapping (`tools/regenerate_idna_uts46_data.py`), and the SIUnit prefixed-unit and grammar token tables (`tools/regenerate_si_prefix_data.py`) — everything else is maintained in place.
+Authority-backed lookup tables live in `rules/data/` (e.g., `iso4217_list_one.py`, `cldr_currencies.py`), separated from rule logic; lexicon keys serving grammars live in `grammar/data/`. The Currency + Money data set is generated from the shared snapshot `paxman/shared_data/currency_snapshot.json` (CLDR v47 + ISO 4217) via `tools/regenerate_currency_data.py`; other generated modules come from their own generators: the ISBN range message (`tools/regenerate_isbn_range_data.py`), the URL IDNA UTS #46 mapping (`tools/regenerate_idna_uts46_data.py`), and the SIUnit prefixed-unit and grammar token tables (`tools/regenerate_si_prefix_data.py`) — everything else is maintained in place.
 
 ### Parser Example
 ```python
@@ -617,22 +617,9 @@ for candidate in result.candidates:
 **Note:** The registry freeze happens at the start of each pipeline run, not just once. In testing, use `reset_registry()` between tests to allow re-registration. `freeze_registry()` is available for explicit control.
 
 ### Capability Versioning
-- Each capability has its own version in `capability.py`
-- Capability version is independent of engine version
-- All ten built-in capabilities currently ship `version = "1.0.0"`
-- Example:
-  ```python
-  # capabilities/Email/capability.py
-  class EmailCapability:
-      name = "email"
-      version = "1.0.0"
-      ...
-  ```
-
-### Engine Versioning
-- Engine version is resolved in `paxman/engine/orchestrator.py` — `PAXMAN_VERSION = _resolve_version()` reads the installed `paxman` package version via `importlib.metadata` (falling back to `"0.1.0"`)
+- Capabilities do **not** declare their own versions — the `Capability` surface carries only `name`, grammars, rules, and the presentation seam.
+- Library version is resolved in `paxman/engine/orchestrator.py` — `PAXMAN_VERSION = _resolve_version()` reads the installed `paxman` package version via `importlib.metadata` (falling back to `"0.1.0"`); source of truth is `version = "0.1.0"` in `pyproject.toml`.
 - Referenced in `VersionStamp.paxman_version`
-- Independent of capability versions
 
 ### Contract Protocol
 ```python
@@ -680,7 +667,7 @@ class Contract(Protocol):
         ...
 ```
 
-Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and set `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` and `capability_name` via `field`. `active_grammars` is optional: only feature-gated capabilities (Email, IP, ISBN) implement it; others inherit the base `None` default (run every shipped grammar).
+Contracts subclass `CapabilityContract` (never `Contract` directly), are `@dataclass(frozen=True)` **without** `slots=True`, and set `DEFAULT_OUTPUT_FORMAT` / `OFFERED_OUTPUT_FORMATS` and `capability_name` via `field`. Every contract also carries `extra_grammars: tuple[str, ...] = ()` — the community-extension opt-in (names registered via `paxman.register_grammar()`; unknown names are silently skipped). `active_grammars` is optional: only feature-gated capabilities (Email, IP, ISBN) implement it; others inherit the base `None` default (run every shipped grammar).
 
 ---
 
@@ -688,18 +675,28 @@ Contracts subclass `CapabilityContract` (never `Contract` directly), are `@datac
 
 ```
 paxman/
-├── __init__.py                    # Public API exports (canonicalize, register_capability, CapabilityError)
+├── __init__.py                    # Public API exports (canonicalize, register_capability,
+│                                  #   register_all_shipped, list_* , register_grammar/rule, CapabilityError)
+├── py.typed                       # PEP 561 marker
+├── cli.py                         # CLI: `paxman` console script / `python -m paxman` (--list, --json, stdin)
+├── __main__.py                    # python -m paxman entry point
 ├── api/
 │   ├── __init__.py
+│   ├── bootstrap.py               # _SHIPPED (12 capabilities), register_all_shipped(), list_shipped_capabilities()
 │   └── canonicalize.py            # Public canonicalize() function → run_capability()
+├── shared_data/
+│   └── currency_snapshot.json     # CLDR v47 + ISO 4217 snapshot → Currency + Money data via tools/regenerate_currency_data.py
 ├── core/
 │   ├── __init__.py                # Re-exports domain vocabulary + registry functions
 │   ├── capability.py              # Capability abstract class
 │   ├── capability_contract.py     # CapabilityContract base (output_format policy)
 │   ├── contract.py                # Contract protocol + resolve_output_format
-│   ├── discovery.py               # Capability registry (register/freeze/reset)
+│   ├── discovery.py               # Capability registry (register/freeze/reset/list)
 │   ├── domain.py                  # Provenance, Candidate, Rule, Grammar, Notation, etc.
-│   └── errors.py                  # Exception hierarchy
+│   ├── errors.py                  # Exception hierarchy
+│   ├── extensions.py              # Community grammar/rule registries (extra_grammars opt-in)
+│   └── grammar/                   # Capability-agnostic recognition machinery (boundary guard,
+│                                  #   composer, lexicon alternation, pipeline grammar, stages)
 ├── engine/
 │   ├── __init__.py
 │   └── orchestrator.py            # run_capability() pipeline orchestrator + ExecutionResult
@@ -746,6 +743,12 @@ paxman/
     │   ├── grammar/data/          # currency_symbols, currency_words
     │   ├── rules/                 # iso_4217_ed2015, cldr_currencies_ed2025
     │   └── rules/data/            # iso4217_list_one, cldr_currencies
+    ├── IBAN/                      # grammar/ (1) + rules/ (1) — ISO 13616-1:2020, MOD 97-10
+    │   ├── capability.py          # IBANCapability
+    │   ├── contract.py            # IBANContract
+    │   ├── notation.py            # IBANNotation (country_code, check_digits, bban, compact)
+    │   ├── grammar/               # iban_recognition
+    │   └── rules/                 # iso_13616 (registry + MOD 97-10 check)
     ├── IP/                        # grammar/ (2) + rules/ (2) — RFC 791, RFC 5952
     │   ├── capability.py          # IPCapability
     │   ├── contract.py            # IPContract
@@ -759,6 +762,12 @@ paxman/
     │   ├── grammar/               # isbn10, isbn13_recognition
     │   ├── rules/                 # iso_2108_ed2017, isbn_users_manual_ed2012, isbn_range_message_ed2026
     │   └── rules/data/            # range_message (GENERATED via tools/regenerate_isbn_range_data.py)
+    ├── ISSN/                      # grammar/ (1) + rules/ (1) — ISO 3297:2022
+    │   ├── capability.py          # ISSNCapability
+    │   ├── contract.py            # ISSNContract
+    │   ├── notation.py            # ISSNNotation (digits)
+    │   ├── grammar/               # issn_recognition
+    │   └── rules/                 # iso_3297 (check digit + registrant validation)
     ├── Money/                     # grammar/ (3) + rules/ (2) + grammar/data/ + rules/data/ — ISO 4217, CLDR
     │   ├── capability.py          # MoneyCapability
     │   ├── contract.py            # MoneyContract (precision, dollar_sign_currency)
@@ -819,7 +828,7 @@ tests/
 │   ├── test_capability_contract.py# CapabilityContract (output_format policy, defaults)
 │   ├── test_capability.py         # Capability ABC
 │   ├── test_capability_surface.py # Surface homogeneity across capabilities
-│   ├── test_capability_exports.py # __init__ export completeness (10 capabilities)
+│   ├── test_capability_exports.py # __init__ export completeness (12 capabilities)
 │   ├── test_version_stamp.py      # VersionStamp
 │   ├── test_discovery.py          # Registry register/freeze/reset
 │   ├── test_errors.py             # Exception hierarchy
@@ -832,32 +841,43 @@ tests/
 │   ├── currency/                  # + test_contract, test_notation, test_data
 │   ├── date/                      # test_grammar, test_rules, test_capability
 │   ├── email/                     # test_grammar, test_rules, test_capability
+│   ├── iban/                      # test_grammar, test_rules, test_capability, test_contract, test_notation
 │   ├── ip/                        # test_grammar, test_rules, test_capability
 │   ├── isbn/                      # + test_contract, test_notation, test_data
+│   ├── issn/                      # test_grammar, test_rules, test_capability, test_contract, test_notation
 │   ├── money/                     # + test_contract, test_notation, test_data, test_parsing
 │   ├── phone/                     # + test_data
 │   ├── si_unit/                   # test_grammar, test_rules, test_capability, test_contract, test_notation, test_data, test_data_consistency
 │   └── url/                       # + test_contract, test_notation, test_data, test_parsing, test_rule
 ├── integration/                   # -m integration pipeline, ambiguity, temporal,
-│   │                              # feature gating, format_value seam, per-capability pipelines
+│   │                              # feature gating, format_value seam, extensions, benchmark harness,
+│   │                              # per-capability pipelines
 │   ├── test_pipeline.py           # Full pipeline flow
 │   ├── test_ambiguity.py          # Ambiguity detection
 │   ├── test_temporal.py           # Year-based filtering
 │   ├── test_feature_gating.py     # include_* / requires_features loci
 │   ├── test_format_value_seam.py  # output_format presentation seam
 │   ├── test_recognition_seam.py   # span-bearing RecognitionMatch contract
-│   └── test_<cap>_pipeline.py     # country, currency, date, money, phone, url pipelines
+│   ├── test_grammar_extensions.py # community extra_grammars opt-in flow
+│   ├── test_span_exposure.py      # result/candidate span traceability
+│   ├── test_single_value_invariant.py  # SUCCESS single-value invariant
+│   └── test_<cap>_pipeline.py     # country, currency, date, iban, issn, money, phone, si_unit, url pipelines
 ├── property/                      # -m property    hypothesis property tests
 │   ├── test_domain_properties.py
 │   ├── test_grammar_properties.py
 │   ├── test_rule_properties.py
 │   ├── test_format_value_properties.py
 │   ├── test_currency_properties.py
+│   ├── test_iban_properties.py
 │   ├── test_isbn_properties.py
+│   ├── test_issn_properties.py
 │   ├── test_money_properties.py   # full-pipeline exception (local _fresh_registry fixture)
-│   └── test_url_properties.py
+│   ├── test_si_unit_properties.py
+│   ├── test_url_properties.py
+│   └── test_grammar_stage_parity.py  # grammar vs pipeline-stage parity (benchmark-adjacent)
 └── e2e/                           # -m e2e         canonicalize() end-to-end
-    └── test_canonicalize.py       # End-to-end user scenarios
+    ├── test_canonicalize.py       # End-to-end user scenarios
+    └── test_bootstrap.py          # register_all_shipped / list_shipped_capabilities end-to-end
 ```
 
 ### Test Markers
@@ -881,7 +901,7 @@ def test_ambiguity_detection(): ...
 def test_canonicalize_email_success(): ...
 ```
 
-Per-capability markers are registered for `country`, `currency`, `isbn`, `money`, `si_unit`, and `url` — run one capability's suite directly with `uv run pytest tests/capabilities/<cap>` (or `-m <cap>`). Capability dirs are lowercase (`isbn`, not `ISBN`).
+Per-capability markers are registered for `country`, `currency`, `isbn`, `issn`, `money`, `si_unit`, and `url` — run one capability's suite directly with `uv run pytest tests/capabilities/<cap>` (or `-m <cap>`). Capability dirs are lowercase (`isbn`, not `ISBN`).
 
 ---
 
@@ -924,12 +944,14 @@ markers = [
     "integration: integration tests",
     "e2e: end-to-end tests",
     "property: property-based tests (Hypothesis)",
+    "benchmark: benchmark harness tests",
     "country: country capability tests",
     "currency: currency capability tests",
     "isbn: isbn capability tests",
+    "issn: issn capability tests",
     "money: money capability tests",
-    "url: url capability tests",
     "si_unit: si unit capability tests",
+    "url: url capability tests",
 ]
 testpaths = ["tests"]
 ```

@@ -1,17 +1,17 @@
 # TESTS KNOWLEDGE BASE
 
 ## OVERVIEW
-Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers, 9 shipped capability packages (10th — SI Unit — in development on `feature/si-unit-capability`; update counts when it lands).
+Tests are layered by scope; directories organize tests, and each module, class, or function explicitly applies the pytest marker for its layer (defined in pyproject `[tool.pytest.ini_options]`). CI runs the union of markers. 5 layers; all 12 shipped capability packages have landed and are covered here.
 
 ## STRUCTURE
 ```text
 tests/
 ├── conftest.py       # loads hypothesis "ci" profile
-├── unit/             # -m unit        core domain, registry, contracts, purity scans
-├── capabilities/     # -m capability  per-capability, lowercase dirs (country, currency, date, email, ip, isbn, money, phone, url)
-├── integration/      # -m integration pipeline, ambiguity, temporal, feature gating, format_value seam
-├── property/         # -m property    hypothesis property tests
-└── e2e/              # -m e2e         canonicalize() end-to-end
+├── unit/             # -m unit        core domain, registry, extensions, bootstrap, contracts, purity scans
+├── capabilities/     # -m capability  per-capability, lowercase dirs (country, currency, date, email, iban, ip, isbn, issn, money, phone, si_unit, url)
+├── integration/      # -m integration pipeline, ambiguity, temporal, feature gating, format_value seam, extensions, benchmark harness
+├── property/         # -m property    hypothesis property tests (incl. grammar-stage parity)
+└── e2e/              # -m e2e         canonicalize() end-to-end + bootstrap
 ```
 
 ## WHERE TO LOOK
@@ -27,12 +27,14 @@ tests/
 | Purity scans (bans `output_format` in rules, grammar↔rules imports) | `tests/unit/test_rule_output_format_purity.py`, `test_grammar_semantic_purity.py` |
 | Rule modules importable + metadata | `tests/unit/test_rule_metadata.py` |
 | Packaging / capability exports | `tests/unit/test_package_install.py`, `test_capability_exports.py`, `test_capability_surface.py` |
+| Bootstrap / CLI | `tests/unit/test_bootstrap.py`, `tests/e2e/test_bootstrap.py` |
+| Community extension seam | `tests/unit/test_extensions.py`, `tests/integration/test_grammar_extensions.py` |
 | Full pipeline end-to-end | `tests/e2e/test_canonicalize.py` |
 
 ## CONVENTIONS
 - One layer per directory. New test placement: `unit/` for core-only behavior, `capabilities/<cap>/` for one capability's grammar/rules/capability, `integration/` for pipeline + cross-capability flows, `property/` for hypothesis, `e2e/` for full `canonicalize()`.
 - Capability dirs are lowercase (`isbn`, not `ISBN`). Each holds `test_grammar.py`, `test_rules.py`, `test_capability.py`, plus `test_notation.py` / `test_contract.py` where the capability has them, plus `test_data.py` for generated data.
-- Run one capability's suite directly: `uv run pytest tests/capabilities/isbn` (per-capability markers `-m country`, `-m currency`, `-m isbn`, `-m money`, `-m url` are registered; they select only the modules that carry them).
+- Run one capability's suite directly: `uv run pytest tests/capabilities/isbn` (per-capability markers `-m country`, `-m currency`, `-m isbn`, `-m issn`, `-m money`, `-m si_unit`, `-m url` are registered; they select only the modules that carry them).
 - `tests/conftest.py` loads the hypothesis "ci" profile: `max_examples=100`, `deadline=None`, `too_slow` suppressed. Property tests assume this profile; don't override per test.
 - Registry hygiene: integration + e2e suites use an autouse `_clean_registry` fixture calling `reset_registry()`; `test_discovery.py` resets it per test. Property tests never touch the registry (they drive grammars/rules/`format_value` directly) — the sole exception is `test_money_properties.py`, which locks full-pipeline invariants with a local `_fresh_registry` fixture (documented in its module docstring).
 - TDD: failing test first; no skipped tests without justification.
