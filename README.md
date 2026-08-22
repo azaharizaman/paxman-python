@@ -211,7 +211,7 @@ contract = IBAN.create_contract()
 result = paxman.canonicalize("GB82WEST12345698765432", contract)
 # → "GB82WEST12345698765432"
 
-# Paper IBAN with spaces and mixed case
+# Paper IBAN with spaces
 contract = IBAN.create_contract()
 result = paxman.canonicalize("GB82 WEST 1234 5698 7654 32", contract)
 # → "GB82WEST12345698765432"
@@ -611,8 +611,8 @@ for Cap in (Money, Email, URL, Country):
                 f"  via {prov.authority}: {prov.specification_name} ({prov.citation})"
             )
 # Money: 'EUR 1000.50' at (11, 23) via ISO: ISO 4217
-# Email: 'billing@example.com' at (44, 63) via IETF: RFC 5322
-# URL:   'https://example.com/other' at (69, 106) via WHATWG: URL Standard
+# Email: 'billing@example.com' at (49, 68) via IETF: RFC 5322
+# URL:   'https://example.com/other' at (74, 111) via WHATWG: URL Standard
 ```
 
 For inputs with multiple mentions of the same capability, split the text first — see [docs/recipes/segmentation.md](docs/recipes/segmentation.md). The CLI offers the same extraction without code: `python -m paxman email "Contact billing@example.com"`.
