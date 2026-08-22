@@ -72,6 +72,39 @@ def test_semantics_and_name():
 
 
 def test_span_invariants():
+    # "now" must not be absorbed: the paper groups-of-four alternative ends at
+    # the IBAN, not at trailing English words (fix 34b569a pin — the uniform
+    # loop absorbed " now", making this input INVALID instead of SUCCESS).
     txt = "Pay to DE89 3704 0044 0532 0130 00 now"
     m = GRAMMAR.recognize(txt)[0]
     assert txt[m.start : m.end] == m.raw_text
+    assert m.raw_text == "DE89 3704 0044 0532 0130 00"
+    assert txt[m.end :].startswith(" now")
+    assert m.notation.compact == "DE89370400440532013000"
+
+
+def test_irregular_paper_groups_rejected_documented():
+    # Groups-of-four strictness (fix 34b569a): irregular single-space groups
+    # are NOT recognized. Research edge 18 expected SUCCESS under the uniform
+    # loop — deliberately traded for trailing-word safety. MISSING downstream.
+    assert GRAMMAR.recognize("DE89 37040 04405 32013 000") == []
+
+
+def test_truncated_two_group_paper_recognized():
+    # Truncated paper (2 full groups, compact 12 < 15) is recognized by the
+    # grammar (min = 2 groups) but rejected by the rule -> INVALID, not
+    # MISSING. Pinned so the status split stays deliberate (research row 7
+    # allows either; integration test_truncated_paper_is_invalid pins the
+    # downstream status).
+    m = GRAMMAR.recognize("DE89 3704 0044")
+    assert len(m) == 1
+    assert m[0].notation.compact == "DE8937040044"
+
+
+def test_paper_glued_tail_absorbed_documented():
+    # The paper final group (space + 1-4 alnum) absorbs a glued alnum tail of
+    # up to 4 chars — the documented tail-absorption decision extended to the
+    # paper alternative; mod-97 rejects downstream (INVALID), never SUCCESS.
+    m = GRAMMAR.recognize("DE89 3704 0044 0532 0130 00n")
+    assert len(m) == 1
+    assert m[0].notation.compact == "DE89370400440532013000N"

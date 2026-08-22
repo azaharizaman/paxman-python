@@ -106,3 +106,36 @@ def test_year_filter_excludes_rule():
     contract = IBANCapability.create_contract(year=2019)
     r = paxman.canonicalize("DE89370400440532013000", contract)
     assert r.status == Resolution.INVALID
+
+
+def test_trailing_word_not_part_of_mention():
+    # Fix pin (34b569a): a trailing English word must not be absorbed into the
+    # mention — SUCCESS with the span ending at the IBAN's final "00".
+    _register_iban()
+    contract = IBANCapability.create_contract()
+    r = paxman.canonicalize("Pay to DE89 3704 0044 0532 0130 00 now", contract)
+    assert r.status == Resolution.SUCCESS
+    assert r.canonicalized_value == "DE89370400440532013000"
+    assert r.span == (7, 34)
+
+
+def test_word_separator_two_mentions_raise():
+    # Fix pin (34b569a): a word-separated second mention is a distinct
+    # mention -> MultipleMentionsError (the uniform-loop pattern would have
+    # absorbed " and GB29..." into one mention and reported INVALID instead).
+    _register_iban()
+    contract = IBANCapability.create_contract()
+    with pytest.raises(MultipleMentionsError):
+        paxman.canonicalize(
+            "DE89 3704 0044 0532 0130 00 and GB29 NWBK 6016 1331 9268 19",
+            contract,
+        )
+
+
+def test_truncated_paper_is_invalid():
+    # Pinned: truncated 2-group paper is recognized by the grammar (min = 2
+    # groups) but fails the rule's 15-34 length -> INVALID, never MISSING
+    # (grammar test test_truncated_two_group_paper_recognized pins the match).
+    _register_iban()
+    contract = IBANCapability.create_contract()
+    assert paxman.canonicalize("DE89 3704 0044", contract).status == Resolution.INVALID
