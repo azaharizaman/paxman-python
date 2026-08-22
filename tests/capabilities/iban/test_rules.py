@@ -1,16 +1,26 @@
 import pytest
 
-from paxman.capabilities.IBAN.notation import IBANNotation
-from paxman.capabilities.IBAN.rules.iso_13616_1_ed2020 import Section4IBANStructureMOD97, PUBLICATION
 from paxman.capabilities.IBAN.contract import IBANContract
+from paxman.capabilities.IBAN.notation import IBANNotation
+from paxman.capabilities.IBAN.rules.iso_13616_1_ed2020 import (
+    PUBLICATION,
+    Section4IBANStructureMOD97,
+)
 
 pytestmark = [pytest.mark.capability]
 
 RULE = Section4IBANStructureMOD97()
 CONTRACT = IBANContract()
 
+
 def n(compact: str) -> IBANNotation:
-    return IBANNotation(country_code=compact[:2], check_digits=compact[2:4], bban=compact[4:], compact=compact)
+    return IBANNotation(
+        country_code=compact[:2],
+        check_digits=compact[2:4],
+        bban=compact[4:],
+        compact=compact,
+    )
+
 
 def test_provenance_metadata():
     assert PUBLICATION.authority == "ISO"
@@ -23,6 +33,7 @@ def test_provenance_metadata():
     assert RULE.strategy.name == "PARSER"
     assert RULE.target_semantics == frozenset({"iban_recognition"})
     assert RULE.requires_features == frozenset()
+
 
 def test_valid_vectors():
     for compact in [
@@ -40,12 +51,18 @@ def test_valid_vectors():
         assert RULE.matches(n(compact), CONTRACT) is True, compact
         assert RULE.normalize(n(compact), CONTRACT) == compact
 
+
 def test_invalid_mod97_and_dd_range():
     assert RULE.matches(n("DE89370400440532013001"), CONTRACT) is False
-    for bad_dd in ["DE00370400440532013000", "DE01370400440532013000", "DE99370400440532013000"]:
+    for bad_dd in [
+        "DE00370400440532013000",
+        "DE01370400440532013000",
+        "DE99370400440532013000",
+    ]:
         assert RULE.matches(n(bad_dd), CONTRACT) is False
     assert RULE.matches(n("DE8937040044053201300"), CONTRACT) is False
     assert RULE.matches(n("AB12"), CONTRACT) is False
+
 
 def test_structure_edge_table():
     assert RULE.matches(n("DE89" + "A" * 31), CONTRACT) is False

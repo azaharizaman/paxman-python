@@ -4,21 +4,20 @@ from __future__ import annotations
 
 import pytest
 
-import paxman.capabilities as _capabilities
-from paxman.capabilities import (
-    IP,
-    ISBN,
-    URL,
+from paxman.capabilities import (  # isort: skip
     Country,
     Currency,
     Date,
     Email,
+    IBAN,
+    IP,
+    ISBN,
+    ISSN,
     Money,
     Phone,
     SIUnit,
+    URL,
 )
-
-ISSN = _capabilities.ISSN  # type: ignore[attr-defined]
 
 
 class TestCapabilityExports:
@@ -105,6 +104,18 @@ class TestISSNCapabilityExports:
         assert ISSN.name == "issn"
 
 
+class TestIBANCapabilityExports:
+    @pytest.mark.unit
+    def test_iban_capability_importable(self) -> None:
+        """IBAN capability is importable from paxman.capabilities."""
+        assert IBAN is not None
+
+    @pytest.mark.unit
+    def test_iban_capability_name(self) -> None:
+        """IBAN capability has correct name."""
+        assert IBAN.name == "iban"
+
+
 class TestIPCapabilityExports:
     @pytest.mark.unit
     def test_ip_capability_importable(self) -> None:
@@ -162,6 +173,7 @@ class TestURLCapabilityExports:
             "Currency",
             "Date",
             "Email",
+            "IBAN",
             "IP",
             "ISBN",
             "ISSN",
