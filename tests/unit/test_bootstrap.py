@@ -31,8 +31,10 @@ def test_registers_all_ten_shipped(_clean_registry) -> None:
         "currency",
         "date",
         "email",
+        "iban",
         "ip",
         "isbn",
+        "issn",
         "money",
         "phone",
         "si_unit",
@@ -55,7 +57,7 @@ def test_preserves_caller_registration(_clean_registry) -> None:
     register_capability(mine)
     names = paxman.register_all_shipped()
     assert "email" not in names
-    assert len(names) == 9
+    assert len(names) == 11
     assert get_capability("email") is mine
 
 

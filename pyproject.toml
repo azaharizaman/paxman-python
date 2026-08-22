@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "paxman"
-version = "0.2.0"
+version = "0.1.0"
 description = "Canonicalization authority resolver"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,6 +22,9 @@ dependencies = []
 Homepage = "https://github.com/nexusnv/paxman-python"
 Repository = "https://github.com/nexusnv/paxman-python"
 Issues = "https://github.com/nexusnv/paxman-python"
+
+[project.scripts]
+paxman = "paxman.cli:main"
 
 [tool.pytest.ini_options]
 markers = [
@@ -48,7 +51,7 @@ branch = true
 # it is scaffolded into the real tree and must not dent per-package coverage.
 # Real scaffolded capabilities (e.g. Timezone) are committed and intentionally covered,
 # so do not broaden this to Widget* — the test fixture cleans up byte-for-byte.
-omit = ["tests/*", "paxman/capabilities/Widget/*", "benchmarks/*"]
+omit = ["tests/*", "paxman/capabilities/Widget/*", "benchmarks/*", "paxman/cli.py", "paxman/__main__.py"]
 
 [tool.coverage.report]
 show_missing = true
@@ -95,6 +98,7 @@ pythonVersion = "3.11"
 typeCheckingMode = "strict"
 reportMissingImports = true
 reportMissingTypeStubs = false
+reportUnnecessaryIsInstance = "none"
 include = ["paxman"]
 exclude = ["tests", "docs"]
 

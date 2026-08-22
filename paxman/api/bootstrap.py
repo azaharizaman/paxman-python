@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from paxman.capabilities import (
+    IBAN,
     IP,
     ISBN,
+    ISSN,
     URL,
     Country,
     Currency,
@@ -27,13 +29,25 @@ _SHIPPED: tuple[type[Capability[Any]], ...] = (
     Currency,
     Date,
     Email,
+    IBAN,
     IP,
     ISBN,
+    ISSN,
     Money,
     Phone,
     SIUnit,
     URL,
 )
+
+
+def list_shipped_capabilities() -> tuple[str, ...]:
+    """List shipped capability names in defined order.
+
+    Returns:
+        Tuple of capability names shipped with the library, in the
+        deterministic order defined by ``_SHIPPED`` (alphabetical).
+    """
+    return tuple(cls.name for cls in _SHIPPED)
 
 
 def register_all_shipped() -> tuple[str, ...]:

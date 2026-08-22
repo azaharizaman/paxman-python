@@ -10,19 +10,28 @@ Get up and running with Paxman in two minutes.
 pip install paxman
 ```
 
+For local development (clone + managed env):
+
+```bash
+git clone https://github.com/nexusnv/paxman-python.git
+cd paxman-python
+uv sync --all-extras
+uv run python -m paxman --help
+```
+
 ---
 
 ## Your First Canonicalization
 
 ```python
 import paxman
-from paxman.capabilities.Email.capability import EmailCapability
+from paxman.capabilities import Email
 from paxman.core.domain import Resolution
 
 paxman.register_all_shipped()  # once, before first use
 
 # Create a contract and canonicalize
-contract = EmailCapability.create_contract()
+contract = Email.create_contract()
 result = paxman.canonicalize("Contact user@Example.com", contract)
 
 # Check the result
@@ -30,7 +39,9 @@ if result.status == Resolution.SUCCESS:
     print(result.canonicalized_value)  # "user@example.com"
 ```
 
-To register only what you need, call `paxman.register_capability(EmailCapability())` per capability.
+To register only what you need, call `paxman.register_capability(Email())` per capability.
+
+> **Note:** `from paxman.capabilities import Email` is the short alias. The long form `from paxman.capabilities.Email.capability import EmailCapability` also works — they are the same class.
 
 Registration — single or bootstrap — must complete from a single thread before the first `canonicalize()` call; post-freeze reads are safe from any thread.
 
@@ -49,6 +60,8 @@ Every call to `canonicalize()` returns an `ExecutionResult` with a `status` fiel
 | `INVALID` | Something was recognized, but no specification could validate it. |
 | `AMBIGUOUS` | Multiple specifications validated the input but disagreed on the canonical value. |
 
+> **MISSING vs INVALID:** If the grammar cannot find the pattern, the result is `MISSING`. If a grammar finds it but no rule accepts it, the result is `INVALID`. Example: `bad@.com` is `MISSING` (no grammar matches), while `999.999.999.999` as IP is `INVALID` (IPv4 grammar matched, RFC 791 rejected).
+
 When status is `MISSING`, `INVALID`, or `AMBIGUOUS`, `result.canonicalized_value` is `None`.
 
 ---
@@ -58,7 +71,7 @@ When status is `MISSING`, `INVALID`, or `AMBIGUOUS`, `result.canonicalized_value
 Every resolved value carries provenance, the authoritative source that validates it:
 
 ```python
-contract = EmailCapability.create_contract()
+contract = Email.create_contract()
 result = paxman.canonicalize("user@example.com", contract)
 
 for candidate in result.candidates:
@@ -75,15 +88,15 @@ Contracts let you control which grammars run, which rules are excluded, and whic
 
 ```python
 # Enable obfuscated email recognition ("user at domain dot com")
-contract = EmailCapability.create_contract(include_obfuscated=True)
+contract = Email.create_contract(include_obfuscated=True)
 result = paxman.canonicalize("Email me at user at example dot com", contract)
 
 # Exclude specific validation rules
-contract = EmailCapability.create_contract(excluded_rules=["Section 6.3-localhost"])
+contract = Email.create_contract(excluded_rules=["Section 6.3-localhost"])
 result = paxman.canonicalize("admin@localhost", contract)
 
 # Pin to a specific year (excludes rules from newer specifications)
-contract = EmailCapability.create_contract(year=2008)
+contract = Email.create_contract(year=2008)
 result = paxman.canonicalize("user@example.com", contract)
 ```
 
