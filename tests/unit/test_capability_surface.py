@@ -35,6 +35,8 @@ from paxman.capabilities.Date.notation import DateNotation
 from paxman.capabilities.Email.capability import EmailCapability
 from paxman.capabilities.Email.contract import EmailContract
 from paxman.capabilities.Email.notation import EmailNotation
+from paxman.capabilities.IBAN.capability import IBANCapability
+from paxman.capabilities.IBAN.contract import IBANContract
 from paxman.capabilities.IP.capability import IPCapability
 from paxman.capabilities.IP.contract import IPContract
 from paxman.capabilities.IP.notation import IPNotation
@@ -97,6 +99,12 @@ _CAPABILITY_SURFACES = [
         IPContract,
         "ip",
         id="ip",
+    ),
+    pytest.param(
+        IBANCapability,
+        IBANContract,
+        "electronic",
+        id="iban",
     ),
     pytest.param(
         ISBNCapability,

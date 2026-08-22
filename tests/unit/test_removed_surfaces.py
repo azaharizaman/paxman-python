@@ -46,6 +46,7 @@ def test_capability_abc_has_no_version_surface() -> None:
 def test_shipped_capabilities_do_not_declare_version() -> None:
     """No shipped capability class carries a dead version attribute."""
     from paxman.capabilities import (
+        IBAN,
         IP,
         ISBN,
         URL,
@@ -58,5 +59,17 @@ def test_shipped_capabilities_do_not_declare_version() -> None:
         SIUnit,
     )
 
-    for cls in (Country, Currency, Date, Email, IP, ISBN, Money, Phone, SIUnit, URL):
+    for cls in (
+        Country,
+        Currency,
+        Date,
+        Email,
+        IBAN,
+        IP,
+        ISBN,
+        Money,
+        Phone,
+        SIUnit,
+        URL,
+    ):
         assert "version" not in vars(cls), cls.__name__
