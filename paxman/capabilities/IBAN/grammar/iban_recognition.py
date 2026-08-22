@@ -11,12 +11,17 @@ from paxman.core.grammar.stages import RegexStage, StandardPre
 
 # Label separator is [\s:-]+ (one-or-more), never zero-width: a glued
 # "IBANDE89..." must not fuse into a mention (ISBN-13 precedent).
-_IBAN_BODY = r"(?:IBAN[\s:-]+)?(?P<compact>[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30})"
-# word_only guards: the lookbehind blocks left glue (XDE89...); the trailing
-# lookahead plus the 30-char loop cap blocks >34-char runs (every interior
-# end is followed by a word char). A <=30-char alnum tail is absorbed by
-# design — mod-97 rejects it downstream (INVALID); see
-# test_alnum_tail_absorbed_documented in the grammar tests.
+# Two alternatives: electronic (contiguous 15-34) and paper (groups-of-four
+# with single spaces). Paper uses groups-of-four to prevent greedy absorption
+# of trailing English words (e.g. "DE89 ... 00 now" should not include "now");
+# the word_only lookahead plus the 30-char cap still blocks >34-char runs,
+# while a glued alnum tail <=30 chars (e.g. DE89...Y) is absorbed by design
+# and rejected downstream via mod-97 (INVALID).
+_IBAN_BODY = (
+    r"(?:IBAN[\s:-]+)?"
+    r"(?P<compact>(?:[A-Z]{2}\d{2}[A-Z0-9]{11,30}"
+    r"|[A-Z]{2}\d{2}(?: [A-Z0-9]{4}){2,7}(?: [A-Z0-9]{1,4})?))"
+)
 _IBAN_PATTERN = (
     BoundaryGuard.word_only().lookbehind
     + _IBAN_BODY

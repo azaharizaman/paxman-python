@@ -51,14 +51,11 @@ class Section4IBANStructureMOD97(Rule[IBANNotation]):
         c = notation.compact
         if not (15 <= len(c) <= 34):
             return False
-        if not c[:2].isalpha() or not c[2:4].isdigit() or not c[4:].isalnum():
+        if not c.isascii() or not c.isalnum() or not c.isupper():
             return False
-        if not c.isupper():
+        if not (c[0:2].isalpha() and c[2:4].isdigit()):
             return False
-        dd = c[2:4]
-        if dd in ("00", "01", "99"):
-            return False
-        if not all("0" <= ch <= "9" or "A" <= ch <= "Z" for ch in c):
+        if c[2:4] in ("00", "01", "99"):
             return False
         return _mod97(c) == 1
 
