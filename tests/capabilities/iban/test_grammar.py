@@ -108,3 +108,12 @@ def test_paper_glued_tail_absorbed_documented():
     m = GRAMMAR.recognize("DE89 3704 0044 0532 0130 00n")
     assert len(m) == 1
     assert m[0].notation.compact == "DE89370400440532013000N"
+
+
+def test_kelvin_and_unicode_digits_rejected():
+    # ASCII-only body: Kelvin sign K (U+212A) case-folds to K under Unicode
+    # IGNORECASE but must not match [A-Z] when restricted to ASCII;
+    # Unicode digits (e.g. Arabic-Indic) must not match [0-9].
+    # Boundary remains Unicode-aware, body remains ASCII.
+    assert GRAMMAR.recognize("\u212aE89" + "A" * 11) == []
+    assert GRAMMAR.recognize("DE\u0668\u0669" + "3704004405") == []

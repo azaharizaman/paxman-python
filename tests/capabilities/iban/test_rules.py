@@ -71,3 +71,26 @@ def test_structure_edge_table():
     assert RULE.matches(n("DEAB3704004405320130000"), CONTRACT) is False
     assert RULE.matches(n("de89370400440532013000"), CONTRACT) is False
     assert RULE.matches(n("DE89 3704 0044 0532 0130 00"), CONTRACT) is False
+
+
+def test_unregistered_country_prefix_rejected():
+    # ZZ is not in the SWIFT IBAN Registry (90 codes); even with a valid
+    # MOD 97-10 checksum it must be rejected — registry, not bare ISO 3166-1.
+    def calc_check(country: str, bban: str) -> str:
+        rearr = bban + country + "00"
+        exp = "".join(str(ord(ch) - 55) if ch.isalpha() else ch for ch in rearr)
+        r = 0
+        for ch in exp:
+            r = (r * 10 + int(ch)) % 97
+        return f"{98 - r:02d}"
+
+    bban = "370400440532013000"
+    cc = "ZZ"
+    dd = calc_check(cc, bban)
+    compact = cc + dd + bban
+    # sanity: mod97 would be 1, but country check fails
+    assert RULE.matches(n(compact), CONTRACT) is False
+    # Also a US prefix (ISO but no IBAN) must be rejected even if mod97 passes
+    cc2 = "US"
+    dd2 = calc_check(cc2, bban)
+    assert RULE.matches(n(cc2 + dd2 + bban), CONTRACT) is False

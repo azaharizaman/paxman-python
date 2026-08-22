@@ -17,10 +17,13 @@ from paxman.core.grammar.stages import RegexStage, StandardPre
 # the word_only lookahead plus the 30-char cap still blocks >34-char runs,
 # while a glued alnum tail <=30 chars (e.g. DE89...Y) is absorbed by design
 # and rejected downstream via mod-97 (INVALID).
+# Body uses inline (?ai:...) to restrict case-folding and character classes
+# to ASCII (reject K and Unicode digits) while BoundaryGuard.word_only()
+# remains Unicode-aware (no global re.ASCII).
 _IBAN_BODY = (
-    r"(?:IBAN[\s:-]+)?"
-    r"(?P<compact>(?:[A-Z]{2}\d{2}[A-Z0-9]{11,30}"
-    r"|[A-Z]{2}\d{2}(?: [A-Z0-9]{4}){2,7}(?: [A-Z0-9]{1,4})?))"
+    r"(?:(?ai:IBAN)[\s:-]+)?"
+    r"(?P<compact>(?ai:(?:[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}"
+    r"|[A-Z]{2}[0-9]{2}(?: [A-Z0-9]{4}){2,7}(?: [A-Z0-9]{1,4})?)))"
 )
 _IBAN_PATTERN = (
     BoundaryGuard.word_only().lookbehind
@@ -47,6 +50,4 @@ class IBANRecognitionGrammar(PipelineGrammar[IBANNotation]):
     semantics = "iban_recognition"
     single_value = True
     pre = StandardPre[IBANNotation](empty_guard=True)
-    regex = RegexStage[IBANNotation](
-        pattern=_IBAN_PATTERN, notation_fn=_iban_notation, flags=re.IGNORECASE
-    )
+    regex = RegexStage[IBANNotation](pattern=_IBAN_PATTERN, notation_fn=_iban_notation)
